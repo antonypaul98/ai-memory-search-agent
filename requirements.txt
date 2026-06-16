@@ -1,0 +1,24 @@
+# --- Web API ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+httpx>=0.27.0
+
+# --- Frontend (Phase 5+) ---
+streamlit>=1.32.0
+
+# --- Vector DB & Embeddings (embeddings used in Phase 3+) ---
+chromadb>=0.4.24
+sentence-transformers>=2.5.0
+
+# --- YouTube ---
+youtube-transcript-api>=0.6.2
+yt-dlp>=2024.1.0
+
+# --- Config & Validation ---
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+
+# --- Testing ---
+pytest>=8.0.0,<9.0.0
+pytest-asyncio>=0.23.0
