@@ -1,0 +1,34 @@
+AI Memory Agent — Chrome Web Store privacy disclosure (V1-8)
+
+Single purpose
+  Save and search personal learning content from the web into a user-controlled Memory backend.
+
+Data collected
+  - URLs and page titles the user explicitly saves
+  - Optional: bookmark URLs/titles the user imports (after permission grant)
+  - Optional: YouTube metadata at save time (title, channel, video id, playback position if available)
+  - Account email if the user registers when backend auth is enabled
+  - Temporary observe context on-device only (Chrome session storage; ~30 min TTL; not cloud-synced by the extension)
+
+Data NOT collected
+  - Browsing history beyond the active tab at save time
+  - Passwords, payment info, form autofill
+  - Keystrokes, screenshots, audio/video capture
+  - Incognito activity (not enabled in V1)
+
+Data use
+  Provide save, search, and chat-with-citations features against the user-configured backend.
+  Optional LLM (user-configured) receives retrieved chunks only when chat is used.
+
+Data sharing
+  None with the extension developer from a self-hosted backend.
+  User-chosen backend operator and optional LLM / source APIs (YouTube, GitHub) only as required for features the user initiates.
+
+User controls
+  Pause observation; clear temp context; delete memory; JSON export; delete-all memories; logout; uninstall.
+
+Remote code
+  None. The extension talks only to the configured API base URL.
+
+Hosted privacy policy
+  Served by the backend at /privacy when the API is running.

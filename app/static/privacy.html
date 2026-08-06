@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — AI Memory Agent</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --fg: #f2f5f8;
+      --muted: #c5d0db;
+      --accent: #6aa8ff;
+      --accent-focus: #ffe08a;
+      --card: #1a222c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2a3d, var(--bg));
+      color: var(--fg);
+      line-height: 1.6;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    h1 { font-size: 1.85rem; margin: 0 0 0.35rem; letter-spacing: -0.02em; color: var(--fg); }
+    h2 { font-size: 1.15rem; margin: 1.75rem 0 0.5rem; color: var(--fg); }
+    p, li { color: var(--muted); }
+    a { color: var(--accent); }
+    a:focus-visible {
+      outline: 2px solid var(--accent-focus);
+      outline-offset: 3px;
+    }
+    .lede { color: var(--fg); font-size: 1.05rem; }
+    .meta { font-size: 0.95rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .box {
+      background: var(--card);
+      border: 1px solid #2a3542;
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin: 1rem 0;
+      color: var(--fg);
+    }
+    .box strong { color: var(--fg); }
+    ul { padding-left: 1.2rem; }
+    code { color: var(--fg); }
+  </style>
+</head>
+<body>
+  <main id="privacy-main">
+    <h1>Privacy Policy</h1>
+    <p class="meta">AI Memory Agent · Effective 2026-07-30 · Product version 1.x</p>
+    <p class="lede">
+      AI Memory Agent helps you intentionally save web and YouTube knowledge into a personal Memory
+      backend you control, then search and ask questions over that library.
+    </p>
+
+    <div class="box">
+      <strong>Single purpose.</strong>
+      Save and search personal learning content. The extension does not inject ads, mine browsing
+      history in the background, or sell your data.
+    </div>
+
+    <h2>What we collect</h2>
+    <ul>
+      <li>URLs and page titles you explicitly save or import</li>
+      <li>Optional bookmark URLs/titles you choose to import</li>
+      <li>Optional YouTube metadata available at save time (title, channel, video id)</li>
+      <li>Account email and session token if you register when auth is enabled</li>
+      <li>Temporary observe context on your device only (session storage, ~30 minute TTL)</li>
+    </ul>
+
+    <h2>What we do not collect</h2>
+    <ul>
+      <li>Passwords, payment fields, or private form inputs</li>
+      <li>Keystrokes, screenshots, audio, or video recordings</li>
+      <li>Incognito activity (incognito is not enabled in V1)</li>
+      <li>Browsing history beyond the active tab at the moment you save</li>
+    </ul>
+
+    <h2>Where data lives</h2>
+    <p>
+      Saved memories are stored on the backend you configure (typically self-hosted FastAPI with
+      SQLite + ChromaDB). Extension temporary context stays in Chrome session storage and is not
+      synced to the cloud by the extension.
+    </p>
+
+    <h2>How data is used</h2>
+    <p>
+      Data is used only to provide save, search, chat-with-citations, import, and related Memory
+      features. Optional LLM providers receive retrieved chunks when chat is enabled; you can disable
+      LLM by setting <code>llm_provider=none</code>.
+    </p>
+
+    <h2>Sharing</h2>
+    <p>
+      We do not sell personal data. Data may be sent to YouTube (or other source APIs) during ingest
+      you initiate, and to an optional LLM provider you configure. The extension developer does not
+      receive your Memory contents from a self-hosted backend.
+    </p>
+
+    <h2>Your controls</h2>
+    <ul>
+      <li>Pause observation / clear temporary context in the extension popup</li>
+      <li>Delete individual memories via <code>DELETE /api/v1/memories/{id}</code> or the Workspace</li>
+      <li>Export your data as JSON via <code>GET /api/v1/privacy/export</code></li>
+      <li>Delete all memories via <code>DELETE /api/v1/privacy/memories</code></li>
+      <li>Log out / revoke session when auth is enabled</li>
+      <li>Remove the extension in Chrome settings at any time</li>
+    </ul>
+
+    <h2>Chrome Web Store disclosure (summary)</h2>
+    <p>
+      Permissions are limited to storage, active tab access on user action, optional bookmarks import,
+      optional notifications, and host access to your configured API. See
+      <a href="/static/privacy-disclosure.txt">store disclosure text</a> and
+      <code>docs/V1_PRIVACY_MODEL.md</code> in the project repository.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      For privacy requests on a self-hosted instance, contact the operator of that instance.
+      Rotate <code>AUTH_SECRET</code> and revoke sessions if a credential is compromised.
+    </p>
+
+    <p class="meta"><a href="/">← Back to Workspace</a></p>
+  </main>
+</body>
+</html>

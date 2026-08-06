@@ -7,7 +7,11 @@ Routes stay thin — they never construct repositories or Chroma clients directl
 
 from app.config import Settings, get_settings
 from app.db.repositories.memory_repository import MemoryRepository
+from app.services.chat_service import ChatService
 from app.services.health_service import HealthService
+from app.services.ingest_service import IngestService
+from app.services.recommendation_service import RecommendationService
+from app.services.search_service import SearchService
 
 
 def get_app_settings() -> Settings:
@@ -25,3 +29,37 @@ def get_health_service() -> HealthService:
     """Provide HealthService for the health check route."""
     settings = get_settings()
     return HealthService(settings=settings, repository=MemoryRepository(settings))
+
+
+def get_ingest_service() -> IngestService:
+    """Provide IngestService for video ingest routes."""
+    settings = get_settings()
+    return IngestService(
+        settings=settings,
+        repository=MemoryRepository(settings),
+    )
+
+
+def get_search_service() -> SearchService:
+    """Provide SearchService for search routes."""
+    settings = get_settings()
+    return SearchService(
+        settings=settings,
+        repository=MemoryRepository(settings),
+    )
+
+
+def get_chat_service() -> ChatService:
+    """Provide ChatService for chat routes."""
+    settings = get_settings()
+    return ChatService(
+        settings=settings,
+        repository=MemoryRepository(settings),
+    )
+
+
+def get_recommendation_service() -> RecommendationService:
+    """Provide RecommendationService for recommendation routes."""
+    settings = get_settings()
+    repository = MemoryRepository(settings)
+    return RecommendationService(settings=settings, repository=repository)

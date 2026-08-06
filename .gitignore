@@ -187,3 +187,6 @@ data/*.db
 
 # macOS
 .DS_Store
+# Confirm-token HMAC secret (local)
+.agent_confirm_secret
+**/.agent_confirm_secret

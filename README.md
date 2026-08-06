@@ -1,83 +1,118 @@
-# AI Memory Search Agent
+# AI Memory Agent
 
-Semantic search over saved YouTube videos using video transcripts.
+**Version 1.9.0** — intentionally save YouTube, web pages, bookmarks, and PDFs into a personal Memory you can search by meaning and ask with citations.
 
-**MVP goal:** Save YouTube URLs → extract transcripts → embed with Sentence Transformers → store in ChromaDB → search by meaning, not just keywords.
+Self-hosted FastAPI backend + Chrome extension (MV3) + AI Memory Workspace (PWA).
 
-**Example:** Search `"healthy food"` → results about protein meals, meal prep, nutrition, fiber-rich foods.
-
----
-
-## Tech Stack
-
-| Layer      | Tool                                       |
-|------------|--------------------------------------------|
-| Backend    | FastAPI                                    |
-| Vector DB  | ChromaDB (Persistent Client)               |
-| Embeddings | Sentence Transformers (all-MiniLM-L6-v2)   |
-| Frontend   | Streamlit (Phase 5+)                       |
-| Language   | Python 3.11+                               |
+> **V1 status:** Track complete (V1-0 … V1-9). Chrome Web Store package is **ready to submit** (not auto-uploaded from CI). See [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md).
 
 ---
 
-## Project Status
+## What you can do
 
-| Phase | Description                         | Status      |
-|-------|-------------------------------------|-------------|
-| 1     | Folder structure & scaffold         | Complete    |
-| 2     | Config, Chroma, health, URL parser, transcript fetch | Complete |
-| 3     | Chunking, embeddings, ingest        | Pending     |
-| 4     | Semantic search                     | Pending     |
-| 5     | Streamlit UI                        | Pending     |
+- **Observe & save** the current tab (no URL copy) with explicit Save
+- **Command bar:** `search …`, `ask …`, `import bookmarks`, `import playlist`, `help`
+- **Workspace PWA:** dashboard, universal search, Ask Memory, playlists, imports, privacy controls
+- **Trust & lifecycle** on saved memories (API + demo via Swagger)
+- **Export / delete** your data when auth/privacy controls are enabled
 
----
+## What we do not do (V1)
 
-## Architecture
-
-```
-Streamlit  →  FastAPI (routes)  →  Services  →  Repositories  →  ChromaDB
-```
-
-Every stored chunk includes `source_type` and full `MemoryMetadata` (see `app/models/memory.py`).
+- Covert recording, keylogging, or password capture
+- Incognito support
+- Watch Later via Google OAuth (use a **public playlist URL** for demos)
+- Version 2 engines (Ontology, Consensus/Gap, multi-agent marketplace)
 
 ---
 
-## Setup
+## Quick start
+
+Use **Python 3.11**. Prefer a clean venv (this repo uses `.venv_clean` in docs/CI notes).
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python3.11 -m venv .venv_clean
+source .venv_clean/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+
+JOBS_ENABLED=true AUTH_ENABLED=false PWA_ENABLED=true \
+  uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Run the API
+| Surface | URL |
+|---------|-----|
+| Workspace PWA | http://localhost:8000/ |
+| API docs | http://localhost:8000/docs |
+| Health | http://localhost:8000/api/v1/health |
+| Privacy | http://localhost:8000/privacy |
+
+### Chrome extension
+
+1. `chrome://extensions` → Developer mode → **Load unpacked** → select `extension/`
+2. Popup → API base `http://127.0.0.1:8000/api/v1`
+3. Open a YouTube video → **Save To Memory**
+
+Details: [`extension/README.md`](extension/README.md)
+
+### Demo seed (optional)
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python scripts/seed_demo.py
 ```
 
-- API docs: http://localhost:8000/docs
-- Health: http://localhost:8000/api/v1/health
-
-### Run tests
-
-```bash
-pytest -v
-```
+Full recording script: [`docs/V1_DEMO_SCRIPT.md`](docs/V1_DEMO_SCRIPT.md)
 
 ---
 
-## Phase 2 Endpoints
+## Tech stack
 
-| Method | Endpoint           | Description              |
-|--------|--------------------|--------------------------|
-| GET    | `/api/v1/health`   | API + ChromaDB health    |
+| Layer | Tool |
+|-------|------|
+| API | FastAPI |
+| Vectors | ChromaDB (persistent) |
+| Embeddings | Sentence Transformers (`all-MiniLM-L6-v2`) |
+| Registry | SQLite |
+| Extension | Chrome MV3 |
+| Workspace | Static PWA (`app/static`) |
 
-Transcript fetching is available via `TranscriptService` (no HTTP route yet — Phase 3).
+---
+
+## Tests & CI
+
+```bash
+source .venv_clean/bin/activate
+pytest -q
+```
+
+GitHub Actions runs `pytest -q` on push/PR (`.github/workflows/ci.yml`).
+
+---
+
+## Store & launch
+
+| Artifact | Location | Status |
+|----------|----------|--------|
+| CWS listing package | [`docs/store/CHROME_WEB_STORE_LISTING.md`](docs/store/CHROME_WEB_STORE_LISTING.md) | Ready to submit |
+| Store assets | [`docs/store/assets/`](docs/store/assets/) | Promo ready; screenshots need real captures |
+| LinkedIn copy | [`docs/store/LINKEDIN_LAUNCH.md`](docs/store/LINKEDIN_LAUNCH.md) | Ready to post |
+| Security policy | [`SECURITY.md`](SECURITY.md) | Published in-repo |
+
+---
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`MASTER_SPEC.md`](MASTER_SPEC.md) | Canonical execution inventory |
+| [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md) | V1-0 … V1-9 phases |
+| [`docs/V1_PRODUCT_SPEC.md`](docs/V1_PRODUCT_SPEC.md) | Product scope |
+| [`docs/V1_PRIVACY_MODEL.md`](docs/V1_PRIVACY_MODEL.md) | Privacy model |
+| [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md) | Final V1 milestone |
+
+Suggested GitHub topics: `chrome-extension`, `fastapi`, `memory`, `rag`, `chromadb`, `personal-knowledge-management`, `youtube`.
 
 ---
 
 ## License
 
-See [LICENSE](LICENSE).
+MIT — see [`LICENSE`](LICENSE).

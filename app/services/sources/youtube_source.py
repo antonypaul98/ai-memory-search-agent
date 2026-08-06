@@ -1,6 +1,5 @@
-"""
-YouTube-specific source adapter.
+"""Legacy module path — YouTube connector lives in youtube_connector.py."""
 
-Phase 3+: implements BaseSource for source_type="youtube".
-"""
-# TODO: Phase 3 — implement YouTubeSource
+from app.services.sources.youtube_connector import YouTubeConnector
+
+__all__ = ["YouTubeConnector"]

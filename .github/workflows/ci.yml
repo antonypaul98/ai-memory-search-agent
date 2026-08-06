@@ -1,0 +1,50 @@
+# V1-9 — CI (P-05): run the test suite on every push / PR.
+name: CI
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify VERSION ↔ extension manifest
+        run: |
+          set -euo pipefail
+          VER="$(tr -d '[:space:]' < VERSION)"
+          MANIFEST_VER="$(python -c "import json; print(json.load(open('extension/manifest.json'))['version'])")"
+          test "$VER" = "$MANIFEST_VER"
+
+      - name: pytest -q
+        env:
+          AUTH_ENABLED: "false"
+          LOCAL_DEMO_MODE: "true"
+          RATE_LIMIT_ENABLED: "false"
+          JOBS_ENABLED: "false"
+          PWA_ENABLED: "true"
+        run: pytest -q

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#5b8cff" />
+  <meta name="description" content="AI Memory Workspace — search, ask, and manage your saved knowledge." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>AI Memory Workspace</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="workspace">
+  <div id="online-status" class="online-status online" aria-live="polite">Online</div>
+
+  <div class="workspace-shell">
+    <aside class="sidebar" aria-label="Workspace navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◆</span>
+        <div>
+          <strong>AI Memory</strong>
+          <span class="brand-sub">Workspace</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Primary">
+        <a href="#dashboard" class="nav-link" data-route="dashboard">Dashboard</a>
+        <a href="#search" class="nav-link" data-route="search">Search</a>
+        <a href="#ask" class="nav-link" data-route="ask">Ask Memory</a>
+        <a href="#timeline" class="nav-link" data-route="timeline">Timeline</a>
+        <a href="#topics" class="nav-link" data-route="topics">Topics</a>
+        <a href="#imports" class="nav-link" data-route="imports">Imports</a>
+        <a href="#capture" class="nav-link" data-route="capture">Capture</a>
+        <a href="#settings" class="nav-link" data-route="settings">Settings</a>
+      </nav>
+      <p class="sidebar-foot muted">Presentation layer over existing APIs</p>
+    </aside>
+
+    <div class="workspace-main">
+      <header class="workspace-header">
+        <h1 class="workspace-title">Dashboard</h1>
+        <p class="workspace-lead">What is happening across your library right now.</p>
+      </header>
+
+      <main class="workspace-content" id="workspace-root" aria-live="polite">
+        <div id="view-dashboard" class="view" hidden></div>
+        <div id="view-search" class="view" hidden></div>
+        <div id="view-ask" class="view" hidden></div>
+        <div id="view-timeline" class="view" hidden></div>
+        <div id="view-topics" class="view" hidden></div>
+        <div id="view-imports" class="view" hidden></div>
+        <div id="view-capture" class="view" hidden></div>
+        <div id="view-settings" class="view" hidden></div>
+        <div id="view-memory" class="view" hidden></div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

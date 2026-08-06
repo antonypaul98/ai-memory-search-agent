@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "false"
+      AUTH_ENABLED: "false"
+      LOCAL_DEMO_MODE: "true"
+      JOBS_ENABLED: "true"
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      SQLITE_PATH: /app/data/videos.db
+      CORS_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"
+    volumes:
+      - ai-memory-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ai-memory-data:

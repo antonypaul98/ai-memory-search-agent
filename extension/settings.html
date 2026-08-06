@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AI Memory Agent — Settings</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body {
+        width: auto;
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 24px;
+        max-height: none;
+      }
+      label {
+        display: block;
+        margin: 12px 0 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      input[type="text"],
+      input[type="password"],
+      select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        color: var(--text);
+      }
+      .toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .status {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--ok);
+      }
+    </style>
+  </head>
+  <body data-theme="system">
+    <header class="hero">
+      <div class="brand">
+        <span class="mark"></span>
+        <div>
+          <h1>Agent Settings</h1>
+          <p class="tagline">Configure how your Memory Agent observes and connects</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="card-label">Connection</div>
+      <label for="apiBase">Backend URL</label>
+      <input id="apiBase" type="text" placeholder="http://127.0.0.1:8000/api/v1" />
+      <label for="token">Session token (when auth is enabled)</label>
+      <input id="token" type="password" autocomplete="off" />
+      <button type="button" id="btn-test" class="secondary" style="margin-top: 12px">
+        Test Connection
+      </button>
+      <p class="status" id="conn-status"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Observation & privacy</div>
+      <div class="toggle">
+        <span>Pause Observer</span>
+        <input type="checkbox" id="observerPaused" />
+      </div>
+      <div class="toggle">
+        <span>Privacy Mode (omit descriptions & selections)</span>
+        <input type="checkbox" id="privacyMode" />
+      </div>
+      <div class="toggle">
+        <span>Enable Notifications</span>
+        <input type="checkbox" id="notificationsEnabled" />
+      </div>
+      <div class="toggle">
+        <span>Debug Mode</span>
+        <input type="checkbox" id="debugMode" />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Appearance</div>
+      <label for="theme">Theme</label>
+      <select id="theme">
+        <option value="system">System</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select>
+    </section>
+
+    <button type="button" id="btn-save" class="primary">Save Settings</button>
+    <p class="status" id="save-status"></p>
+
+    <script type="module" src="settings.js"></script>
+  </body>
+</html>

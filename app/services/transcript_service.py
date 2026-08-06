@@ -1,59 +1,100 @@
 """
-Fetch YouTube video transcripts.
+Fetch transcripts via the connector registry (YouTubeConnector for YouTube URLs).
 
-Phase 2: fetch only — no chunking, embedding, or Chroma writes.
-Called by tests and (Phase 3+) IngestService.
+Keeps a stable TranscriptService API for IngestService and tests.
 """
 
-import re
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    VideoUnavailable,
-    YouTubeRequestFailed,
-)
-
-from app.core.exceptions import (
-    TranscriptFetchError,
-    TranscriptUnavailableError,
-)
+from app.core.exceptions import TranscriptUnavailableError
 from app.models.transcript import TranscriptResult, TranscriptSegment
-from app.utils.url_parser import parse_youtube_url
+from app.services.sources import get_connector_registry
+from app.services.sources.base_source import TranscriptKind
 
 if TYPE_CHECKING:
-    from youtube_transcript_api._transcripts import FetchedTranscript
+    from youtube_transcript_api import YouTubeTranscriptApi
 
 
 class TranscriptService:
-    """Fetch and normalize YouTube transcripts for a given video URL."""
+    """Fetch and normalize transcripts for a given URL via SourceConnector."""
 
     def __init__(self, api: YouTubeTranscriptApi | None = None) -> None:
-        # Inject api in tests; production code uses a real client instance.
-        self._api = api or YouTubeTranscriptApi()
+        # Kept for test injection compatibility; YouTubeConnector owns the real client.
+        self._api = api
 
     def fetch_transcript(self, url: str) -> TranscriptResult:
-        """
-        Fetch the transcript for a YouTube video.
+        from app.core.exceptions import AppError, InvalidYouTubeURLError
+        from app.utils.url_parser import is_valid_youtube_url
 
-        Args:
-            url: Any supported YouTube URL format.
-
-        Returns:
-            TranscriptResult with timed segments and joined full_text.
-
-        Raises:
-            InvalidYouTubeURLError: bad URL (from url_parser).
-            TranscriptUnavailableError: no captions or video unavailable.
-            TranscriptFetchError: network or YouTube API failure.
-        """
-        url_info = parse_youtube_url(url)
-        video_id = url_info.video_id
+        # Legacy TranscriptService remains YouTube-scoped; other sources use ConnectorIngestService.
+        if not is_valid_youtube_url(url):
+            raise InvalidYouTubeURLError("URL is not a valid YouTube link.")
 
         try:
-            fetched = self._fetch_with_manual_preference(video_id)
+            connector = get_connector_registry().get("youtube.v1")
+        except AppError as exc:
+            raise InvalidYouTubeURLError(str(exc)) from exc
+        ref = connector.parse_ref(url)
+        if self._api is not None:
+            return self._fetch_with_injected_api(ref.external_id, ref.url)
+
+        payload = connector.fetch_transcript(ref)
+        if not payload.segments and not payload.full_text:
+            raise TranscriptUnavailableError(
+                f"No transcript available for video {ref.external_id}."
+            )
+        return TranscriptResult(
+            video_id=payload.external_id,
+            canonical_url=ref.url,
+            segments=[
+                TranscriptSegment(
+                    text=s.text,
+                    start_time_sec=s.start_time_sec,
+                    duration_sec=s.duration_sec,
+                )
+                for s in payload.segments
+            ],
+            full_text=payload.full_text,
+            language=payload.language,
+            is_generated=payload.kind == TranscriptKind.AUTO_GENERATED,
+        )
+
+    def detect_availability(self, url: str):
+        from app.core.exceptions import InvalidYouTubeURLError
+        from app.utils.url_parser import is_valid_youtube_url
+
+        if not is_valid_youtube_url(url):
+            raise InvalidYouTubeURLError("URL is not a valid YouTube link.")
+        connector = get_connector_registry().get("youtube.v1")
+        ref = connector.parse_ref(url)
+        return connector.detect_transcript(ref)
+
+    def _fetch_with_injected_api(self, video_id: str, canonical_url: str) -> TranscriptResult:
+        """Unit-test path matching previous TranscriptService behavior."""
+        import re
+
+        from youtube_transcript_api._errors import (
+            NoTranscriptFound,
+            TranscriptsDisabled,
+            VideoUnavailable,
+            YouTubeRequestFailed,
+        )
+
+        from app.core.exceptions import TranscriptFetchError, TranscriptUnavailableError
+
+        assert self._api is not None
+        try:
+            transcript_list = self._api.list(video_id)
+            language_codes = [t.language_code for t in transcript_list]
+            try:
+                transcript = transcript_list.find_manually_created_transcript(language_codes)
+                is_generated = False
+            except NoTranscriptFound:
+                transcript = transcript_list.find_generated_transcript(language_codes)
+                is_generated = True
+            fetched = transcript.fetch()
         except (TranscriptsDisabled, NoTranscriptFound) as exc:
             raise TranscriptUnavailableError(
                 f"No transcript available for video {video_id}."
@@ -66,10 +107,6 @@ class TranscriptService:
             raise TranscriptFetchError(
                 f"Failed to fetch transcript for {video_id}: {exc}"
             ) from exc
-        except Exception as exc:
-            raise TranscriptFetchError(
-                f"Unexpected error fetching transcript for {video_id}: {exc}"
-            ) from exc
 
         segments = [
             TranscriptSegment(
@@ -79,37 +116,12 @@ class TranscriptService:
             )
             for snippet in fetched.snippets
         ]
-
-        full_text = _normalize_text(" ".join(seg.text for seg in segments))
-
+        full_text = re.sub(r"\s+", " ", " ".join(seg.text for seg in segments)).strip()
         return TranscriptResult(
             video_id=video_id,
-            canonical_url=url_info.canonical_url,
+            canonical_url=canonical_url,
             segments=segments,
             full_text=full_text,
             language=fetched.language_code,
-            is_generated=fetched.is_generated,
+            is_generated=is_generated,
         )
-
-    def _fetch_with_manual_preference(self, video_id: str) -> "FetchedTranscript":
-        """
-        Prefer manually uploaded captions; fall back to auto-generated.
-
-        Uses the instance-based youtube-transcript-api (list → find → fetch).
-        """
-        transcript_list = self._api.list(video_id)
-        language_codes = [t.language_code for t in transcript_list]
-
-        try:
-            transcript = transcript_list.find_manually_created_transcript(
-                language_codes
-            )
-        except NoTranscriptFound:
-            transcript = transcript_list.find_generated_transcript(language_codes)
-
-        return transcript.fetch()
-
-
-def _normalize_text(text: str) -> str:
-    """Collapse repeated whitespace and strip leading/trailing space."""
-    return re.sub(r"\s+", " ", text).strip()

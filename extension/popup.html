@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Memory Agent</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body data-theme="system">
+    <header class="hero">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <h1>AI Memory Agent</h1>
+          <p class="tagline" id="live-tagline">Understanding this page…</p>
+        </div>
+      </div>
+      <button type="button" id="btn-settings" class="icon-btn" title="Settings">⚙</button>
+    </header>
+
+    <section class="card observe" id="observe-card">
+      <div class="card-label">Currently Observing</div>
+      <div class="observe-grid">
+        <div>
+          <span class="k">Platform</span>
+          <span class="v" id="obs-platform">—</span>
+        </div>
+        <div>
+          <span class="k" id="obs-kind-label">Title</span>
+          <span class="v title" id="obs-title">—</span>
+        </div>
+        <div>
+          <span class="k">Creator</span>
+          <span class="v" id="obs-creator">—</span>
+        </div>
+        <div>
+          <span class="k">Transcript</span>
+          <span class="v" id="obs-transcript">—</span>
+        </div>
+      </div>
+      <div class="ready-row">
+        <span class="pulse" id="ready-pulse"></span>
+        <span id="ready-text">Waiting…</span>
+      </div>
+      <div class="thumb-row" id="thumb-row" hidden>
+        <img id="obs-thumb" alt="" />
+        <span id="obs-progress"></span>
+      </div>
+    </section>
+
+    <section class="card command-card" id="command-card">
+      <div class="card-label">Command</div>
+      <form id="command-form" class="command-form" autocomplete="off">
+        <label class="sr-only" for="command-input">Agent command</label>
+        <input
+          id="command-input"
+          type="search"
+          placeholder="search MCP · ask about RAG · import bookmarks · help"
+          maxlength="500"
+        />
+        <button type="submit" id="btn-command" class="primary">Run</button>
+      </form>
+      <p class="muted command-hint" id="command-hint" role="status" aria-live="polite">
+        Search &amp; ask run here; bulk imports need confirm.
+      </p>
+      <div id="command-plan" class="command-plan" hidden aria-live="polite"></div>
+      <div id="command-results" class="command-results" hidden aria-live="polite"></div>
+      <div class="row-btns command-actions" id="command-actions" hidden>
+        <button type="button" id="btn-command-confirm" class="primary" hidden>
+          Confirm bulk action
+        </button>
+        <button type="button" id="btn-command-workspace" class="ghost" hidden>
+          Open in Workspace
+        </button>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button type="button" id="btn-save" class="primary">Save To Memory</button>
+      <button type="button" id="btn-ask" class="secondary">Ask My Memory</button>
+      <button type="button" id="btn-search" class="secondary">Search Memory</button>
+      <div class="row-btns">
+        <button type="button" id="btn-view-context" class="ghost">View Temporary Context</button>
+        <button type="button" id="btn-pause" class="ghost">Pause Observation</button>
+      </div>
+    </section>
+
+    <section class="card" id="save-card" hidden>
+      <div class="card-label">Memory Pipeline</div>
+      <p class="save-msg" id="save-msg">Added to Memory</p>
+      <ol class="stages" id="stages">
+        <li data-stage="queued">Queued</li>
+        <li data-stage="metadata">Metadata</li>
+        <li data-stage="transcript">Transcript</li>
+        <li data-stage="chunking">Chunking</li>
+        <li data-stage="embedding">Embedding</li>
+        <li data-stage="indexed">Indexed</li>
+        <li data-stage="completed">Completed</li>
+      </ol>
+      <p class="muted" id="save-detail"></p>
+      <button type="button" id="btn-retry" class="ghost" hidden>Retry</button>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Health</div>
+      <div class="stat-grid" id="health-grid">
+        <div><span class="k">Backend</span><span class="v" id="h-backend">…</span></div>
+        <div><span class="k">Connected</span><span class="v" id="h-connected">…</span></div>
+        <div><span class="k">Version</span><span class="v" id="h-version">…</span></div>
+        <div><span class="k">Capture queue</span><span class="v" id="h-queue">…</span></div>
+        <div><span class="k">Pending jobs</span><span class="v" id="h-jobs">…</span></div>
+        <div><span class="k">Last sync</span><span class="v" id="h-sync">…</span></div>
+        <div><span class="k">User</span><span class="v" id="h-user">…</span></div>
+        <div><span class="k">Auth</span><span class="v" id="h-auth">…</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Memory Status</div>
+      <div class="stat-grid">
+        <div><span class="k">Today's saves</span><span class="v" id="m-today">—</span></div>
+        <div><span class="k">Processing</span><span class="v" id="m-processing">—</span></div>
+        <div><span class="k">Indexed</span><span class="v" id="m-indexed">—</span></div>
+        <div><span class="k">Memory count</span><span class="v" id="m-count">—</span></div>
+      </div>
+      <p class="muted"><strong>Latest:</strong> <span id="m-latest">—</span></p>
+      <p class="muted"><strong>Recent searches:</strong> <span id="m-searches">None yet</span></p>
+    </section>
+
+    <section class="card" id="import-card">
+      <div class="card-label">Import</div>
+      <p class="muted" style="margin-top:0">Bookmarks &amp; PDF via V1-4 APIs. Playlists open in Workspace.</p>
+      <div class="row-btns">
+        <button type="button" id="btn-bookmarks" class="secondary">Import bookmarks</button>
+        <button type="button" id="btn-playlist-workspace" class="ghost">Playlist in Workspace</button>
+      </div>
+      <div id="bookmark-panel" hidden>
+        <p class="muted" id="bookmark-summary">—</p>
+        <div class="row-btns">
+          <button type="button" id="btn-bookmark-preview" class="ghost">Preview</button>
+          <button type="button" id="btn-bookmark-confirm" class="primary" disabled>Confirm import</button>
+        </div>
+        <pre id="bookmark-preview" class="import-pre" hidden></pre>
+      </div>
+      <div class="import-pdf">
+        <label class="muted" for="pdf-file">PDF upload</label>
+        <input type="file" id="pdf-file" accept="application/pdf,.pdf" />
+        <button type="button" id="btn-pdf-upload" class="secondary">Upload PDF</button>
+      </div>
+      <p class="muted" id="import-status"></p>
+      <div class="callout">
+        <strong>Watch Later:</strong> Coming soon (needs Google OAuth).
+        Demo with a public playlist URL in Workspace → Capture.
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Permissions</div>
+      <ul class="perm-list" id="perm-list"></ul>
+    </section>
+
+    <dialog id="context-dialog">
+      <form method="dialog">
+        <h2>Temporary Context</h2>
+        <pre id="context-json"></pre>
+        <div class="row-btns">
+          <button type="submit" value="clear" id="btn-clear-context">Clear Temporary Context</button>
+          <button type="submit" value="close">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

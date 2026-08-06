@@ -28,3 +28,7 @@ class TranscriptFetchError(AppError):
 
 class ChromaConnectionError(AppError):
     """Raised when ChromaDB cannot be reached or the collection is inaccessible."""
+
+
+class MetadataFetchError(AppError):
+    """Raised when platform metadata cannot be fetched."""

@@ -48,6 +48,61 @@ class Settings(BaseSettings):
     search_top_k_chunks: int = 30
     search_top_k_videos: int = 10
 
+    # --- Ingest ---
+    ingest_concurrency: int = 3
+    embedding_batch_size: int = 32
+    ingest_metadata_timeout_sec: int = 60
+    ingest_transcript_timeout_sec: int = 120
+
+    # --- Adaptive Hierarchical Memory Engine (AHME) ---
+    hierarchical_retrieval_enabled: bool = True
+    capsule_collection_name: str = "memory_capsules"
+    section_collection_name: str = "memory_sections"
+    capsule_top_k: int = 8
+    video_top_k: int = 4
+    section_top_k: int = 6
+    evidence_top_k: int = 8
+    rrf_k: int = 60
+    mmr_lambda: float = 0.7
+    semantic_cache_enabled: bool = True
+    semantic_cache_ttl_sec: int = 3600
+    semantic_cache_similarity_threshold: float = 0.92
+    transcript_artifact_dir: str = "./data/transcripts"
+    schema_version: int = 9
+
+    # --- Distribution & capture layer ---
+    pwa_enabled: bool = True
+    auth_enabled: bool = False
+    local_demo_mode: bool = True
+    auth_secret_env: str = "AUTH_SECRET"
+    session_ttl_hours: int = 168
+    jobs_enabled: bool = True
+    job_worker_concurrency: int = 2
+    job_lease_seconds: int = 120
+    job_poll_interval_sec: float = 2.0
+    youtube_api_key_env: str = "YOUTUBE_API_KEY"
+    playlist_page_size: int = 50
+    playlist_max_videos: int = 500
+    capture_max_response_bytes: int = 2_000_000
+    capture_fetch_timeout_sec: int = 15
+    cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000,chrome-extension://"
+    trusted_hosts: str = "*"
+    max_request_body_bytes: int = 1_048_576
+
+    # --- Rate limiting (V1-8 / P-02) ---
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 120
+    rate_limit_window_sec: int = 60
+    rate_limit_auth_requests: int = 20
+    rate_limit_auth_window_sec: int = 60
+
+    # --- Optional LLM (no credentials hard-coded) ---
+    llm_provider: str = "none"  # none | ollama | openai_compatible
+    llm_base_url: str = "http://localhost:11434"
+    llm_model: str = ""
+    llm_api_key_env: str = "OPENAI_API_KEY"
+    llm_timeout_sec: int = 60
+
     # --- Streamlit (Phase 5+) ---
     fastapi_url: str = "http://localhost:8000"
 

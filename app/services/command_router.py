@@ -1,0 +1,661 @@
+"""Rule-based agent command classifier and safe execution planner (V1-7).
+
+Not an autonomous multi-agent runtime. Classifies natural-language commands into
+intents, returns an action plan, and gates bulk/destructive work behind a
+confirm_token. Safe intents (search/ask) may execute against existing services.
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import logging
+import os
+import re
+import secrets
+import threading
+import time
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+from app.config import Settings, get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class CommandIntent(str, Enum):
+    SEARCH = "search"
+    ASK = "ask"
+    SAVE = "save"
+    IMPORT_BOOKMARKS = "import_bookmarks"
+    IMPORT_PLAYLIST = "import_playlist"
+    OPEN_WORKSPACE = "open_workspace"
+    HELP = "help"
+    UNKNOWN = "unknown"
+
+
+# Bulk or multi-item side effects — never auto-execute without confirm_token.
+BULK_INTENTS = frozenset(
+    {
+        CommandIntent.IMPORT_BOOKMARKS,
+        CommandIntent.IMPORT_PLAYLIST,
+    }
+)
+
+SAFE_AUTO_EXECUTE = frozenset(
+    {
+        CommandIntent.SEARCH,
+        CommandIntent.ASK,
+        CommandIntent.OPEN_WORKSPACE,
+        CommandIntent.HELP,
+    }
+)
+
+# Single-use confirm tokens: fingerprint → expiry unix seconds.
+_used_confirm_tokens: dict[str, int] = {}
+_used_lock = threading.Lock()
+_fallback_secrets: dict[str, bytes] = {}
+_fallback_lock = threading.Lock()
+
+_RE_SEARCH = re.compile(
+    r"^\s*(?:search|find|look\s+up|lookup|locate)\s+(.+)$",
+    re.I | re.S,
+)
+_RE_ASK = re.compile(
+    r"^\s*(?:ask(?:\s+my\s+memory)?|chat|what\s+(?:did|have)\s+i|"
+    r"summarize|summary|explain|tell\s+me|how\s+(?:do|does|can)|"
+    r"compare|why\s+did\s+i)\b[\s:,-]*(.*)$",
+    re.I | re.S,
+)
+_RE_SAVE = re.compile(
+    r"^\s*(?:save(?:\s+(?:this|it|page|tab|video|to\s+memory))?|"
+    r"add\s+to\s+memory|remember\s+(?:this|it)|capture)\s*$",
+    re.I,
+)
+_RE_IMPORT_BOOKMARKS = re.compile(
+    r"^\s*(?:import|sync|load)\s+bookmarks?\b",
+    re.I,
+)
+_RE_IMPORT_PLAYLIST = re.compile(
+    r"^\s*(?:import|ingest|load)\s+(?:a\s+|the\s+|my\s+)?playlist\b",
+    re.I,
+)
+_RE_WORKSPACE = re.compile(
+    r"^\s*(?:open|go\s+to|show)\s+(?:workspace|dashboard|pwa|library|memory\s+workspace)\b",
+    re.I,
+)
+_RE_HELP = re.compile(r"^\s*(?:help|\?|commands?|what\s+can\s+you\s+do)\s*$", re.I)
+_RE_QUESTION_MARK = re.compile(r"\?\s*$")
+_RE_QUESTION_START = re.compile(
+    r"^\s*(?:what|who|when|where|why|how|which|did|does|do|is|are|can|could|should)\b",
+    re.I,
+)
+
+
+CONFIRM_TTL_SEC = 600
+
+
+def reset_confirm_token_state() -> None:
+    """Clear consumed-token registry and in-memory secret cache (tests)."""
+    with _used_lock:
+        _used_confirm_tokens.clear()
+    with _fallback_lock:
+        _fallback_secrets.clear()
+
+
+def _b64decode(token: str) -> bytes:
+    """urlsafe base64 decode tolerant of missing padding."""
+    s = (token or "").strip().encode("ascii")
+    pad = b"=" * (-len(s) % 4)
+    return base64.urlsafe_b64decode(s + pad)
+
+
+def _secret(settings: Settings) -> bytes:
+    """HMAC key for confirm tokens.
+
+    Prefer AUTH_SECRET. Otherwise use a random secret persisted beside SQLite
+    (not derivable from app_name/path alone). In-memory fallback for :memory:.
+    """
+    env_name = settings.auth_secret_env or "AUTH_SECRET"
+    raw = os.environ.get(env_name, "").strip()
+    if raw:
+        return raw.encode("utf-8")
+
+    sqlite_path = (settings.sqlite_path or "").strip()
+    cache_key = sqlite_path or ":memory:"
+    if sqlite_path and sqlite_path != ":memory:":
+        try:
+            parent = Path(sqlite_path).expanduser().resolve().parent
+            secret_path = parent / ".agent_confirm_secret"
+            if secret_path.is_file():
+                data = secret_path.read_bytes().strip()
+                if len(data) >= 16:
+                    return data
+            data = secrets.token_bytes(32)
+            secret_path.write_bytes(data)
+            try:
+                secret_path.chmod(0o600)
+            except OSError:
+                pass
+            return data
+        except OSError as exc:
+            logger.warning("confirm-token secret file unavailable: %s", exc)
+
+    with _fallback_lock:
+        cached = _fallback_secrets.get(cache_key)
+        if cached is not None:
+            return cached
+        cached = secrets.token_bytes(32)
+        _fallback_secrets[cache_key] = cached
+        return cached
+
+
+def mint_confirm_token(
+    *,
+    user_id: str,
+    intent: CommandIntent,
+    query: str,
+    settings: Settings | None = None,
+    ttl_sec: int = CONFIRM_TTL_SEC,
+    now: int | None = None,
+) -> str:
+    settings = settings or get_settings()
+    exp = int(now if now is not None else time.time()) + ttl_sec
+    qhash = hashlib.sha256(query.strip().lower().encode("utf-8")).hexdigest()[:16]
+    msg = f"{user_id}|{intent.value}|{qhash}|{exp}"
+    sig = hmac.new(_secret(settings), msg.encode("utf-8"), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f"{msg}|{sig}".encode("utf-8")).decode("ascii")
+
+
+def _parse_confirm_token(token: str) -> tuple[str, str, str, int, str] | None:
+    try:
+        raw = _b64decode(token).decode("utf-8")
+        user, intent_s, qhash, exp_s, sig = raw.split("|", 4)
+        exp = int(exp_s)
+    except Exception:
+        return None
+    return user, intent_s, qhash, exp, sig
+
+
+def verify_confirm_token(
+    token: str,
+    *,
+    user_id: str,
+    intent: CommandIntent,
+    query: str,
+    settings: Settings | None = None,
+    now: int | None = None,
+) -> bool:
+    settings = settings or get_settings()
+    parsed = _parse_confirm_token(token)
+    if not parsed:
+        return False
+    user, intent_s, qhash, exp, sig = parsed
+    if user != user_id or intent_s != intent.value:
+        return False
+    ts = int(now if now is not None else time.time())
+    if ts > exp:
+        return False
+    expected_hash = hashlib.sha256(query.strip().lower().encode("utf-8")).hexdigest()[:16]
+    if not hmac.compare_digest(qhash, expected_hash):
+        return False
+    msg = f"{user}|{intent_s}|{qhash}|{exp}"
+    expect = hmac.new(_secret(settings), msg.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expect)
+
+
+def _token_fingerprint(token: str) -> str:
+    return hashlib.sha256(token.strip().encode("utf-8")).hexdigest()
+
+
+def _purge_used_tokens(now: int) -> None:
+    stale = [k for k, exp in _used_confirm_tokens.items() if exp <= now]
+    for k in stale:
+        del _used_confirm_tokens[k]
+
+
+def consume_confirm_token(
+    token: str,
+    *,
+    user_id: str,
+    intent: CommandIntent,
+    query: str,
+    settings: Settings | None = None,
+    now: int | None = None,
+) -> bool:
+    """Verify HMAC token and mark it single-use (reject replays within TTL)."""
+    settings = settings or get_settings()
+    ts = int(now if now is not None else time.time())
+    if not verify_confirm_token(
+        token,
+        user_id=user_id,
+        intent=intent,
+        query=query,
+        settings=settings,
+        now=ts,
+    ):
+        return False
+    parsed = _parse_confirm_token(token)
+    if not parsed:
+        return False
+    _user, _intent_s, _qhash, exp, _sig = parsed
+    fp = _token_fingerprint(token)
+    with _used_lock:
+        _purge_used_tokens(ts)
+        if fp in _used_confirm_tokens:
+            return False
+        _used_confirm_tokens[fp] = exp
+    return True
+
+
+def classify_command(
+    text: str,
+    *,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Classify user text into an intent + cleaned query. Pure / deterministic."""
+    raw = (text or "").strip()
+    context = context or {}
+    if not raw:
+        return {
+            "intent": CommandIntent.UNKNOWN,
+            "query": "",
+            "confidence": 0.0,
+            "summary": "Empty command.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    if _RE_HELP.match(raw):
+        return {
+            "intent": CommandIntent.HELP,
+            "query": "",
+            "confidence": 1.0,
+            "summary": "Show available commands.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    if _RE_IMPORT_BOOKMARKS.search(raw):
+        return {
+            "intent": CommandIntent.IMPORT_BOOKMARKS,
+            "query": raw,
+            "confidence": 0.95,
+            "summary": "Import browser bookmarks (preview → confirm required).",
+            "requires_confirm": True,
+            "bulk": True,
+        }
+
+    if _RE_IMPORT_PLAYLIST.search(raw):
+        return {
+            "intent": CommandIntent.IMPORT_PLAYLIST,
+            "query": raw,
+            "confidence": 0.95,
+            "summary": "Import a playlist via Workspace Capture (confirm required).",
+            "requires_confirm": True,
+            "bulk": True,
+        }
+
+    if _RE_SAVE.match(raw):
+        title = (context.get("title") or "").strip()
+        url = (context.get("url") or "").strip()
+        label = title or url or "current tab"
+        return {
+            "intent": CommandIntent.SAVE,
+            "query": url,
+            "confidence": 0.9 if url else 0.6,
+            "summary": f"Save {label} to Memory.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    if _RE_WORKSPACE.search(raw):
+        return {
+            "intent": CommandIntent.OPEN_WORKSPACE,
+            "query": "",
+            "confidence": 0.9,
+            "summary": "Open AI Memory Workspace.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    m = _RE_SEARCH.match(raw)
+    if m:
+        q = m.group(1).strip()
+        return {
+            "intent": CommandIntent.SEARCH,
+            "query": q,
+            "confidence": 0.95,
+            "summary": f"Search memory for “{q}”.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    m = _RE_ASK.match(raw)
+    if m:
+        q = (m.group(1) or "").strip() or raw
+        return {
+            "intent": CommandIntent.ASK,
+            "query": q,
+            "confidence": 0.9,
+            "summary": f"Ask Memory: “{q}”.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    # Bare questions → ask; otherwise treat as search keywords.
+    if _RE_QUESTION_MARK.search(raw) or _RE_QUESTION_START.match(raw):
+        return {
+            "intent": CommandIntent.ASK,
+            "query": raw.rstrip("?").strip(),
+            "confidence": 0.75,
+            "summary": f"Ask Memory: “{raw}”.",
+            "requires_confirm": False,
+            "bulk": False,
+        }
+
+    return {
+        "intent": CommandIntent.SEARCH,
+        "query": raw,
+        "confidence": 0.55,
+        "summary": f"Search memory for “{raw}”.",
+        "requires_confirm": False,
+        "bulk": False,
+    }
+
+
+def build_plan(
+    text: str,
+    *,
+    user_id: str,
+    context: dict[str, Any] | None = None,
+    settings: Settings | None = None,
+    pwa_url: str = "http://127.0.0.1:8000/",
+    issue_confirm_token: bool = True,
+) -> dict[str, Any]:
+    settings = settings or get_settings()
+    classified = classify_command(text, context=context)
+    intent: CommandIntent = classified["intent"]
+    query = classified["query"]
+    base = pwa_url.rstrip("/") + "/"
+
+    workspace_path = {
+        CommandIntent.SEARCH: f"#search/{_enc(query)}" if query else "#search",
+        CommandIntent.ASK: f"#ask/{_enc(query)}" if query else "#ask",
+        CommandIntent.IMPORT_BOOKMARKS: "#imports",
+        CommandIntent.IMPORT_PLAYLIST: "#capture",
+        CommandIntent.OPEN_WORKSPACE: "#dashboard",
+        CommandIntent.SAVE: "#dashboard",
+        CommandIntent.HELP: "#dashboard",
+        CommandIntent.UNKNOWN: "#dashboard",
+    }[intent]
+
+    confirm_token = None
+    if issue_confirm_token and (classified["requires_confirm"] or intent in BULK_INTENTS):
+        confirm_token = mint_confirm_token(
+            user_id=user_id,
+            intent=intent,
+            query=query or text,
+            settings=settings,
+        )
+
+    steps: list[dict[str, str]] = [
+        {"id": "classify", "label": f"Intent: {intent.value}"},
+    ]
+    if intent == CommandIntent.SEARCH:
+        steps.append({"id": "search", "label": "Run hybrid search on saved memories"})
+    elif intent == CommandIntent.ASK:
+        steps.append({"id": "ask", "label": "Grounded chat over saved memories"})
+    elif intent == CommandIntent.SAVE:
+        steps.append({"id": "save", "label": "Queue current page/video for Memory ingest"})
+    elif intent == CommandIntent.IMPORT_BOOKMARKS:
+        steps.extend(
+            [
+                {"id": "preview", "label": "Preview bookmarks (no write yet)"},
+                {"id": "confirm", "label": "Confirm import after preview"},
+            ]
+        )
+    elif intent == CommandIntent.IMPORT_PLAYLIST:
+        steps.extend(
+            [
+                {"id": "preview", "label": "Preview public playlist in Workspace"},
+                {"id": "confirm", "label": "Confirm playlist ingest job"},
+            ]
+        )
+    elif intent == CommandIntent.OPEN_WORKSPACE:
+        steps.append({"id": "open", "label": "Open Workspace dashboard"})
+    elif intent == CommandIntent.HELP:
+        steps.append({"id": "help", "label": "List supported commands"})
+    else:
+        steps.append({"id": "clarify", "label": "Ask user to rephrase"})
+
+    return {
+        "intent": intent.value,
+        "query": query,
+        "confidence": classified["confidence"],
+        "summary": classified["summary"],
+        "requires_confirm": bool(classified["requires_confirm"]),
+        "bulk": bool(classified["bulk"]),
+        "confirm_token": confirm_token,
+        "workspace_url": f"{base}{workspace_path}",
+        "steps": steps,
+        "help_text": _help_text() if intent == CommandIntent.HELP else None,
+        "original_text": text.strip(),
+    }
+
+
+def _enc(value: str) -> str:
+    from urllib.parse import quote
+
+    return quote(value, safe="")
+
+
+def _help_text() -> str:
+    return (
+        "Commands: search <query> · ask <question> · save · "
+        "import bookmarks · import playlist · open workspace · help. "
+        "Bulk imports always require preview → confirm."
+    )
+
+
+class CommandRouterService:
+    """Plan and optionally execute agent commands against existing services."""
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self._settings = settings or get_settings()
+
+    def plan(
+        self,
+        text: str,
+        *,
+        user_id: str,
+        context: dict[str, Any] | None = None,
+        pwa_url: str | None = None,
+        issue_confirm_token: bool = True,
+    ) -> dict[str, Any]:
+        from app.services.agent_status_service import AgentStatusService
+        from app.models.user import UserPublic
+
+        url = pwa_url
+        if not url:
+            try:
+                status = AgentStatusService(self._settings).get_status(
+                    UserPublic(user_id=user_id, display_name="")
+                )
+                url = status.pwa_url
+            except Exception:
+                url = "http://127.0.0.1:8000/"
+        return build_plan(
+            text,
+            user_id=user_id,
+            context=context,
+            settings=self._settings,
+            pwa_url=url or "http://127.0.0.1:8000/",
+            issue_confirm_token=issue_confirm_token,
+        )
+
+    def execute(
+        self,
+        *,
+        user_id: str,
+        intent: str,
+        query: str,
+        original_text: str,
+        confirm_token: str | None = None,
+        context: dict[str, Any] | None = None,
+        limit: int = 5,
+    ) -> dict[str, Any]:
+        try:
+            intent_e = CommandIntent(intent)
+        except ValueError:
+            return {
+                "ok": False,
+                "status": "error",
+                "message": f"Unknown intent: {intent}",
+                "result": None,
+            }
+
+        q = (query or original_text or "").strip()
+        context = context or {}
+
+        if intent_e in BULK_INTENTS:
+            if not confirm_token or not consume_confirm_token(
+                confirm_token,
+                user_id=user_id,
+                intent=intent_e,
+                query=q,
+                settings=self._settings,
+            ):
+                return {
+                    "ok": False,
+                    "status": "confirm_required",
+                    "message": "Bulk action blocked — valid unused confirm_token required.",
+                    "result": None,
+                }
+            # Confirmed bulk still does not skip preview — hand off to Workspace.
+            plan = self.plan(
+                original_text or q,
+                user_id=user_id,
+                context=context,
+                issue_confirm_token=False,
+            )
+            return {
+                "ok": True,
+                "status": "handoff",
+                "message": (
+                    "Confirmed. Complete preview → confirm in Workspace "
+                    "(command does not bulk-write without preview)."
+                ),
+                "result": {
+                    "workspace_url": plan["workspace_url"],
+                    "intent": intent_e.value,
+                    "confirm_consumed": True,
+                },
+            }
+
+        if intent_e == CommandIntent.SEARCH:
+            from app.api.dependencies import get_search_service
+
+            if not q:
+                return {
+                    "ok": False,
+                    "status": "error",
+                    "message": "Search query is empty.",
+                    "result": None,
+                }
+            service = get_search_service()
+            # SearchService uses get_settings() via DI; inject test settings when present.
+            if self._settings is not get_settings():
+                from app.db.repositories.memory_repository import MemoryRepository
+                from app.services.search_service import SearchService
+
+                service = SearchService(
+                    settings=self._settings,
+                    repository=MemoryRepository(self._settings),
+                )
+            resp = service.search(query=q, limit=limit, user_id=user_id)
+            try:
+                from app.services.agent_status_service import AgentStatusService
+
+                AgentStatusService(self._settings).record_search(
+                    user_id=user_id, query=q
+                )
+            except Exception:
+                pass
+            payload = resp.model_dump() if hasattr(resp, "model_dump") else resp
+            return {
+                "ok": True,
+                "status": "executed",
+                "message": f"Found {len(payload.get('results') or payload.get('videos') or [])} result(s).",
+                "result": payload,
+            }
+
+        if intent_e == CommandIntent.ASK:
+            from app.db.repositories.memory_repository import MemoryRepository
+            from app.services.chat_service import ChatService
+
+            if not q:
+                return {
+                    "ok": False,
+                    "status": "error",
+                    "message": "Question is empty.",
+                    "result": None,
+                }
+            chat = ChatService(
+                settings=self._settings,
+                repository=MemoryRepository(self._settings),
+            )
+            resp = chat.chat(question=q, top_k=min(limit + 1, 10), user_id=user_id)
+            payload = resp.model_dump() if hasattr(resp, "model_dump") else resp
+            return {
+                "ok": True,
+                "status": "executed",
+                "message": "Answer ready.",
+                "result": payload,
+            }
+
+        if intent_e == CommandIntent.SAVE:
+            url = (context.get("url") or q or "").strip()
+            if not url:
+                return {
+                    "ok": False,
+                    "status": "error",
+                    "message": "No URL in context to save.",
+                    "result": None,
+                }
+            return {
+                "ok": True,
+                "status": "handoff",
+                "message": "Use Save To Memory in the extension (observer context).",
+                "result": {
+                    "url": url,
+                    "title": context.get("title") or "",
+                    "action": "extension_save",
+                },
+            }
+
+        if intent_e == CommandIntent.OPEN_WORKSPACE:
+            plan = self.plan("open workspace", user_id=user_id, context=context)
+            return {
+                "ok": True,
+                "status": "handoff",
+                "message": "Open Workspace.",
+                "result": {"workspace_url": plan["workspace_url"]},
+            }
+
+        if intent_e == CommandIntent.HELP:
+            return {
+                "ok": True,
+                "status": "executed",
+                "message": _help_text(),
+                "result": {"help": _help_text()},
+            }
+
+        return {
+            "ok": False,
+            "status": "error",
+            "message": "Could not classify command — try: search, ask, save, import bookmarks.",
+            "result": None,
+        }

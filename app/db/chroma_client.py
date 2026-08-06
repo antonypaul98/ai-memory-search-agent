@@ -3,29 +3,34 @@ ChromaDB Persistent Client setup.
 
 Wraps chromadb.PersistentClient so the rest of the app never imports
 Chroma directly. Data is stored on disk at settings.chroma_persist_dir.
+
+chromadb is imported lazily inside get_chroma_client() to keep app startup fast.
 """
 
-import os
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
-import chromadb
+import os
+from typing import TYPE_CHECKING, Any
 
 from app.config import Settings, get_settings
 
 if TYPE_CHECKING:
     from chromadb.api.models.Collection import Collection
 
+
 # Cache clients by persist path (Settings objects are not hashable for lru_cache).
-_clients: dict[str, chromadb.PersistentClient] = {}
+_clients: dict[str, Any] = {}
 
 
-def get_chroma_client(settings: Settings | None = None) -> chromadb.PersistentClient:
+def get_chroma_client(settings: Settings | None = None) -> Any:
     """
     Return a Chroma PersistentClient for the configured persist directory.
 
     Creates the persist directory if it does not exist yet.
     PersistentClient saves all vectors to disk — data survives restarts.
     """
+    import chromadb
+
     settings = settings or get_settings()
     persist_dir = settings.chroma_persist_dir
 
@@ -36,7 +41,7 @@ def get_chroma_client(settings: Settings | None = None) -> chromadb.PersistentCl
     return _clients[persist_dir]
 
 
-def get_collection(settings: Settings | None = None) -> "Collection":
+def get_collection(settings: Settings | None = None) -> Collection:
     """
     Return the configured Chroma collection, creating it if needed.
 
