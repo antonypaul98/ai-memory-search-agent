@@ -190,3 +190,7 @@ data/*.db
 # Confirm-token HMAC secret (local)
 .agent_confirm_secret
 **/.agent_confirm_secret
+
+# Local benchmark artifacts
+data/benchmark/
+requirements 2.txt
