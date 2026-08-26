@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "cursor/**"]
+    branches: [main, "cursor/**", "codex/**"]
   pull_request:
     branches: [main]
 
@@ -48,3 +48,13 @@ jobs:
           JOBS_ENABLED: "false"
           PWA_ENABLED: "true"
         run: pytest -q
+
+      - name: AHME benchmark smoke
+        env:
+          AUTH_ENABLED: "false"
+          LOCAL_DEMO_MODE: "true"
+          RATE_LIMIT_ENABLED: "false"
+          JOBS_ENABLED: "false"
+          PWA_ENABLED: "true"
+          BENCHMARK_RUNS: "1"
+        run: python scripts/benchmark_ahme.py
