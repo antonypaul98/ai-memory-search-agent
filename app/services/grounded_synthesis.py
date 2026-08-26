@@ -19,8 +19,12 @@ def synthesize_grounded_answer(
     min_relevance: float | None = None,
     settings: Settings | None = None,
 ) -> tuple[GeneratedAnswer, str | None, float]:
-    """
-    Produce a grounded answer from evidence.
+    """Produce a grounded answer from evidence.
+
+    Optional LLM output is accepted only when its grounding contract passes. If
+    the provider fails, returns malformed content, cites unknown evidence, or
+    otherwise fails validation, the deterministic synthesizer remains the
+    authoritative fallback.
 
     Returns (GeneratedAnswer, confidence, synthesis_ms).
     """
@@ -38,15 +42,19 @@ def synthesize_grounded_answer(
                 evidence=chunks,
                 answer_format=answer_format,
             )
-            if structured and structured.answer_markdown.strip():
-                grounded = _validate_grounding(structured, chunks)
+            if (
+                structured
+                and structured.answer_markdown.strip()
+                and _validate_grounding(structured, chunks)
+            ):
                 elapsed = (time.perf_counter() - t0) * 1000
                 return (
-                    GeneratedAnswer(answer=structured.answer_markdown, grounded=grounded),
+                    GeneratedAnswer(answer=structured.answer_markdown, grounded=True),
                     structured.confidence,
                     elapsed,
                 )
         except Exception:
+            # Optional AI must never take down or weaken the deterministic path.
             pass
 
     synthesized = synthesize_answer(question, chunks, min_relevance=min_relevance)
@@ -68,15 +76,30 @@ def _evidence_id(chunk: dict) -> str:
 
 
 def _validate_grounding(structured: StructuredAnswer, chunks: list[dict]) -> bool:
-    if not structured.answer_markdown.strip():
+    """Validate that an LLM answer is tied to evidence actually supplied.
+
+    The model must cite at least one known evidence ID. Unknown/fabricated IDs,
+    low confidence, empty evidence, or empty answers fail closed to deterministic
+    synthesis. Lexical overlap is a lightweight additional guard; valid cited
+    evidence plus high confidence may contain paraphrases with little overlap.
+    """
+    if not structured.answer_markdown.strip() or structured.confidence == "low":
         return False
-    if structured.confidence == "low":
+    if not chunks or not structured.evidence_ids:
         return False
-    if not chunks:
+
+    allowed_ids = {
+        str(chunk.get("evidence_id") or _evidence_id(chunk))
+        for chunk in chunks
+    }
+    cited_ids = {str(item) for item in structured.evidence_ids if str(item).strip()}
+    if not cited_ids or not cited_ids.issubset(allowed_ids):
         return False
+
     corpus = " ".join(chunk.get("matched_text", "") for chunk in chunks).lower()
     if not corpus.strip():
-        return structured.confidence != "low"
+        return False
+
     tokens = [t for t in structured.answer_markdown.lower().split() if len(t) >= 5]
     if not tokens:
         return structured.confidence in {"high", "medium"}
