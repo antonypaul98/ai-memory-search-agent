@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import agent, auth, capture, chat, health, imports, intelligence, jobs, knowledge, memories, playlists, privacy, search, usage, videos, youtube
+from app.api.routes import agent, auth, capture, chat, health, imports, intelligence, jarvis, jobs, knowledge, memories, playlists, privacy, search, usage, videos, youtube
 from app.config import get_settings
 from app.db.schema import migrate
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -57,6 +57,7 @@ app.include_router(health.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(privacy.router, prefix="/api/v1")
 app.include_router(agent.router, prefix="/api/v1")
+app.include_router(jarvis.router, prefix="/api/v1")
 app.include_router(videos.router, prefix="/api/v1")
 app.include_router(youtube.router, prefix="/api/v1")
 app.include_router(intelligence.router, prefix="/api/v1")
