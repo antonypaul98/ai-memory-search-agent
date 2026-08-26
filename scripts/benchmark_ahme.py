@@ -5,10 +5,14 @@ Reproducible benchmark comparing flat vs hierarchical AHME pipelines.
 Run:
   source .venv_clean/bin/activate
   python scripts/benchmark_ahme.py
+
+CI smoke mode:
+  BENCHMARK_RUNS=1 python scripts/benchmark_ahme.py
 """
 
 from __future__ import annotations
 
+import os
 import statistics
 import sys
 import time
@@ -32,7 +36,7 @@ from app.utils.chunking import TranscriptChunk
 
 BENCH_DIR = ROOT / "data" / "benchmark"
 REPORT_PATH = ROOT / "docs" / "BENCHMARK_AHME.md"
-RUNS = 3
+RUNS = max(1, int(os.environ.get("BENCHMARK_RUNS", "3")))
 EMBED_DIM = 384
 
 
@@ -268,9 +272,9 @@ def write_report(flat: dict, hierarchical: dict) -> None:
 
 
 def main() -> None:
-    print("Running flat pipeline benchmark...")
+    print(f"Running flat pipeline benchmark ({RUNS} run(s) per case)...")
     flat = benchmark_pipeline("flat", hierarchical=False)
-    print("Running hierarchical pipeline benchmark...")
+    print(f"Running hierarchical pipeline benchmark ({RUNS} run(s) per case)...")
     hierarchical = benchmark_pipeline("hierarchical", hierarchical=True)
     write_report(flat, hierarchical)
     print(f"Report written to {REPORT_PATH}")
