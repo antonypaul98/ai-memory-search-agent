@@ -4,7 +4,7 @@
 
 Chrome extension (Manifest V3) + FastAPI backend + AI Memory Workspace (PWA).
 
-> **Status:** Version 1 track complete (**V1-0 … V1-9**). Chrome Web Store listing package is ready to submit (upload is a manual step). Canonical inventory: [`MASTER_SPEC.md`](MASTER_SPEC.md).
+> **Status:** Version 1 track complete (**V1-0 … V1-9**). Phase 1 Production Hardening is now implemented across CLI tooling, CI benchmark smoke, observability, deploy probes, strict tenant retrieval, and legacy tenant backfill. Canonical inventory: [`MASTER_SPEC.md`](MASTER_SPEC.md).
 
 ---
 
@@ -18,7 +18,7 @@ Browsing creates useful knowledge that is hard to find later: transcripts, artic
 
 ## Current capabilities
 
-### Implemented (V1)
+### Implemented
 
 | Area | What works |
 |------|------------|
@@ -32,12 +32,13 @@ Browsing creates useful knowledge that is hard to find later: transcripts, artic
 | **Jobs** | Background playlist/import ingest with pause / resume / retry / cancel |
 | **Workspace PWA** | Dashboard, search, Ask Memory, playlists, imports, privacy controls (`app/static`) |
 | **Extension** | Observe + Save, command bar (`search`, `ask`, `import …`, `help`), deep-links into Workspace |
-| **Auth & privacy** | Optional sessions, user-scoped data, export/delete, rate limiting, hosted `/privacy` |
+| **Auth & privacy** | Optional sessions, strict user-scoped retrieval, export/delete, rate limiting, hosted `/privacy` |
 | **Trust / lifecycle** | Memory state machine + trust scoring foundation (API + demo surfaces) |
+| **Production hardening** | Safe operator CLIs, benchmark CI smoke, request IDs/metrics, liveness/readiness probes, legacy tenant metadata migration |
 
-### Not in V1 (roadmap)
+### Not yet implemented
 
-Planned for a later Version 2 gate — **not implemented**:
+Planned for later roadmap phases:
 
 - Ontology engine
 - Consensus / Gap engines
@@ -147,9 +148,9 @@ Primary modules: `app/services/ingest_service.py`, `connector_ingest_service.py`
 - **Async work:** In-process job worker for playlist/import pipelines (`JOBS_ENABLED`)
 - **Storage:** SQLite (registry, FTS, jobs, auth, intelligence) + ChromaDB on disk
 - **Clients:** Chrome MV3 extension; static PWA with service worker (`app/static`)
-- **Security:** Optional auth sessions, CORS for localhost + extension origins, SSRF-safe fetch, in-process rate limits
+- **Security:** Optional auth sessions, tenant-scoped vector queries, CORS for localhost + extension origins, SSRF-safe fetch, in-process rate limits
 - **Privacy:** Explicit save only; export/delete APIs; privacy policy page; Incognito disabled
-- **Ops:** Dockerfile + `docker-compose.yml` (single uvicorn worker); GitHub Actions CI runs `pytest -q`
+- **Ops:** Dockerfile + `docker-compose.yml` (single uvicorn worker); request IDs + lightweight metrics; separate liveness/readiness probes; GitHub Actions CI runs tests + benchmark smoke
 
 ---
 
@@ -175,13 +176,14 @@ Primary modules: `app/services/ingest_service.py`, `connector_ingest_service.py`
 - **Connector abstraction** that normalizes heterogeneous sources into one memory + index path
 - **Grounded answers by default** — deterministic synthesis works without an LLM
 - **Self-hosted, user-owned memory** with export/delete and documented privacy boundaries
+- **Fail-closed tenant isolation** for authenticated users, including migration support for historical local-default data
 - Modular FastAPI services with feature flags (`HIERARCHICAL_RETRIEVAL_ENABLED`, `AUTH_ENABLED`, `JOBS_ENABLED`, …)
 
 ---
 
 ## Quick start
 
-Requires **Python 3.11**. A clean virtualenv is recommended (docs/CI often use `.venv_clean`).
+Requires **Python 3.11**. A clean virtualenv is recommended.
 
 ```bash
 python3.11 -m venv .venv_clean
@@ -197,7 +199,9 @@ JOBS_ENABLED=true AUTH_ENABLED=false PWA_ENABLED=true \
 |---------|-----|
 | Workspace PWA | http://localhost:8000/ |
 | API docs (Swagger) | http://localhost:8000/docs |
-| Health | http://localhost:8000/api/v1/health |
+| Liveness | http://localhost:8000/api/v1/live |
+| Readiness | http://localhost:8000/api/v1/ready |
+| Metrics | http://localhost:8000/api/v1/metrics |
 | Privacy | http://localhost:8000/privacy |
 
 ### Chrome extension
@@ -207,6 +211,30 @@ JOBS_ENABLED=true AUTH_ENABLED=false PWA_ENABLED=true \
 3. Open a YouTube video → **Save To Memory**
 
 Details: [`extension/README.md`](extension/README.md)
+
+### Operator tools
+
+Ingest one YouTube item:
+
+```bash
+python scripts/ingest_item.py "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+Preview/reset configured local data:
+
+```bash
+python scripts/reset_db.py --dry-run
+python scripts/reset_db.py --yes
+```
+
+Preview/apply the legacy tenant metadata migration:
+
+```bash
+python scripts/backfill_legacy_user_ids.py --dry-run
+python scripts/backfill_legacy_user_ids.py --yes
+```
+
+Full deployment, backup, restore, health-check, and incident guidance: [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md).
 
 ### Optional: demo seed & Docker
 
@@ -224,14 +252,20 @@ Demo recording outline: [`docs/V1_DEMO_SCRIPT.md`](docs/V1_DEMO_SCRIPT.md)
 
 ## Testing
 
-**251 automated tests passing** (`pytest -q`).
+Run the current full suite rather than relying on a hard-coded test count:
 
 ```bash
 source .venv_clean/bin/activate
 pytest -q
 ```
 
-CI (`.github/workflows/ci.yml`) installs dependencies, checks `VERSION` ↔ `extension/manifest.json`, and runs the same suite on push/PR.
+AHME benchmark smoke:
+
+```bash
+BENCHMARK_RUNS=1 python scripts/benchmark_ahme.py
+```
+
+CI (`.github/workflows/ci.yml`) installs dependencies, checks `VERSION` ↔ `extension/manifest.json`, runs the test suite, and executes the benchmark smoke gate on push/PR.
 
 ---
 
@@ -240,9 +274,10 @@ CI (`.github/workflows/ci.yml`) installs dependencies, checks `VERSION` ↔ `ext
 | Track | Status |
 |-------|--------|
 | **V1 / V1.9.0** | Complete (V1-0 … V1-9): ingest, AHME, connectors, Workspace, extension command bar, auth/privacy, demo/store package, CI |
-| **V2** | Not started — Ontology, Consensus/Gap, multi-agent marketplace, and related engines remain roadmap-only |
+| **Phase 1 hardening** | Implemented: operator CLI, CI benchmark smoke, observability baseline, deploy probes, strict tenant retrieval, legacy tenant backfill, operations runbook |
+| **Next** | Phase 2 Memory Intelligence per `MASTER_SPEC.md`; later planned phases remain blocked until earlier acceptance criteria are validated |
 
-See [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md) and [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md).
+See [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md), [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md), and [`MASTER_SPEC.md`](MASTER_SPEC.md).
 
 ---
 
@@ -251,6 +286,7 @@ See [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md) and [`docs/V1_9_DEMO_ST
 | Doc | Purpose |
 |-----|---------|
 | [`MASTER_SPEC.md`](MASTER_SPEC.md) | Canonical feature inventory and execution status |
+| [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) | Single-node deployment, health, backup/restore, migration, incident and release runbook |
 | [`KNOWLEDGE_ENGINE.md`](KNOWLEDGE_ENGINE.md) | AHME + knowledge-engine architecture (implemented vs planned) |
 | [`CONNECTOR_SDK.md`](CONNECTOR_SDK.md) | Connector architecture notes (see also V1-4) |
 | [`docs/V1_PRODUCT_SPEC.md`](docs/V1_PRODUCT_SPEC.md) | V1 product scope |
