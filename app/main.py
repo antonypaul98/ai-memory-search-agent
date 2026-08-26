@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import agent, auth, capture, chat, health, imports, intelligence, jobs, knowledge, memories, playlists, privacy, search, usage, videos, youtube
 from app.config import get_settings
 from app.db.schema import migrate
+from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.services.job_worker import start_job_worker, stop_job_worker
 
@@ -52,6 +53,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(ObservabilityMiddleware)
 
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
