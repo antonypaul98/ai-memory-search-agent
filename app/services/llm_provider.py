@@ -1,4 +1,4 @@
-"""Optional LLM providers for capsule generation and synthesis."""
+"""Optional LLM providers for capsule generation and grounded synthesis."""
 
 from __future__ import annotations
 
@@ -34,50 +34,109 @@ class OllamaProvider(LLMProvider):
         self._model = settings.llm_model or "llama3.2"
 
     def generate_capsule_json(self, **kwargs: Any) -> str | None:
-        prompt = (
-            "Return ONLY valid JSON for a memory capsule with fields: video_id, title, "
-            "one_line_memory, short_summary, topics, entities, tools_or_components, "
-            "procedures, claims, difficulty, content_style, creator, duration, "
-            "upload_date, save_reason, user_goal, sections."
-            f"\nTitle: {kwargs.get('title')}\nDescription: {kwargs.get('description')}"
-            f"\nGoal: {kwargs.get('reflection_goal')}\nTranscript:\n{kwargs.get('transcript_excerpt')[:4000]}"
+        return _post_ollama_chat(
+            self._settings.llm_base_url,
+            self._model,
+            _capsule_prompt(kwargs),
+            self._settings.llm_timeout_sec,
         )
-        return _post_chat(self._settings.llm_base_url, self._model, prompt, self._settings.llm_timeout_sec)
 
-    def synthesize(self, *, question: str, evidence: list[dict], answer_format: str) -> StructuredAnswer | None:
-        evidence_text = "\n".join(
-            f"[{i}] {e.get('matched_text', '')[:400]}" for i, e in enumerate(evidence[:8])
+    def synthesize(
+        self, *, question: str, evidence: list[dict], answer_format: str
+    ) -> StructuredAnswer | None:
+        raw = _post_ollama_chat(
+            self._settings.llm_base_url,
+            self._model,
+            _synthesis_prompt(question, evidence, answer_format),
+            self._settings.llm_timeout_sec,
         )
-        prompt = (
-            "Answer ONLY from evidence. Return JSON with answer_markdown, answer_type, "
-            "evidence_ids, confidence, missing_information.\n"
-            f"Format: {answer_format}\nQuestion: {question}\nEvidence:\n{evidence_text}"
-        )
-        raw = _post_chat(self._settings.llm_base_url, self._model, prompt, self._settings.llm_timeout_sec)
-        if not raw:
-            return None
-        try:
-            match = re.search(r"\{.*\}", raw, re.S)
-            if not match:
-                return None
-            data = json.loads(match.group(0))
-            return StructuredAnswer.model_validate(data)
-        except Exception:
-            return None
+        return _parse_structured_answer(raw)
 
 
-class OpenAICompatibleProvider(OllamaProvider):
+class OpenAICompatibleProvider(LLMProvider):
+    """Provider for OpenAI-compatible `/v1/chat/completions` servers.
+
+    The API key is loaded only from the configured environment variable and is
+    never persisted in repository state or logs. Missing model/key fails closed
+    to the deterministic non-LLM path.
+    """
+
     def __init__(self, settings: Settings) -> None:
-        super().__init__(settings)
-        self._api_key = os.environ.get(settings.llm_api_key_env, "")
+        self._settings = settings
+        self._model = settings.llm_model.strip()
+        self._api_key = os.environ.get(settings.llm_api_key_env, "").strip()
+
+    @property
+    def configured(self) -> bool:
+        return bool(self._model and self._api_key)
 
     def generate_capsule_json(self, **kwargs: Any) -> str | None:
-        if not self._api_key:
+        if not self.configured:
             return None
-        return super().generate_capsule_json(**kwargs)
+        return _post_openai_chat(
+            self._settings.llm_base_url,
+            self._model,
+            _capsule_prompt(kwargs),
+            self._settings.llm_timeout_sec,
+            self._api_key,
+        )
+
+    def synthesize(
+        self, *, question: str, evidence: list[dict], answer_format: str
+    ) -> StructuredAnswer | None:
+        if not self.configured:
+            return None
+        raw = _post_openai_chat(
+            self._settings.llm_base_url,
+            self._model,
+            _synthesis_prompt(question, evidence, answer_format),
+            self._settings.llm_timeout_sec,
+            self._api_key,
+        )
+        return _parse_structured_answer(raw)
 
 
-def _post_chat(base_url: str, model: str, prompt: str, timeout: int) -> str | None:
+def _capsule_prompt(kwargs: dict[str, Any]) -> str:
+    transcript = str(kwargs.get("transcript_excerpt") or "")[:4000]
+    return (
+        "Return ONLY valid JSON for a memory capsule with fields: video_id, title, "
+        "one_line_memory, short_summary, topics, entities, tools_or_components, "
+        "procedures, claims, difficulty, content_style, creator, duration, "
+        "upload_date, save_reason, user_goal, sections."
+        f"\nTitle: {kwargs.get('title')}\nDescription: {kwargs.get('description')}"
+        f"\nGoal: {kwargs.get('reflection_goal')}\nTranscript:\n{transcript}"
+    )
+
+
+def _synthesis_prompt(question: str, evidence: list[dict], answer_format: str) -> str:
+    lines: list[str] = []
+    for i, item in enumerate(evidence[:8]):
+        evidence_id = item.get("evidence_id") or item.get("doc_id") or str(i)
+        text = str(item.get("matched_text") or "")[:400]
+        lines.append(f"[{evidence_id}] {text}")
+    evidence_text = "\n".join(lines)
+    return (
+        "Answer ONLY from the supplied evidence. Return JSON with answer_markdown, "
+        "answer_type, evidence_ids, confidence, missing_information. evidence_ids must "
+        "contain only IDs shown in brackets below.\n"
+        f"Format: {answer_format}\nQuestion: {question}\nEvidence:\n{evidence_text}"
+    )
+
+
+def _parse_structured_answer(raw: str | None) -> StructuredAnswer | None:
+    if not raw:
+        return None
+    try:
+        match = re.search(r"\{.*\}", raw, re.S)
+        if not match:
+            return None
+        data = json.loads(match.group(0))
+        return StructuredAnswer.model_validate(data)
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return None
+
+
+def _post_ollama_chat(base_url: str, model: str, prompt: str, timeout: int) -> str | None:
     url = base_url.rstrip("/") + "/api/chat"
     payload = {
         "model": model,
@@ -90,7 +149,38 @@ def _post_chat(base_url: str, model: str, prompt: str, timeout: int) -> str | No
             resp.raise_for_status()
             data = resp.json()
             return data.get("message", {}).get("content") or data.get("response")
-    except Exception:
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError):
+        return None
+
+
+def _post_openai_chat(
+    base_url: str,
+    model: str,
+    prompt: str,
+    timeout: int,
+    api_key: str,
+) -> str | None:
+    base = base_url.rstrip("/")
+    url = f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            choices = data.get("choices") or []
+            if not choices:
+                return None
+            return choices[0].get("message", {}).get("content")
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError, IndexError):
         return None
 
 
