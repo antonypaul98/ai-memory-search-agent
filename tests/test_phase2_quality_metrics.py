@@ -57,6 +57,20 @@ def test_metrics_endpoint_exposes_only_aggregate_quality_data(client) -> None:
     data = response.json()
     assert data["chat_quality"]["grounded_rate"] == 1.0
     assert data["route_latency"]["/api/v1/search"]["p95_ms"] == 25.0
-    serialized = response.text.lower()
-    assert "question" not in serialized
-    assert "answer" not in serialized
+    serialized = response.text
+    assert "private question text" not in serialized
+    assert "private answer text" not in serialized
+
+
+def test_chat_api_records_quality_outcome(client) -> None:
+    response = client.post(
+        "/api/v1/chat",
+        json={"question": "What did I save about a topic with no memories?"},
+    )
+    assert response.status_code == 200
+
+    quality = metrics_snapshot()["chat_quality"]
+    assert quality["total"] == 1
+    assert quality["answered_total"] == 1
+    assert quality["grounded_total"] in {0, 1}
+    assert 0.0 <= quality["grounded_rate"] <= 1.0
