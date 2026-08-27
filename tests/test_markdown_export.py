@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.services.privacy_service import dump_export_markdown
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_markdown_export_preserves_human_summary_and_complete_records() -> None:
@@ -74,3 +79,12 @@ def test_invalid_export_format_is_rejected(client: TestClient) -> None:
     response = client.get("/api/v1/privacy/export?format=html")
 
     assert response.status_code == 422
+
+
+def test_settings_exposes_authenticated_markdown_download() -> None:
+    settings_js = (ROOT / "app/static/js/views/settings.js").read_text(encoding="utf-8")
+
+    assert 'id="set-export-markdown"' in settings_js
+    assert 'privacy/export?format=markdown&download=true' in settings_js
+    assert 'headers.Authorization = `Bearer ${token}`' in settings_js
+    assert 'ai-memory-export-${Date.now()}.md' in settings_js
