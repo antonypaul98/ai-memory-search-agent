@@ -8,10 +8,12 @@ from app.api.auth import get_current_user
 from app.api.dependencies import get_app_settings
 from app.config import Settings
 from app.models.agent_runtime import AgentRunRequest, AgentRunResponse
+from app.models.capture_triage import CaptureTriageRequest, CaptureTriageResponse
 from app.models.research_agent import ResearchAgentRequest, ResearchAgentResponse
 from app.models.review_agent import ReviewQueueRequest, ReviewQueueResponse
 from app.models.user import UserPublic
 from app.services.agent_runtime import AgentRuntime
+from app.services.capture_triage_agent import CaptureTriageAgent
 from app.services.research_agent import ResearchAgent
 from app.services.review_agent import ReviewAgent
 
@@ -51,6 +53,19 @@ def build_review_queue(
 ) -> ReviewQueueResponse:
     """Build a deterministic spaced-review queue for the authenticated user."""
     return ReviewAgent(settings).queue(user_id=user.user_id, request=body)
+
+
+@router.post("/capture/triage", response_model=CaptureTriageResponse)
+def triage_captures(
+    body: CaptureTriageRequest,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> CaptureTriageResponse:
+    """Validate/canonicalize/dedupe a capture queue without writing memory."""
+    try:
+        return CaptureTriageAgent(settings).triage(user_id=user.user_id, request=body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/runs/{run_id}", response_model=AgentRunResponse)
