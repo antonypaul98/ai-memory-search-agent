@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.db.schema import migrate
 from app.models.review_agent import ReviewQueueRequest
 from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.services.review_agent import ReviewAgent
@@ -22,6 +23,9 @@ def _seed(
     last_viewed: str | None,
     title: str = "Memory",
 ) -> None:
+    # These tests use the service directly, outside FastAPI lifespan where
+    # migrations normally run. Initialize the temporary DB before seeding it.
+    migrate(settings)
     now = datetime.now(timezone.utc).isoformat()
     with sqlite3.connect(settings.sqlite_path) as conn:
         conn.execute(
