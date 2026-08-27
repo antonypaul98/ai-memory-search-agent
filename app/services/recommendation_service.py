@@ -7,6 +7,7 @@ from app.core.embeddings import embed_query
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
 from app.models.reflection import RecommendationItem
+from app.models.user import LOCAL_DEFAULT_USER_ID
 
 
 class RecommendationService:
@@ -28,12 +29,14 @@ class RecommendationService:
         *,
         limit: int = 3,
         exclude_video_ids: set[str] | None = None,
+        user_id: str = LOCAL_DEFAULT_USER_ID,
     ) -> list[RecommendationItem]:
         exclude = exclude_video_ids or set()
         query_embedding = embed_query(query, settings=self._settings)
         hits = self._repository.search(
             query_embedding=query_embedding,
             top_k=self._settings.search_top_k_chunks,
+            user_id=user_id,
         )
 
         recommendations: list[RecommendationItem] = []
@@ -44,7 +47,7 @@ class RecommendationService:
                 continue
             seen.add(video_id)
 
-            video = self._registry.get_video(video_id)
+            video = self._registry.get_video(video_id, user_id=user_id)
             if not video:
                 continue
             if not video.get("recommendations_enabled"):

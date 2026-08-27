@@ -21,9 +21,10 @@ def list_recommendations(
     q: str = Query(..., min_length=1),
     limit: int = Query(default=3, ge=1, le=10),
     service: RecommendationService = Depends(get_recommendation_service),
+    user: UserPublic = Depends(get_current_user),
 ) -> list[RecommendationItem]:
-    """Return preference-aware recommendations for a query."""
-    return service.recommend_for_query(q, limit=limit)
+    """Return preference-aware recommendations for the current tenant only."""
+    return service.recommend_for_query(q, limit=limit, user_id=user.user_id)
 
 
 @router.post("/{video_id}/view", response_model=UsageStats)
