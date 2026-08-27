@@ -1,4 +1,4 @@
-"""Semantic query response cache with tenant isolation."""
+"""Semantic query response cache with tenant isolation and operator controls."""
 
 from __future__ import annotations
 
@@ -136,3 +136,57 @@ class SemanticCache:
                     owner,
                 ),
             )
+
+    def stats(self, *, user_id: str | None = None) -> dict:
+        """Return cache counts for one tenant without exposing cached content."""
+        owner = user_id or LOCAL_DEFAULT_USER_ID
+        now = datetime.now(timezone.utc).isoformat()
+        with get_connection(self._settings) as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN expires_at > ? THEN 1 ELSE 0 END) AS active,
+                    SUM(CASE WHEN expires_at <= ? THEN 1 ELSE 0 END) AS expired
+                FROM semantic_cache
+                WHERE user_id = ?
+                """,
+                (now, now, owner),
+            ).fetchone()
+            by_type_rows = conn.execute(
+                """
+                SELECT query_type, COUNT(*) AS count
+                FROM semantic_cache
+                WHERE user_id = ? AND expires_at > ?
+                GROUP BY query_type
+                ORDER BY query_type
+                """,
+                (owner, now),
+            ).fetchall()
+        return {
+            "enabled": self._settings.semantic_cache_enabled,
+            "ttl_sec": self._settings.semantic_cache_ttl_sec,
+            "similarity_threshold": self._settings.semantic_cache_similarity_threshold,
+            "total": int(row["total"] or 0),
+            "active": int(row["active"] or 0),
+            "expired": int(row["expired"] or 0),
+            "active_by_query_type": {r["query_type"]: int(r["count"]) for r in by_type_rows},
+        }
+
+    def invalidate(
+        self,
+        *,
+        user_id: str | None = None,
+        query_type: str | None = None,
+    ) -> int:
+        """Delete cache entries for exactly one tenant; optionally limit by query type."""
+        owner = user_id or LOCAL_DEFAULT_USER_ID
+        with get_connection(self._settings) as conn:
+            if query_type is None:
+                cur = conn.execute("DELETE FROM semantic_cache WHERE user_id = ?", (owner,))
+            else:
+                cur = conn.execute(
+                    "DELETE FROM semantic_cache WHERE user_id = ? AND query_type = ?",
+                    (owner, query_type),
+                )
+            return max(int(cur.rowcount or 0), 0)
