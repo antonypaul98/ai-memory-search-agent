@@ -40,6 +40,9 @@ jobs:
           MANIFEST_VER="$(python -c "import json; print(json.load(open('extension/manifest.json'))['version'])")"
           test "$VER" = "$MANIFEST_VER"
 
+      - name: Extension helper tests
+        run: node --test tests/extension/*.mjs
+
       - name: pytest -q
         env:
           AUTH_ENABLED: "false"
