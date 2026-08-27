@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.models.consensus import ConsensusReport
 from app.models.reflection import RecommendationItem
 from app.models.metrics import SearchMetrics
 from app.models.verification import VerificationReport
@@ -46,7 +47,7 @@ class ChatSource(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Grounded chat response with citations and claim-level verification."""
+    """Grounded chat response with citations and knowledge-engine analysis."""
 
     answer: str
     sources: list[ChatSource]
@@ -57,4 +58,5 @@ class ChatResponse(BaseModel):
     recommendations: list[RecommendationItem] = Field(default_factory=list)
     confidence: str | None = None
     verification: VerificationReport | None = None
+    consensus: ConsensusReport | None = None
     debug_metrics: SearchMetrics | None = None
