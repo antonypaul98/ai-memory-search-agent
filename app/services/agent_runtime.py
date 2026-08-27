@@ -14,6 +14,7 @@ from typing import Any
 
 from app.config import Settings, get_settings
 from app.db.schema import get_connection
+from app.db.video_registry import get_video_registry
 from app.models.agent_runtime import (
     AgentPolicyTier,
     AgentRunRequest,
@@ -26,8 +27,8 @@ from app.services.ingest_service import IngestService
 from app.services.search_service import SearchService
 
 
-_WRITE_TOOLS = frozenset({"ingest_url"})
-_ALLOWED_TOOLS = frozenset({"search_memory", "ingest_url"})
+_WRITE_TOOLS = frozenset({"ingest_url", "record_feedback"})
+_ALLOWED_TOOLS = frozenset({"search_memory", "ingest_url", "record_feedback"})
 
 
 class AgentRuntime:
@@ -308,6 +309,19 @@ class AgentRuntime:
                 force_refresh=force_refresh,
             )
             return item.model_dump(mode="json")
+
+        if tool == "record_feedback":
+            video_id = str(arguments.get("video_id") or "").strip()
+            if not video_id:
+                raise ValueError("record_feedback requires video_id")
+            helpful = arguments.get("helpful")
+            if not isinstance(helpful, bool):
+                raise ValueError("record_feedback helpful must be boolean")
+            registry = get_video_registry(self._settings)
+            if not registry.get_video(video_id, user_id=user_id):
+                raise KeyError("video not found")
+            stats = registry.record_feedback(video_id, helpful=helpful, user_id=user_id)
+            return stats.model_dump(mode="json")
 
         raise ValueError(f"unknown agent tool: {tool}")
 

@@ -93,6 +93,54 @@ class TestAgentRuntime:
             force_refresh=False,
         )
 
+    def test_record_feedback_requires_approval_and_is_tenant_scoped(
+        self, test_settings: Settings
+    ) -> None:
+        runtime = AgentRuntime(test_settings)
+        pending = runtime.run(
+            user_id="tenant-a",
+            request=AgentRunRequest(
+                task="Mark this memory helpful",
+                tool="record_feedback",
+                arguments={"video_id": "vid-1", "helpful": True},
+                policy_tier=AgentPolicyTier.WRITE_MEMORY,
+            ),
+        )
+        assert pending.status == AgentRunStatus.AWAITING_APPROVAL
+
+        with patch("app.services.agent_runtime.get_video_registry") as get_registry:
+            registry = get_registry.return_value
+            registry.get_video.return_value = {"video_id": "vid-1"}
+            stats = MagicMock()
+            stats.model_dump.return_value = {"video_id": "vid-1", "helpful_count": 1}
+            registry.record_feedback.return_value = stats
+            done = runtime.approve(user_id="tenant-a", run_id=pending.run_id)
+
+        assert done.status == AgentRunStatus.COMPLETED
+        registry.get_video.assert_called_once_with("vid-1", user_id="tenant-a")
+        registry.record_feedback.assert_called_once_with(
+            "vid-1", helpful=True, user_id="tenant-a"
+        )
+
+    def test_record_feedback_rejects_non_boolean_helpful(
+        self, test_settings: Settings
+    ) -> None:
+        runtime = AgentRuntime(test_settings)
+        with patch("app.services.agent_runtime.get_video_registry") as get_registry:
+            out = runtime.run(
+                user_id="tenant-a",
+                request=AgentRunRequest(
+                    task="Bad feedback",
+                    tool="record_feedback",
+                    arguments={"video_id": "vid-1", "helpful": "yes"},
+                    policy_tier=AgentPolicyTier.WRITE_MEMORY,
+                    approved=True,
+                ),
+            )
+        assert out.status == AgentRunStatus.FAILED
+        assert "helpful must be boolean" in out.message
+        get_registry.assert_not_called()
+
     def test_unknown_tool_rejected_before_run_is_created(self, test_settings: Settings) -> None:
         runtime = AgentRuntime(test_settings)
         try:
