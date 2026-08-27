@@ -7,6 +7,7 @@ from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
 from app.middleware.observability import record_chat_outcome
 from app.models.chat import ChatResponse, ChatSource, ClarificationOption
+from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.clarification_service import analyze_clarification, filter_chunks_by_choice
 from app.services.grounded_synthesis import synthesize_grounded_answer
@@ -51,15 +52,19 @@ class ChatService:
         user_id: str | None = None,
     ) -> ChatResponse:
         """Retrieve relevant chunks and produce a synthesized grounded answer."""
+        owner_id = user_id or LOCAL_DEFAULT_USER_ID
         route = route_query(question, settings=self._settings)
         chunk_hits, metrics = self._ahme.retrieve(
             question,
             top_k=top_k,
-            user_id=user_id,
+            user_id=owner_id,
         )
 
         if chunk_hits:
-            self._registry.record_search([hit["video_id"] for hit in chunk_hits if hit.get("video_id")])
+            self._registry.record_search(
+                [hit["video_id"] for hit in chunk_hits if hit.get("video_id")],
+                user_id=owner_id,
+            )
 
         if not clarification_choice:
             clarification = analyze_clarification(question, chunk_hits)
@@ -98,6 +103,7 @@ class ChatService:
         recommendations = self._recommendations.recommend_for_query(
             question,
             exclude_video_ids=top_video_ids,
+            user_id=owner_id,
         )
 
         response = ChatResponse(
