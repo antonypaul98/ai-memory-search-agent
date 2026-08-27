@@ -12,6 +12,7 @@ from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
 from app.db.youtube_memory_store import YouTubeMemoryStore
 from app.models.metrics import SearchMetrics
+from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.models.video import SearchFilters, SearchResponse, SearchResultItem
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.enrichment_service import build_why_matched
@@ -47,6 +48,7 @@ class SearchService:
     ) -> SearchResponse:
         """Run semantic / hybrid search via AHME with optional metadata filters."""
         started = time.perf_counter()
+        owner = user_id or LOCAL_DEFAULT_USER_ID
         if user_id:
             try:
                 from app.services.agent_status_service import AgentStatusService
@@ -56,12 +58,13 @@ class SearchService:
                 pass
 
         chunk_hits, metrics = self._ahme.retrieve(
-            query, top_k=self._settings.search_top_k_chunks, user_id=user_id
+            query, top_k=self._settings.search_top_k_chunks, user_id=owner
         )
 
         if chunk_hits:
             self._registry.record_search(
-                [hit["video_id"] for hit in chunk_hits if hit.get("video_id")]
+                [hit["video_id"] for hit in chunk_hits if hit.get("video_id")],
+                user_id=owner,
             )
 
         grouped = _group_by_video(chunk_hits)
@@ -78,7 +81,7 @@ class SearchService:
                 query=query,
                 registry=self._registry,
                 yt_store=self._yt_store,
-                user_id=user_id,
+                user_id=owner,
             )
             if filters and not _passes_filters(item, filters):
                 continue
@@ -125,9 +128,10 @@ def _to_search_result_item(
     relevance = round(hit["relevance_score"], 4)
     description = hit.get("description", "")
     video_id = hit["video_id"]
+    owner = user_id or LOCAL_DEFAULT_USER_ID
 
-    reflection = registry.get_reflection(video_id)
-    usage = registry.get_usage(video_id)
+    reflection = registry.get_reflection(video_id, user_id=owner)
+    usage = registry.get_usage(video_id, user_id=owner)
     if reflection.goal and query:
         reflection.reflection_message = (
             f"You originally saved this to {reflection.goal.lower().strip()}. "
@@ -156,7 +160,7 @@ def _to_search_result_item(
     if hit.get("matched_text"):
         matching_metadata.append("transcript")
 
-    yt = yt_store.get(video_id, user_id=user_id) if user_id else None
+    yt = yt_store.get(video_id, user_id=owner)
     tags = hit.get("tags") or (yt.tags if yt else [])
     if isinstance(tags, str):
         tags = [t for t in tags.split(",") if t]
@@ -234,8 +238,6 @@ def _passes_filters(item: SearchResultItem, filters: SearchFilters) -> bool:
         return False
     item_day = _filter_day(item.published_at) or _filter_day(getattr(item, "import_date", None))
     if filters.date_from or filters.date_to:
-        # When a date bound is requested but the hit has no usable date, exclude it
-        # so filters cannot be silently bypassed for PDF/web memories.
         if not item_day:
             return False
         from_day = _filter_day(filters.date_from)
@@ -245,7 +247,6 @@ def _passes_filters(item: SearchResultItem, filters: SearchFilters) -> bool:
         if to_day and item_day > to_day:
             return False
     if filters.tags:
-        # Tags only available via matching_metadata prefix or future enrichment
         hay = " ".join(item.matching_metadata).lower()
         if not any(t.lower() in hay or t.lower() in item.title.lower() for t in filters.tags):
             return False
