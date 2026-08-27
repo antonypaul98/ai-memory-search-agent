@@ -44,3 +44,11 @@ class LifecycleTransition(BaseModel):
     actor: str = "system"
     metadata: dict = Field(default_factory=dict)
     created_at: str
+
+
+class MemoryMergeRequest(BaseModel):
+    """Explicit user-confirmed duplicate merge request."""
+
+    into_memory_id: str = Field(min_length=1, max_length=200)
+    confirm: bool = False
+    reason: str = Field(default="duplicate_merge", max_length=500)
