@@ -1,5 +1,7 @@
 """Knowledge graph query API routes."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.auth import get_current_user
@@ -18,6 +20,14 @@ def _graph(settings: Settings = Depends(get_settings)) -> KnowledgeGraphService:
 
 def _memory_store(settings: Settings = Depends(get_settings)) -> MemoryStore:
     return get_memory_store(settings)
+
+
+def _utc_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
 
 
 @router.get("/entities", response_model=list[GraphEntity])
@@ -52,11 +62,15 @@ def get_entity(
 def entity_relations(
     entity_id: str,
     direction: str = Query(default="both", pattern="^(outgoing|incoming|both)$"),
+    at_time: datetime | None = Query(default=None, alias="at"),
     user: UserPublic = Depends(get_current_user),
     graph: KnowledgeGraphService = Depends(_graph),
 ) -> GraphQueryResponse:
     response = graph.relations_for_entity(
-        entity_id, user_id=user.user_id, direction=direction
+        entity_id,
+        user_id=user.user_id,
+        direction=direction,
+        at_time=_utc_iso(at_time),
     )
     if not response.entities:
         raise HTTPException(status_code=404, detail="Entity not found.")
@@ -67,10 +81,16 @@ def entity_relations(
 def graph_neighbors(
     entity_id: str = Query(..., min_length=1),
     depth: int = Query(default=1, ge=1, le=2),
+    at_time: datetime | None = Query(default=None, alias="at"),
     user: UserPublic = Depends(get_current_user),
     graph: KnowledgeGraphService = Depends(_graph),
 ) -> GraphQueryResponse:
-    response = graph.neighbors(entity_id, user_id=user.user_id, depth=depth)
+    response = graph.neighbors(
+        entity_id,
+        user_id=user.user_id,
+        depth=depth,
+        at_time=_utc_iso(at_time),
+    )
     if not response.entities:
         raise HTTPException(status_code=404, detail="Entity not found.")
     return response
