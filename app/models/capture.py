@@ -66,5 +66,6 @@ class BookmarkImportItem(BaseModel):
 
 class BookmarkImportRequest(BaseModel):
     source_browser: str = "chrome"
-    sync_mode: str = "manual"  # manual | folder | new_only
-    items: list[BookmarkImportItem] = Field(min_length=1, max_length=500)
+    sync_mode: str = "manual"  # manual | scheduled | folder | new_only
+    snapshot_complete: bool = False
+    items: list[BookmarkImportItem] = Field(min_length=0, max_length=500)
