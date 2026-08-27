@@ -83,7 +83,10 @@ class AdaptiveHierarchicalMemoryEngine:
         embedding = embed_query(query, settings=self._settings)
         if route.allow_cache:
             cached = self._cache.get(
-                question=query, query_embedding=embedding, query_type=query_type
+                question=query,
+                query_embedding=embedding,
+                query_type=query_type,
+                user_id=user_id,
             )
             if cached:
                 metrics.cache_hit = True
@@ -180,6 +183,7 @@ class AdaptiveHierarchicalMemoryEngine:
                 query_embedding=embedding,
                 answer={"chunks": selected},
                 query_type=query_type,
+                user_id=user_id,
             )
 
         return selected, metrics
