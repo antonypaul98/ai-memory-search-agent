@@ -36,8 +36,8 @@ class ModelRouteRequest(BaseModel):
     model ID. Pinned requests never fall over to a different model.
 
     `max_output_tokens` is a hard ceiling. In the default AUTO verbosity mode the
-    router may choose a smaller learned/task-specific budget to avoid spending tokens
-    the user historically does not find useful. Explicit DETAILED mode keeps the full cap.
+    adaptive layer may choose a smaller learned/task-specific budget to avoid spending
+    tokens the user historically does not find useful. DETAILED mode keeps the full cap.
     """
 
     prompt: str = Field(min_length=1, max_length=200_000)
@@ -88,8 +88,8 @@ class ModelRouteResponse(BaseModel):
     attempts: list[ModelRouteAttempt] = Field(default_factory=list)
     usage: ModelTokenUsage = Field(default_factory=ModelTokenUsage)
     route_fingerprint: str
-    interaction_id: str
-    output_budget_tokens: int
+    interaction_id: str = ""
+    output_budget_tokens: int = 0
     budget_tokens_saved_vs_cap: int = 0
     preference_applied: bool = False
     survey_available: bool = False
