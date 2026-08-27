@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
 from app.db.schema import get_connection, migrate
-from app.models.capture import BookmarkImportItem, BookmarkImportRequest
+from app.models.capture import BookmarkImportRequest
 from app.services.connector_ingest_service import ConnectorIngestService
 from app.services.cross_duplicate_service import CrossConnectorDuplicateDetector
 from app.services.deduplication_service import hash_text
@@ -100,6 +100,7 @@ class ImportManager:
         items = [i.model_dump() for i in payload.items]
         preview = connector.preview_import(items, known_url_hashes=known)
         preview["connector_id"] = "bookmarks.v1"
+        preview["snapshot_complete"] = payload.snapshot_complete
         return preview
 
     def import_bookmarks(
@@ -111,8 +112,34 @@ class ImportManager:
     ) -> dict:
         preview = self.preview_bookmarks(payload, user_id=user_id)
         now = _now()
-        # Persist bookmark rows
+        current_ids = {item.browser_bookmark_id for item in payload.items}
+
+        # Reconcile browser state only when the client explicitly guarantees that
+        # this payload is a complete snapshot. This prevents truncated/partial
+        # imports from falsely marking unseen browser bookmarks as deleted.
         with get_connection(self._settings) as conn:
+            if payload.snapshot_complete:
+                if current_ids:
+                    placeholders = ",".join("?" for _ in current_ids)
+                    conn.execute(
+                        f"""
+                        UPDATE browser_bookmarks
+                        SET removed_in_browser = 1, sync_status = 'removed', last_synced_at = ?
+                        WHERE user_id = ? AND source_browser = ?
+                          AND browser_bookmark_id NOT IN ({placeholders})
+                        """,
+                        (now, user_id, payload.source_browser, *sorted(current_ids)),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE browser_bookmarks
+                        SET removed_in_browser = 1, sync_status = 'removed', last_synced_at = ?
+                        WHERE user_id = ? AND source_browser = ?
+                        """,
+                        (now, user_id, payload.source_browser),
+                    )
+
             for item in payload.items:
                 conn.execute(
                     """
@@ -125,6 +152,8 @@ class ImportManager:
                         url = excluded.url,
                         url_hash = excluded.url_hash,
                         title = excluded.title,
+                        sync_status = 'synced',
+                        source_browser = excluded.source_browser,
                         last_synced_at = excluded.last_synced_at,
                         removed_in_browser = 0
                     """,
@@ -145,12 +174,14 @@ class ImportManager:
         run = self.create_import(
             user_id=user_id, connector_id="bookmarks.v1", urls=urls, titles=titles
         )
-        if async_processing:
+        if async_processing and urls:
             self.start_import_async(run["import_id"], user_id=user_id)
         else:
             self._run_import(run["import_id"], user_id)
         result = self.get_import(run["import_id"], user_id=user_id)
         result["preview"] = preview
+        result["sync_mode"] = payload.sync_mode
+        result["snapshot_complete"] = payload.snapshot_complete
         return result
 
     def list_imports(self, *, user_id: str, limit: int = 50) -> list[dict]:
@@ -243,7 +274,6 @@ class ImportManager:
                     )
                 elif result.success:
                     completed += 1
-                    # Register YouTube URLs in cross index too
                     if result.webpage_url or url:
                         self._dupes.register(
                             user_id=user_id,
