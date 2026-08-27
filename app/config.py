@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     job_lease_seconds: int = 120
     job_poll_interval_sec: float = 2.0
     youtube_api_key_env: str = "YOUTUBE_API_KEY"
+    connector_token_key_env: str = "CONNECTOR_TOKEN_KEY"
     playlist_page_size: int = 50
     playlist_max_videos: int = 500
     capture_max_response_bytes: int = 2_000_000
