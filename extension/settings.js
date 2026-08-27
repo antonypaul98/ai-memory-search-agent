@@ -1,6 +1,9 @@
 import { getHealth } from "./shared/api.js";
 import { loadSettings, saveSettings } from "./shared/storage.js";
-import { requestNotificationsPermission } from "./shared/permissions.js";
+import {
+  requestBookmarksPermission,
+  requestNotificationsPermission,
+} from "./shared/permissions.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,6 +16,8 @@ async function init() {
   $("privacyMode").checked = s.privacyMode;
   $("notificationsEnabled").checked = s.notificationsEnabled;
   $("debugMode").checked = s.debugMode;
+  $("bookmarkSyncEnabled").checked = s.bookmarkSyncEnabled;
+  $("bookmarkSyncHours").value = String(s.bookmarkSyncHours || 24);
   document.body.dataset.theme = s.theme;
 
   $("btn-save").addEventListener("click", onSave);
@@ -26,6 +31,27 @@ async function onSave() {
   if ($("notificationsEnabled").checked) {
     await requestNotificationsPermission();
   }
+
+  let bookmarkSyncEnabled = $("bookmarkSyncEnabled").checked;
+  if (bookmarkSyncEnabled) {
+    const granted = await requestBookmarksPermission();
+    if (!granted) {
+      bookmarkSyncEnabled = false;
+      $("bookmarkSyncEnabled").checked = false;
+      $("bookmark-sync-status").textContent =
+        "Bookmarks permission was not granted, so scheduled sync remains off.";
+    } else {
+      $("bookmark-sync-status").textContent = "Scheduled bookmark sync enabled.";
+    }
+  } else {
+    $("bookmark-sync-status").textContent = "Scheduled bookmark sync is off.";
+  }
+
+  const rawHours = Number($("bookmarkSyncHours").value || 24);
+  const bookmarkSyncHours = Number.isFinite(rawHours)
+    ? Math.min(168, Math.max(1, Math.round(rawHours)))
+    : 24;
+
   await saveSettings({
     apiBase: $("apiBase").value.trim(),
     token: $("token").value.trim(),
@@ -34,7 +60,10 @@ async function onSave() {
     privacyMode: $("privacyMode").checked,
     notificationsEnabled: $("notificationsEnabled").checked,
     debugMode: $("debugMode").checked,
+    bookmarkSyncEnabled,
+    bookmarkSyncHours,
   });
+  await chrome.runtime.sendMessage({ type: "CONFIGURE_BOOKMARK_SYNC" });
   $("save-status").textContent = "Settings saved.";
 }
 

@@ -6,6 +6,7 @@ import {
   saveToMemory,
   getCaptureStatus,
   retryCapture,
+  importBookmarks,
 } from "./shared/api.js";
 import {
   loadSettings,
@@ -17,7 +18,10 @@ import {
   sweepExpiredContext,
   STORAGE_KEYS,
 } from "./shared/storage.js";
+import { collectBookmarkSnapshot } from "./shared/bookmarks.js";
 import { isRestrictedUrl, classifyPlatform } from "./shared/context.js";
+
+const BOOKMARK_SYNC_ALARM = "bookmark-sync";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
@@ -28,11 +32,20 @@ chrome.runtime.onInstalled.addListener(() => {
     });
   });
   chrome.alarms.create("context-ttl-sweep", { periodInMinutes: 5 });
+  configureBookmarkSync();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  configureBookmarkSync();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "context-ttl-sweep") {
     sweepExpiredContext();
+    return;
+  }
+  if (alarm.name === BOOKMARK_SYNC_ALARM) {
+    runScheduledBookmarkSync();
   }
 });
 
@@ -172,7 +185,68 @@ async function handleMessage(message, sender) {
     return { ok: true, status };
   }
 
+  if (type === "CONFIGURE_BOOKMARK_SYNC") {
+    await configureBookmarkSync();
+    return { ok: true };
+  }
+
+  if (type === "SYNC_BOOKMARKS_NOW") {
+    return runScheduledBookmarkSync({ force: true });
+  }
+
   return { ok: false, error: "Unknown message" };
+}
+
+async function configureBookmarkSync() {
+  const settings = await loadSettings();
+  await chrome.alarms.clear(BOOKMARK_SYNC_ALARM);
+  if (!settings.bookmarkSyncEnabled) return;
+  const hasPermission = await chrome.permissions.contains({ permissions: ["bookmarks"] });
+  if (!hasPermission) return;
+  const minutes = Math.max(60, Number(settings.bookmarkSyncHours || 24) * 60);
+  chrome.alarms.create(BOOKMARK_SYNC_ALARM, {
+    delayInMinutes: minutes,
+    periodInMinutes: minutes,
+  });
+}
+
+async function runScheduledBookmarkSync({ force = false } = {}) {
+  const settings = await loadSettings();
+  if (!force && !settings.bookmarkSyncEnabled) return { ok: true, skipped: true };
+  const hasPermission = await chrome.permissions.contains({ permissions: ["bookmarks"] });
+  if (!hasPermission) {
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.lastBookmarkSyncError]: "Bookmarks permission not granted",
+    });
+    return { ok: false, error: "Bookmarks permission not granted" };
+  }
+
+  try {
+    const snapshot = await collectBookmarkSnapshot();
+    const result = await importBookmarks(settings, {
+      source_browser: "chrome",
+      sync_mode: force ? "manual" : "scheduled",
+      snapshot_complete: snapshot.snapshot_complete,
+      items: snapshot.items,
+    });
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.lastBookmarkSyncAt]: Date.now(),
+      [STORAGE_KEYS.lastBookmarkSyncError]: "",
+    });
+    return {
+      ok: true,
+      import_id: result?.import_id || null,
+      status: result?.status || "queued",
+      total: snapshot.total,
+      snapshot_complete: snapshot.snapshot_complete,
+    };
+  } catch (err) {
+    const message = String(err?.message || err);
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.lastBookmarkSyncError]: message,
+    });
+    return { ok: false, error: message };
+  }
 }
 
 async function requestPageContext(tabId) {
