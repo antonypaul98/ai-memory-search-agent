@@ -154,6 +154,10 @@ class SearchFilters(BaseModel):
     channel: str | None = None
     date_from: str | None = None
     date_to: str | None = None
+    save_reason: str | None = Field(
+        default=None,
+        description="Case-insensitive substring filter over the current user's save reason.",
+    )
     transcript_available: bool | None = None
     duration_min: float | None = None
     duration_max: float | None = None
