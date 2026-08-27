@@ -102,7 +102,7 @@ def test_chat_propagates_tenant_to_usage_and_recommendations() -> None:
         ),
         patch(
             "app.services.chat_service.synthesize_grounded_answer",
-            return_value=(generated, 0.9, 1.0),
+            return_value=(generated, "high", 1.0),
         ),
     ):
         response = service.chat("What did I save?", user_id="tenant-d")
