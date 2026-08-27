@@ -77,3 +77,15 @@ class GraphQueryResponse(BaseModel):
     entities: list[GraphEntity] = Field(default_factory=list)
     relations: list[GraphRelation] = Field(default_factory=list)
     neighbors: list[GraphNeighbor] = Field(default_factory=list)
+
+
+class GraphEntityMergeRequest(BaseModel):
+    source_entity_id: str = Field(min_length=1, max_length=200)
+
+
+class GraphEntityMergeResult(BaseModel):
+    entity: GraphEntity
+    merged_source_entity_id: str
+    rewired_memory_links: int = Field(ge=0)
+    rewired_relations: int = Field(ge=0)
+    collapsed_relations: int = Field(ge=0)
