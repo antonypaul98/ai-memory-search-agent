@@ -11,6 +11,10 @@ export const STORAGE_KEYS = {
   notificationsEnabled: "notificationsEnabled",
   privacyMode: "privacyMode",
   debugMode: "debugMode",
+  bookmarkSyncEnabled: "bookmarkSyncEnabled",
+  bookmarkSyncHours: "bookmarkSyncHours",
+  lastBookmarkSyncAt: "lastBookmarkSyncAt",
+  lastBookmarkSyncError: "lastBookmarkSyncError",
   observerPaused: "observerPaused",
   lastCaptureId: "lastCaptureId",
   lastCaptureAt: "lastCaptureAt",
@@ -27,8 +31,11 @@ export async function loadSettings() {
     STORAGE_KEYS.notificationsEnabled,
     STORAGE_KEYS.privacyMode,
     STORAGE_KEYS.debugMode,
+    STORAGE_KEYS.bookmarkSyncEnabled,
+    STORAGE_KEYS.bookmarkSyncHours,
   ]);
   const local = await chrome.storage.local.get([STORAGE_KEYS.observerPaused]);
+  const hours = Number(sync.bookmarkSyncHours || 24);
   return {
     apiBase: sync.apiBase || "http://127.0.0.1:8000/api/v1",
     token: sync.token || "",
@@ -36,6 +43,8 @@ export async function loadSettings() {
     notificationsEnabled: Boolean(sync.notificationsEnabled),
     privacyMode: Boolean(sync.privacyMode),
     debugMode: Boolean(sync.debugMode),
+    bookmarkSyncEnabled: Boolean(sync.bookmarkSyncEnabled),
+    bookmarkSyncHours: Number.isFinite(hours) ? Math.min(168, Math.max(1, hours)) : 24,
     observerPaused: Boolean(local.observerPaused),
   };
 }
