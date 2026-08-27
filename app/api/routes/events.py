@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from app.api.auth import get_current_user
+from app.api.dependencies import get_app_settings
+from app.config import Settings
 from app.models.event import MemoryEventListResponse
 from app.models.user import UserPublic
 from app.services.event_bus import EventBus
@@ -18,8 +20,9 @@ def list_events(
     after_id: int | None = Query(default=None, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
 ) -> MemoryEventListResponse:
-    events, next_after_id = EventBus().list_events(
+    events, next_after_id = EventBus(settings).list_events(
         user_id=user.user_id,
         event_type=event_type,
         after_id=after_id,
