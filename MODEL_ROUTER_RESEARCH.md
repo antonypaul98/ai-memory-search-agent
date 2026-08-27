@@ -14,9 +14,25 @@ There are several active open-source projects that aggregate free-tier capacity 
 
 So **"combine free AI providers behind one endpoint" is not unique** and should not be marketed as our invention.
 
-## 2. What we should build instead
+## 2. Model routing itself is also crowded
 
-Use the useful free-tier idea as one component of our larger architecture:
+Task-aware model selection is already an active infrastructure category. Current products/projects include OpenRouter, LiteLLM, Portkey, Vercel AI Gateway, Requesty, Martian, Not Diamond, RouteLLM, Unify, cloud-provider model routers, and newer routing services. The category already optimizes combinations of model quality, latency, cost, availability, and provider failover.
+
+Research is also moving beyond plain model selection. RAGRouter explicitly studies routing among retrieval-augmented LLMs using retrieved-document information, and projects such as ForgeAI experiment with joint decisions across model choice and retrieval strategy.
+
+Therefore these are **not defensible uniqueness claims** either:
+
+- "we automatically choose the best model";
+- "we route simple questions to cheap models and hard questions to strong models";
+- "we jointly consider retrieval and model choice";
+- "we provide one API for many LLM providers";
+- "we fail over when a model is rate-limited."
+
+Those are table stakes or active research directions. Our model router should be useful immediately, but it becomes strategic only when combined with the Context SLO system, provider-neutral evidence, policy, auditability, and our own measured routing data.
+
+## 3. What we should build instead
+
+Use the useful free-tier/model-router idea as one component of our larger architecture:
 
 ```text
 AI / application request
@@ -32,9 +48,11 @@ The combined system is stronger than a free-token proxy because it can optimize 
 1. **Context:** relevance, freshness, trust, permissions, latency, token budget.
 2. **Model:** task fit, quality, latency, available quota, free/paid preference, reliability.
 
+The longer-term decision should become **evidence-conditioned routing**: context metadata such as confidence, conflicts, freshness, sensitivity, source authority, and packet size becomes an input to the model decision. A clean high-confidence packet may be safe for a fast/free model; conflicting or incomplete evidence may justify a stronger reasoning model; sensitive packets may require a local/private route. We must benchmark this rather than claim it is universally better.
+
 A user can choose `auto` and let the router select, or choose `pinned` and require one exact model. A pinned request must never silently substitute another model.
 
-## 3. Compliance boundary
+## 4. Compliance boundary
 
 The product must not depend on abusing free tiers. The safe architecture is **BYO credentials**:
 
@@ -48,7 +66,7 @@ The product must not depend on abusing free tiers. The safe architecture is **BY
 
 FreeLLMAPI's own May 2026 ToS review reaches a similar practical conclusion: provider terms differ, some free tiers are explicitly experimental/evaluation-only, and single-user self-hosted use is materially different from operating a public resale proxy. Provider terms change, so our catalog must treat policy metadata as versioned data rather than a permanent assumption.
 
-## 4. Why we should not hard-code "billions of free tokens"
+## 5. Why we should not hard-code "billions of free tokens"
 
 The available free capacity changes constantly. Some providers limit requests, some tokens, some per-model quotas, and many do not expose a standard remaining-quota API. Marketing a fixed number would become stale quickly.
 
@@ -63,7 +81,7 @@ Instead the router should expose **Available Capacity**:
 
 This makes the system accurate even when free tiers change.
 
-## 5. MR-0 implementation in this PR
+## 6. MR-0 implementation in this PR
 
 - provider-neutral `ModelRouteRequest` / `ModelRouteResponse` contracts;
 - `auto` and strict `pinned` modes;
@@ -79,7 +97,8 @@ This makes the system accurate even when free tiers change.
 - temporary cooldown after 429/5xx failures;
 - no silent fallback when the user pins a model;
 - model catalog API showing configured status and locally estimated remaining budget without exposing keys;
-- deterministic route fingerprint that hashes the prompt rather than storing it in the fingerprint.
+- deterministic route fingerprint that hashes the prompt rather than storing it in the fingerprint;
+- optional `LLM_PROVIDER=router` integration so grounded Memory Search chat can use the model router while preserving deterministic fallback and tenant-scoped usage accounting.
 
 API surface:
 
@@ -88,7 +107,7 @@ POST /api/v1/models/route
 GET  /api/v1/models/catalog
 ```
 
-## 6. Next build: MR-1
+## 7. Next build: MR-1
 
 MR-1 should make the model side as measurable as the Context SLO work:
 
@@ -103,8 +122,8 @@ MR-1 should make the model side as measurable as the Context SLO work:
 - paid-cost ceilings and cost-per-success metrics;
 - optional shadow auditions of alternate models.
 
-After both routers have benchmark data, add a unified **Context + Intelligence route** where one request can specify both Context SLOs and Model SLOs.
+After both routers have benchmark data, add a unified **Context + Intelligence route** where one request can specify both Context SLOs and Model SLOs and the model choice can consume Context Receipt signals.
 
-## 7. Product rule
+## 8. Product rule
 
-Free capacity is a useful acquisition and experimentation feature, not the moat. The moat should become the independent routing data: which context source and which model actually perform best for each class of task under real latency, trust, quota, cost, and policy constraints.
+Free capacity is a useful acquisition and experimentation feature, not the moat. Model routing by itself is also not the moat. The defensible asset should become the independent routing data and control plane that learns **which context provider plus which model route** works best for each class of task under real latency, trust, quota, cost, privacy, and policy constraints.
