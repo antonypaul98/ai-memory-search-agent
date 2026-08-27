@@ -40,6 +40,10 @@ def natural_retrieve(
     language: str | None = Query(None),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
+    save_reason: str | None = Query(
+        None,
+        description="Filter by a case-insensitive substring of the current user's save reason.",
+    ),
     min_confidence: float | None = Query(None, ge=0, le=1),
     user: UserPublic = Depends(get_current_user),
     service: MemoryIntelligenceService = Depends(_intel),
@@ -50,6 +54,7 @@ def natural_retrieve(
         language=language,
         date_from=date_from,
         date_to=date_to,
+        save_reason=save_reason.strip() if save_reason and save_reason.strip() else None,
         min_confidence=min_confidence,
     )
     return service.retrieve(q.strip(), user_id=user.user_id, limit=limit, filters=filters)

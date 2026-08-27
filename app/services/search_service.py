@@ -226,6 +226,8 @@ def _to_search_result_item(
 def _passes_filters(item: SearchResultItem, filters: SearchFilters) -> bool:
     if filters.channel and filters.channel.lower() not in item.channel.lower():
         return False
+    if filters.save_reason and filters.save_reason.lower() not in item.save_reason.lower():
+        return False
     if filters.language and (item.language or "").lower() != filters.language.lower():
         return False
     if filters.transcript_available is not None and item.transcript_available != filters.transcript_available:

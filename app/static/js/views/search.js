@@ -37,6 +37,8 @@ export function mountSearch(root, initialQuery = "") {
         <input id="f-date-from" type="date" aria-label="From date" />
         <label class="sr-only" for="f-date-to">To date</label>
         <input id="f-date-to" type="date" aria-label="To date" />
+        <label class="sr-only" for="f-save-reason">Save reason</label>
+        <input id="f-save-reason" type="text" placeholder="Why I saved it" aria-label="Save reason" />
         <label class="sr-only" for="f-topic">Topic</label>
         <input id="f-topic" type="text" placeholder="Topic" aria-label="Topic" />
         <label class="sr-only" for="f-connector">Connector</label>
@@ -88,6 +90,7 @@ async function runSearch(root) {
     channel: $("#f-channel", root).value.trim() || undefined,
     date_from: $("#f-date-from", root).value || undefined,
     date_to: $("#f-date-to", root).value || undefined,
+    save_reason: $("#f-save-reason", root).value.trim() || undefined,
     min_confidence: $("#f-min-conf", root).value || undefined,
   };
   const sourceFilter = $("#f-source", root).value;
