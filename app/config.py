@@ -97,11 +97,19 @@ class Settings(BaseSettings):
     rate_limit_auth_window_sec: int = 60
 
     # --- Optional LLM (no credentials hard-coded) ---
-    llm_provider: str = "none"  # none | ollama | openai_compatible
+    llm_provider: str = "none"  # none | ollama | openai_compatible | router
     llm_base_url: str = "http://localhost:11434"
     llm_model: str = ""
     llm_api_key_env: str = "OPENAI_API_KEY"
     llm_timeout_sec: int = 60
+
+    # --- Model Router / pooled BYO free-tier capacity ---
+    model_router_enabled: bool = True
+    # JSON array of provider/model metadata. API keys are referenced by env-var name only.
+    model_router_catalog_json: str = ""
+    model_router_cooldown_sec: int = 60
+    # Optional exact route ID or model ID used by the internal LLM provider when LLM_PROVIDER=router.
+    model_router_pinned_model: str = ""
 
     # --- Streamlit (Phase 5+) ---
     fastapi_url: str = "http://localhost:8000"
