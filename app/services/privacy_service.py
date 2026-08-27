@@ -1,4 +1,4 @@
-"""Privacy controls: JSON export and hard-delete of user-owned memories (V1-8)."""
+"""Privacy controls: portable export and hard-delete of user-owned memories (V1-8)."""
 
 from __future__ import annotations
 
@@ -203,3 +203,95 @@ class PrivacyService:
 
 def dump_export_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, indent=2, default=str)
+
+
+def dump_export_markdown(payload: dict[str, Any]) -> str:
+    """Render the complete tenant export as portable, deterministic Markdown.
+
+    The human-readable memory summaries are followed by indented JSON blocks for
+    every exported collection so the Markdown adapter does not silently discard
+    fields that may be needed for migration or future re-import tooling.
+    """
+
+    user = payload.get("user") or {}
+    memories = list(payload.get("memories") or [])
+    title_owner = user.get("display_name") or user.get("email") or user.get("user_id") or "User"
+    lines = [
+        "# AI Memory Export",
+        "",
+        f"- Owner: {_md_inline(title_owner)}",
+        f"- Exported at: {_md_inline(payload.get('exported_at') or '')}",
+        f"- Export version: {_md_inline(payload.get('export_version') or '')}",
+        f"- Memories: {len(memories)}",
+        "",
+        "## Memories",
+        "",
+    ]
+
+    if not memories:
+        lines.extend(["_No memories exported._", ""])
+    else:
+        for memory in memories:
+            title = memory.get("title") or memory.get("external_id") or memory.get("memory_id") or "Untitled memory"
+            lines.extend(
+                [
+                    f"### {_md_inline(title)}",
+                    "",
+                    f"- Source: {_md_inline(memory.get('source_type') or '')}",
+                    f"- Author: {_md_inline(memory.get('source_author') or '')}",
+                    f"- URL: {_md_inline(memory.get('canonical_url') or '')}",
+                    f"- Memory ID: {_md_inline(memory.get('memory_id') or '')}",
+                    f"- External ID: {_md_inline(memory.get('external_id') or '')}",
+                    f"- Lifecycle: {_md_inline(memory.get('lifecycle_state') or '')}",
+                    f"- Verification: {_md_inline(memory.get('verification_status') or '')}",
+                    f"- Created: {_md_inline(memory.get('created_at') or '')}",
+                    f"- Updated: {_md_inline(memory.get('updated_at') or '')}",
+                ]
+            )
+            trust = memory.get("trust") or memory.get("trust_snapshot") or {}
+            if isinstance(trust, dict) and trust:
+                tier = trust.get("tier") or ""
+                overall = trust.get("overall")
+                trust_text = tier if overall is None else f"{tier} ({overall})"
+                lines.append(f"- Trust: {_md_inline(trust_text)}")
+            metadata = memory.get("metadata") or {}
+            if isinstance(metadata, dict):
+                if metadata.get("save_reason"):
+                    lines.append(f"- Why saved: {_md_inline(metadata['save_reason'])}")
+                if metadata.get("user_goal"):
+                    lines.append(f"- Goal: {_md_inline(metadata['user_goal'])}")
+            lines.extend(["", "Record data:", "", *_indented_json(memory), ""])
+
+    collection_labels = (
+        ("youtube_memories", "YouTube memories"),
+        ("captures", "Captures"),
+        ("browser_bookmarks", "Browser bookmarks"),
+        ("jobs", "Background jobs"),
+        ("topics", "Topics"),
+        ("video_registry", "Video registry"),
+    )
+    for key, label in collection_labels:
+        value = payload.get(key) or []
+        lines.extend(
+            [
+                f"## {label}",
+                "",
+                f"Count: {len(value) if isinstance(value, list) else 1}",
+                "",
+                *_indented_json(value),
+                "",
+            ]
+        )
+
+    # Preserve the user record as exported too, not only the display fields above.
+    lines.extend(["## User record", "", *_indented_json(user), ""])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _md_inline(value: Any) -> str:
+    text = " ".join(str(value or "").split())
+    return text.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]").replace("|", "\\|")
+
+
+def _indented_json(value: Any) -> list[str]:
+    return [f"    {line}" for line in json.dumps(value, indent=2, default=str, sort_keys=True).splitlines()]

@@ -45,6 +45,7 @@ export function mountSettings(root) {
       <p class="muted">Read the <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>. Export or delete your Memory data below.</p>
       <div class="row-actions">
         <button type="button" id="set-export">Export my data (JSON)</button>
+        <button type="button" id="set-export-markdown">Export my data (Markdown)</button>
         <button type="button" id="set-delete-all" class="danger">Delete all memories</button>
       </div>
       <p id="set-privacy-status" class="status" hidden role="status" aria-live="polite"></p>
@@ -119,15 +120,22 @@ export function mountSettings(root) {
     try {
       const data = await Api.exportPrivacyData(false);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ai-memory-export-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setStatus(status, "Export downloaded.", "success");
+      downloadBlob(blob, `ai-memory-export-${Date.now()}.json`);
+      setStatus(status, "JSON export downloaded.", "success");
     } catch (err) {
       setStatus(status, err.message || "Export failed", "error");
+    }
+  });
+
+  $("#set-export-markdown", root).addEventListener("click", async () => {
+    const status = $("#set-privacy-status", root);
+    try {
+      const markdown = await fetchMarkdownExport();
+      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+      downloadBlob(blob, `ai-memory-export-${Date.now()}.md`);
+      setStatus(status, "Markdown export downloaded.", "success");
+    } catch (err) {
+      setStatus(status, err.message || "Markdown export failed", "error");
     }
   });
 
@@ -152,6 +160,30 @@ export function mountSettings(root) {
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme === "system" ? "" : theme;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function fetchMarkdownExport() {
+  const headers = {};
+  const token = localStorage.getItem("am_token");
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch("/api/v1/privacy/export?format=markdown&download=true", {
+    method: "GET",
+    headers,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Markdown export failed (${response.status}).`);
+  }
+  return text;
 }
 
 async function loadHealth(root) {
