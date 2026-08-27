@@ -46,13 +46,17 @@ class ReadwiseConnector(SourceConnector):
     def fetch_metadata(self, ref: SourceRef) -> NormalizedItem:
         title = str(ref.extra.get("title") or "Readwise highlights").strip()
         author = str(ref.extra.get("author") or "").strip()
-        canonical_url = str(ref.extra.get("canonical_url") or "").strip()
-        if not canonical_url.startswith(("http://", "https://")):
+        source_url = str(ref.extra.get("canonical_url") or "").strip()
+        if source_url.startswith(("http://", "https://")):
+            # Keep the destination clickable while giving curated Readwise highlights
+            # a distinct canonical identity from a separately saved full web article.
+            canonical_url = f"{source_url.split('#', 1)[0]}#readwise-highlights"
+        else:
             canonical_url = f"https://readwise.io/memory/{ref.external_id}"
         tags = _clean_list(ref.extra.get("tags"))
         highlights = _clean_list(ref.extra.get("highlights"))
         notes = _clean_list(ref.extra.get("notes"))
-        content_material = "\n".join([title, author, canonical_url, *highlights, *notes])
+        content_material = "\n".join([title, author, source_url, *highlights, *notes])
         return NormalizedItem(
             source_type=self.source_type,
             connector_id=self.connector_id,
@@ -66,6 +70,7 @@ class ReadwiseConnector(SourceConnector):
             content_hash=hash_text(content_material),
             raw_metadata={
                 "import_source": "readwise",
+                "source_url": source_url,
                 "highlight_count": len(highlights),
                 "tags": tags,
                 "locations": _clean_list(ref.extra.get("locations")),
