@@ -24,11 +24,12 @@ from app.models.agent_runtime import (
 )
 from app.services.event_bus import EventBus
 from app.services.ingest_service import IngestService
+from app.services.review_schedule_service import ReviewScheduleService
 from app.services.search_service import SearchService
 
 
-_WRITE_TOOLS = frozenset({"ingest_url", "record_feedback"})
-_ALLOWED_TOOLS = frozenset({"search_memory", "ingest_url", "record_feedback"})
+_WRITE_TOOLS = frozenset({"ingest_url", "record_feedback", "record_review_result"})
+_ALLOWED_TOOLS = frozenset({"search_memory", "ingest_url", "record_feedback", "record_review_result"})
 
 
 class AgentRuntime:
@@ -322,6 +323,15 @@ class AgentRuntime:
                 raise KeyError("video not found")
             stats = registry.record_feedback(video_id, helpful=helpful, user_id=user_id)
             return stats.model_dump(mode="json")
+
+        if tool == "record_review_result":
+            video_id = str(arguments.get("video_id") or "").strip()
+            result = str(arguments.get("result") or "").strip()
+            return ReviewScheduleService(self._settings).record_result(
+                user_id=user_id,
+                video_id=video_id,
+                result=result,
+            )
 
         raise ValueError(f"unknown agent tool: {tool}")
 
