@@ -8,8 +8,10 @@ from app.api.auth import get_current_user
 from app.api.dependencies import get_app_settings
 from app.config import Settings
 from app.models.agent_runtime import AgentRunRequest, AgentRunResponse
+from app.models.research_agent import ResearchAgentRequest, ResearchAgentResponse
 from app.models.user import UserPublic
 from app.services.agent_runtime import AgentRuntime
+from app.services.research_agent import ResearchAgent
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -22,6 +24,19 @@ def run_agent(
 ) -> AgentRunResponse:
     try:
         return AgentRuntime(settings).run(user_id=user.user_id, request=body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/research", response_model=ResearchAgentResponse)
+def run_research_agent(
+    body: ResearchAgentRequest,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> ResearchAgentResponse:
+    """Run bounded, read-only research over the authenticated user's memory."""
+    try:
+        return ResearchAgent(settings).run(user_id=user.user_id, request=body)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
