@@ -9,12 +9,14 @@ from app.api.dependencies import get_app_settings
 from app.config import Settings
 from app.models.agent_runtime import AgentRunRequest, AgentRunResponse
 from app.models.capture_triage import CaptureTriageRequest, CaptureTriageResponse
+from app.models.consolidation_agent import ConsolidationRequest, ConsolidationResponse
 from app.models.gap_agent import GapAnalysisRequest, GapAnalysisResponse
 from app.models.research_agent import ResearchAgentRequest, ResearchAgentResponse
 from app.models.review_agent import ReviewQueueRequest, ReviewQueueResponse
 from app.models.user import UserPublic
 from app.services.agent_runtime import AgentRuntime
 from app.services.capture_triage_agent import CaptureTriageAgent
+from app.services.consolidation_agent import ConsolidationAgent
 from app.services.gap_agent import GapAgent
 from app.services.research_agent import ResearchAgent
 from app.services.review_agent import ReviewAgent
@@ -65,6 +67,16 @@ def analyze_memory_gaps(
 ) -> GapAnalysisResponse:
     """Return evidence-backed learning gaps for the authenticated user's goals."""
     return GapAgent(settings).analyze(user_id=user.user_id, request=body)
+
+
+@router.post("/consolidation/analyze", response_model=ConsolidationResponse)
+def analyze_consolidation(
+    body: ConsolidationRequest,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> ConsolidationResponse:
+    """Return read-only entity-merge and stale-memory maintenance suggestions."""
+    return ConsolidationAgent(settings).analyze(user_id=user.user_id, request=body)
 
 
 @router.post("/capture/triage", response_model=CaptureTriageResponse)
