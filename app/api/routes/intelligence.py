@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.auth import get_current_user
+from app.api.dependencies import get_app_settings
 from app.config import Settings, get_settings
 from app.models.intelligence import (
     ConceptCapsule,
@@ -21,9 +22,11 @@ from app.models.intelligence import (
     TopicListResponse,
     TopicProfile,
 )
+from app.models.reverse_memory import ReverseMemoryRequest, ReverseMemoryResponse
 from app.models.user import UserPublic
 from app.models.video import SearchFilters
 from app.services.memory_intelligence_service import MemoryIntelligenceService
+from app.services.reverse_memory_service import ReverseMemoryService
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"])
 
@@ -112,6 +115,16 @@ def learning_roadmap(
     service: MemoryIntelligenceService = Depends(_intel),
 ) -> LearningRoadmap:
     return service.roadmap(topic, user_id=user.user_id)
+
+
+@router.post("/reverse-memory", response_model=ReverseMemoryResponse)
+def reverse_memory(
+    body: ReverseMemoryRequest,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> ReverseMemoryResponse:
+    """Recommend evidence-backed next learning/review actions for active goals."""
+    return ReverseMemoryService(settings).suggest(user_id=user.user_id, request=body)
 
 
 @router.get("/capsules", response_model=ConceptCapsuleListResponse)
