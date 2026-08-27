@@ -18,6 +18,7 @@ def synthesize_grounded_answer(
     answer_format: str = "concise",
     min_relevance: float | None = None,
     settings: Settings | None = None,
+    user_id: str | None = None,
 ) -> tuple[GeneratedAnswer, str | None, float]:
     """Produce a grounded answer from evidence.
 
@@ -34,7 +35,7 @@ def synthesize_grounded_answer(
     for chunk in chunks:
         chunk.setdefault("evidence_id", _evidence_id(chunk))
 
-    provider = get_llm_provider(settings)
+    provider = get_llm_provider(settings, user_id=user_id)
     if provider is not None:
         try:
             structured = provider.synthesize(

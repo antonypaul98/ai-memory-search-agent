@@ -1,6 +1,4 @@
-"""
-Chat with saved memories: retrieve chunks → clarify → synthesize answer → cite sources.
-"""
+"""Chat with saved memories: retrieve chunks → clarify → synthesize answer → cite sources."""
 
 from app.config import Settings, get_settings
 from app.db.repositories.memory_repository import MemoryRepository
@@ -95,6 +93,7 @@ class ChatService:
             answer_format=route.answer_format,
             min_relevance=0.0 if clarification_choice else None,
             settings=self._settings,
+            user_id=owner_id,
         )
         metrics.synthesis_ms = synthesis_ms
         metrics.estimated_llm_tokens = max(1, len(generated.answer.split()) * 2)
