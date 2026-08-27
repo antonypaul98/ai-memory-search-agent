@@ -9,6 +9,7 @@ import re
 import time
 
 from app.config import Settings, get_settings
+from app.db.memory_store import MemoryStore, get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
 from app.db.youtube_memory_store import YouTubeMemoryStore
@@ -37,10 +38,12 @@ class SearchService:
         settings: Settings | None = None,
         repository: MemoryRepository | None = None,
         registry: VideoRegistry | None = None,
+        memory_store: MemoryStore | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._repository = repository or MemoryRepository(self._settings)
         self._registry = registry or get_video_registry(self._settings)
+        self._memory_store = memory_store or get_memory_store(self._settings)
         self._yt_store = YouTubeMemoryStore(self._settings)
         self._ahme = AdaptiveHierarchicalMemoryEngine(
             settings=self._settings,
@@ -106,6 +109,7 @@ class SearchService:
                 query=query,
                 registry=self._registry,
                 yt_store=self._yt_store,
+                memory_store=self._memory_store,
                 user_id=owner,
                 reflection_signals=signals,
             )
@@ -147,6 +151,7 @@ def _to_search_result_item(
     query: str,
     registry: VideoRegistry,
     yt_store: YouTubeMemoryStore,
+    memory_store: MemoryStore,
     user_id: str | None,
     reflection_signals: list[str] | None = None,
 ) -> SearchResultItem:
@@ -215,6 +220,24 @@ def _to_search_result_item(
     else:
         citation = original_url
 
+    trust_score = None
+    trust_tier = None
+    verification_status = None
+    try:
+        memory = memory_store.get_by_external(
+            user_id=owner,
+            source_type=str(source_type),
+            external_id=video_id,
+        )
+        if memory is not None:
+            verification_status = memory.verification_status.value
+            if memory.trust is not None:
+                trust_score = round(memory.trust.overall, 4)
+                trust_tier = memory.trust.tier.value
+    except Exception:
+        # Trust display is additive; retrieval must remain available if the trust store is unavailable.
+        pass
+
     return SearchResultItem(
         video_id=video_id,
         title=hit["title"],
@@ -230,6 +253,9 @@ def _to_search_result_item(
         relevance_score=relevance,
         similarity_score=relevance,
         confidence=min(1.0, max(0.0, relevance)),
+        trust_score=trust_score,
+        trust_tier=trust_tier,
+        verification_status=verification_status,
         why_matched=why,
         matching_metadata=matching_metadata,
         one_line_memory=hit.get("one_line_memory", ""),
