@@ -7,8 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.auth import get_current_user
 from app.config import Settings, get_settings
 from app.db.memory_store import MemoryStore, get_memory_store
-from app.models.knowledge_graph import EntityType, GraphEntity, GraphQueryResponse
+from app.models.knowledge_graph import (
+    EntityType,
+    GraphEntity,
+    GraphEntityMergeRequest,
+    GraphEntityMergeResult,
+    GraphQueryResponse,
+)
 from app.models.user import UserPublic
+from app.services.entity_merge_service import EntityMergeError, EntityMergeService
 from app.services.knowledge_graph_service import KnowledgeGraphService
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
@@ -16,6 +23,10 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 def _graph(settings: Settings = Depends(get_settings)) -> KnowledgeGraphService:
     return KnowledgeGraphService(settings=settings)
+
+
+def _entity_merge(settings: Settings = Depends(get_settings)) -> EntityMergeService:
+    return EntityMergeService(settings=settings)
 
 
 def _memory_store(settings: Settings = Depends(get_settings)) -> MemoryStore:
@@ -56,6 +67,26 @@ def get_entity(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found.")
     return entity
+
+
+@router.post("/entities/{target_entity_id}/merge", response_model=GraphEntityMergeResult)
+def merge_entity(
+    target_entity_id: str,
+    body: GraphEntityMergeRequest,
+    user: UserPublic = Depends(get_current_user),
+    service: EntityMergeService = Depends(_entity_merge),
+) -> GraphEntityMergeResult:
+    """Merge one duplicate/alias entity into a canonical target for this tenant."""
+    try:
+        return service.merge(
+            user_id=user.user_id,
+            target_entity_id=target_entity_id,
+            source_entity_id=body.source_entity_id,
+        )
+    except EntityMergeError as exc:
+        detail = str(exc)
+        status = 404 if "not found" in detail else 409
+        raise HTTPException(status_code=status, detail=detail) from exc
 
 
 @router.get("/entities/{entity_id}/relations", response_model=GraphQueryResponse)
