@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 
 from app.api.auth import get_current_user
 from app.config import Settings, get_settings
+from app.core.exceptions import AppError
 from app.models.capture import BookmarkImportRequest
 from app.models.user import UserPublic
 from app.services.connector_ingest_service import ConnectorIngestService
 from app.services.import_manager import ImportManager
+from app.services.readwise_import_service import ReadwiseImportService
 
 router = APIRouter(tags=["imports"])
 
@@ -79,6 +81,41 @@ def preview_bookmarks(
     manager: ImportManager = Depends(_manager),
 ) -> dict:
     return manager.preview_bookmarks(body, user_id=user.user_id)
+
+
+@router.post("/imports/readwise/csv/preview")
+async def preview_readwise_csv(
+    file: UploadFile = File(...),
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Readwise CSV too large (max 20MB).")
+    try:
+        return ReadwiseImportService(settings).preview_csv(data)
+    except AppError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/imports/readwise/csv")
+async def import_readwise_csv(
+    file: UploadFile = File(...),
+    force_refresh: bool = Form(False),
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Readwise CSV too large (max 20MB).")
+    try:
+        return ReadwiseImportService(settings).ingest_csv(
+            data,
+            user_id=user.user_id,
+            force_refresh=force_refresh,
+        )
+    except AppError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/capture/pdf")
