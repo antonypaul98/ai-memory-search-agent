@@ -11,6 +11,7 @@ from app.models.knowledge_graph import (
     EntityType,
     GraphEntity,
     GraphQueryResponse,
+    GraphRelation,
     MemoryEntityLink,
     RelationPredicate,
 )
@@ -78,6 +79,7 @@ class KnowledgeGraphService:
             predicate=RelationPredicate.AUTHORED_BY,
             object_entity_id=creator.entity_id,
             memory_id=memory.memory_id,
+            valid_from=memory.created_at,
         )
 
         for topic in capsule.topics:
@@ -104,6 +106,7 @@ class KnowledgeGraphService:
                 predicate=RelationPredicate.USES_TECHNOLOGY,
                 object_entity_id=entity.entity_id,
                 memory_id=memory.memory_id,
+                valid_from=memory.created_at,
             )
 
         if reflection and reflection.goal:
@@ -119,6 +122,7 @@ class KnowledgeGraphService:
                 predicate=RelationPredicate.PART_OF_PROJECT,
                 object_entity_id=project.entity_id,
                 memory_id=memory.memory_id,
+                valid_from=memory.created_at,
             )
 
         if reflection and reflection.save_reason == SaveReason.GOAL and reflection.goal:
@@ -156,12 +160,16 @@ class KnowledgeGraphService:
         *,
         user_id: str,
         direction: str = "both",
+        at_time: str | None = None,
     ) -> GraphQueryResponse:
         entity = self._store.get_entity(entity_id, user_id=user_id)
         if not entity:
             return GraphQueryResponse()
         relations = self._store.list_relations_for_entity(
-            entity_id, user_id=user_id, direction=direction
+            entity_id,
+            user_id=user_id,
+            direction=direction,
+            at_time=at_time,
         )
         return GraphQueryResponse(entities=[entity], relations=relations)
 
@@ -171,8 +179,28 @@ class KnowledgeGraphService:
         *,
         user_id: str,
         depth: int = 1,
+        at_time: str | None = None,
     ) -> GraphQueryResponse:
-        return self._store.neighbors(entity_id, user_id=user_id, depth=depth)
+        return self._store.neighbors(
+            entity_id,
+            user_id=user_id,
+            depth=depth,
+            at_time=at_time,
+        )
+
+    def close_relation(
+        self,
+        relation_id: str,
+        *,
+        user_id: str,
+        valid_to: str | None = None,
+    ) -> GraphRelation | None:
+        """Close a fact's epistemic validity window for the active tenant."""
+        return self._store.close_relation(
+            relation_id,
+            user_id=user_id,
+            valid_to=valid_to,
+        )
 
     def entities_for_memory(self, memory_id: str, *, user_id: str) -> list[GraphEntity]:
         return self._store.list_memory_entities(memory_id, user_id=user_id)
@@ -223,4 +251,5 @@ class KnowledgeGraphService:
             object_entity_id=entity.entity_id,
             memory_id=memory.memory_id,
             confidence=0.9,
+            valid_from=memory.created_at,
         )
