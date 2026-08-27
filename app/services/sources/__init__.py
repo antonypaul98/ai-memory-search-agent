@@ -8,6 +8,7 @@ from app.core.exceptions import AppError
 from app.services.sources.base_source import SourceConnector
 from app.services.sources.bookmark_connector import BookmarkConnector
 from app.services.sources.github_connector import GitHubConnector
+from app.services.sources.notion_connector import NotionConnector
 from app.services.sources.pdf_connector import PDFConnector
 from app.services.sources.readwise_connector import ReadwiseConnector
 from app.services.sources.web_connector import WebConnector
@@ -22,6 +23,7 @@ _RESOLVE_ORDER = (
     "web.v1",
     "bookmarks.v1",
     "readwise.v1",
+    "notion.v1",
 )
 
 
@@ -34,6 +36,7 @@ class ConnectorRegistry:
         self.register(WebConnector())
         self.register(BookmarkConnector())
         self.register(ReadwiseConnector())
+        self.register(NotionConnector())
 
     def register(self, connector: SourceConnector) -> None:
         self._by_id[connector.connector_id] = connector
