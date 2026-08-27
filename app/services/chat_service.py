@@ -5,6 +5,7 @@ Chat with saved memories: retrieve chunks → clarify → synthesize answer → 
 from app.config import Settings, get_settings
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
+from app.middleware.observability import record_chat_outcome
 from app.models.chat import ChatResponse, ChatSource, ClarificationOption
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.clarification_service import analyze_clarification, filter_chunks_by_choice
@@ -76,6 +77,7 @@ class ChatService:
                 )
                 if debug and self._settings.debug:
                     response.debug_metrics = metrics
+                record_chat_outcome(grounded=False, needs_clarification=True)
                 return response
 
         if clarification_choice:
@@ -107,6 +109,7 @@ class ChatService:
         )
         if debug and self._settings.debug:
             response.debug_metrics = metrics
+        record_chat_outcome(grounded=response.grounded, needs_clarification=False)
         return response
 
 
