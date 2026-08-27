@@ -7,19 +7,20 @@ from datetime import datetime, timezone
 from app.config import Settings
 from app.db.video_registry import get_video_registry
 from app.models.review_agent import ReviewItem, ReviewQueueRequest, ReviewQueueResponse
+from app.services.review_schedule_service import ReviewScheduleService
 
 
 class ReviewAgent:
     """Build a tenant-scoped review queue from reflection and usage metadata.
 
-    The first slice is intentionally deterministic and read-only. It surfaces
-    memories tied to active goals that have never been viewed or have not been
-    viewed within the configured stale window. Review-result writes remain a
-    later policy-gated slice.
+    Memories without review history use the stale-view threshold. Once a review
+    result has been recorded, the durable review schedule becomes authoritative:
+    future-due items stay out of the queue and due items re-enter it.
     """
 
     def __init__(self, settings: Settings) -> None:
         self._registry = get_video_registry(settings)
+        self._schedule = ReviewScheduleService(settings)
 
     def queue(
         self,
@@ -29,6 +30,9 @@ class ReviewAgent:
         now: datetime | None = None,
     ) -> ReviewQueueResponse:
         now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        now = now.astimezone(timezone.utc)
         goal_filter = request.goal.strip().casefold()
         candidates: list[ReviewItem] = []
 
@@ -39,21 +43,31 @@ class ReviewAgent:
             if goal_filter and goal_filter not in goal.casefold():
                 continue
 
-            last_viewed = _parse_dt(row.get("last_viewed"))
-            if last_viewed is not None:
-                age_days = max(0, (now - last_viewed).days)
-                if age_days < request.stale_days:
+            video_id = str(row["video_id"])
+            schedule = self._schedule.get(user_id=user_id, video_id=video_id)
+            if schedule:
+                next_review = _parse_dt(schedule.get("next_review_at"))
+                if next_review is not None and next_review > now:
                     continue
-            else:
+                # A scheduled item is due now regardless of ordinary view recency.
                 age_days = None
+            else:
+                last_viewed = _parse_dt(row.get("last_viewed"))
+                if last_viewed is not None:
+                    age_days = max(0, (now - last_viewed).days)
+                    if age_days < request.stale_days:
+                        continue
+                else:
+                    age_days = None
 
+            last_viewed = _parse_dt(row.get("last_viewed"))
             title = str(row.get("title") or "Untitled memory")
             save_reason = str(row.get("save_reason") or "")
             note = str(row.get("reflection_note") or "")
             prompt = _build_prompt(title=title, goal=goal, note=note)
             candidates.append(
                 ReviewItem(
-                    video_id=str(row["video_id"]),
+                    video_id=video_id,
                     title=title,
                     url=str(row.get("url") or ""),
                     channel=str(row.get("channel") or ""),
