@@ -5,6 +5,7 @@ const ROUTES = [
   "ask",
   "timeline",
   "topics",
+  "activity",
   "imports",
   "capture",
   "settings",

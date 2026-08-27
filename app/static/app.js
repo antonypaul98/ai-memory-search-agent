@@ -10,6 +10,7 @@ import { mountSearch, applySearchQuery } from "./js/views/search.js";
 import { mountAsk, applyAskQuery } from "./js/views/ask.js";
 import { mountTimeline, disposeTimeline } from "./js/views/timeline.js";
 import { mountTopics } from "./js/views/topics.js";
+import { mountActivity } from "./js/views/activity.js";
 import { mountImports } from "./js/views/imports.js";
 import { mountCapture, disposeCapture } from "./js/views/capture.js";
 import { mountSettings } from "./js/views/settings.js";
@@ -20,6 +21,7 @@ const mounted = {
   ask: false,
   timeline: false,
   topics: false,
+  activity: false,
   imports: false,
   capture: false,
   settings: false,
@@ -31,6 +33,7 @@ const TITLE = {
   ask: "Ask Memory",
   timeline: "Timeline",
   topics: "Topics",
+  activity: "Agent Activity",
   imports: "Imports",
   capture: "Capture",
   settings: "Settings",
@@ -43,6 +46,7 @@ const LEAD = {
   ask: "Ask grounded questions over saved memories.",
   timeline: "Browse when knowledge was saved and learned.",
   topics: "Explore topics, roadmaps, and capsules.",
+  activity: "Inspect tenant-scoped agent runs, approvals, tools, and failures.",
   imports: "Monitor, resume, and cancel connector imports.",
   capture: "Ingest URLs, playlists, bookmarks, and PDFs.",
   settings: "Theme, privacy, tokens, and connector health.",
@@ -142,6 +146,11 @@ async function onRoute(route, param, ctx = {}) {
       mountTimeline(document.getElementById("view-timeline"));
       mounted.timeline = true;
     }
+    return;
+  }
+  if (route === "activity") {
+    mountActivity(document.getElementById("view-activity"));
+    mounted.activity = true;
     return;
   }
   if (route === "imports") {
