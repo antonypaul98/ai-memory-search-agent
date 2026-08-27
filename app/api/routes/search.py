@@ -21,6 +21,10 @@ def search_memories(
     channel: str | None = Query(None, description="Filter by channel name substring."),
     date_from: str | None = Query(None, description="Published on/after (YYYY-MM-DD)."),
     date_to: str | None = Query(None, description="Published on/before (YYYY-MM-DD)."),
+    save_reason: str | None = Query(
+        None,
+        description="Filter by a case-insensitive substring of why you saved the memory.",
+    ),
     transcript_available: bool | None = Query(None),
     duration_min: float | None = Query(None, ge=0),
     duration_max: float | None = Query(None, ge=0),
@@ -39,6 +43,7 @@ def search_memories(
         channel=channel,
         date_from=date_from,
         date_to=date_to,
+        save_reason=save_reason.strip() if save_reason and save_reason.strip() else None,
         transcript_available=transcript_available,
         duration_min=duration_min,
         duration_max=duration_max,
