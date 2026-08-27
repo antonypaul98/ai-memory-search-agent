@@ -80,6 +80,14 @@ class TestKnowledgeGraph:
         linked = graph.entities_for_memory(memory.memory_id, user_id="user-a")
         assert len(linked) >= 4
 
+        memory_entity = graph.get_entity(f"mem:{memory.memory_id}", user_id="user-a")
+        assert memory_entity is not None
+        relations = graph.relations_for_entity(
+            memory_entity.entity_id, user_id="user-a"
+        ).relations
+        assert relations
+        assert all(rel.valid_from for rel in relations)
+
     def test_search_entities(self, graph: KnowledgeGraphService, test_settings) -> None:
         store = MemoryStore(test_settings)
         memory, metadata, capsule, reflection = _memory(store)
@@ -108,3 +116,91 @@ class TestKnowledgeGraph:
             memory_id="mem-id",
         )
         assert rel.predicate == RelationPredicate.MENTIONS
+        # Legacy/default relations are valid from their creation instant.
+        assert rel.valid_from == rel.created_at
+        assert rel.valid_to is None
+
+    def test_temporal_relation_filters_half_open_window(self, test_settings) -> None:
+        kg_store = KnowledgeGraphStore(test_settings)
+        a = kg_store.upsert_entity(
+            user_id="u1", entity_type=EntityType.MEMORY, name="Temporal Mem", entity_id="mem:t"
+        )
+        b = kg_store.upsert_entity(
+            user_id="u1", entity_type=EntityType.CONCEPT, name="Old Fact"
+        )
+        rel = kg_store.upsert_relation(
+            user_id="u1",
+            subject_entity_id=a.entity_id,
+            predicate=RelationPredicate.MENTIONS,
+            object_entity_id=b.entity_id,
+            memory_id="m1",
+            valid_from="2026-01-01T00:00:00+00:00",
+            valid_to="2026-02-01T00:00:00+00:00",
+        )
+        assert rel.valid_from == "2026-01-01T00:00:00+00:00"
+        assert rel.valid_to == "2026-02-01T00:00:00+00:00"
+
+        before = kg_store.list_relations_for_entity(
+            a.entity_id, user_id="u1", at_time="2025-12-31T23:59:59+00:00"
+        )
+        active = kg_store.list_relations_for_entity(
+            a.entity_id, user_id="u1", at_time="2026-01-15T00:00:00+00:00"
+        )
+        at_end = kg_store.list_relations_for_entity(
+            a.entity_id, user_id="u1", at_time="2026-02-01T00:00:00+00:00"
+        )
+        assert before == []
+        assert [item.relation_id for item in active] == [rel.relation_id]
+        assert at_end == []
+
+    def test_close_relation_preserves_metadata_and_tenant_scope(self, test_settings) -> None:
+        kg_store = KnowledgeGraphStore(test_settings)
+        a = kg_store.upsert_entity(
+            user_id="u1", entity_type=EntityType.MEMORY, name="Mem", entity_id="mem:close"
+        )
+        b = kg_store.upsert_entity(
+            user_id="u1", entity_type=EntityType.CONCEPT, name="Fact"
+        )
+        rel = kg_store.upsert_relation(
+            user_id="u1",
+            subject_entity_id=a.entity_id,
+            predicate=RelationPredicate.MENTIONS,
+            object_entity_id=b.entity_id,
+            metadata={"evidence": "memory:m1"},
+            valid_from="2026-01-01T00:00:00+00:00",
+        )
+        assert kg_store.close_relation(
+            rel.relation_id,
+            user_id="other-user",
+            valid_to="2026-03-01T00:00:00+00:00",
+        ) is None
+
+        closed = kg_store.close_relation(
+            rel.relation_id,
+            user_id="u1",
+            valid_to="2026-03-01T00:00:00+00:00",
+        )
+        assert closed is not None
+        assert closed.metadata["evidence"] == "memory:m1"
+        assert closed.valid_to == "2026-03-01T00:00:00+00:00"
+        assert kg_store.list_relations_for_entity(
+            a.entity_id,
+            user_id="u1",
+            at_time="2026-03-01T00:00:00+00:00",
+        ) == []
+
+    def test_rejects_invalid_temporal_window(self, test_settings) -> None:
+        kg_store = KnowledgeGraphStore(test_settings)
+        a = kg_store.upsert_entity(
+            user_id="u1", entity_type=EntityType.MEMORY, name="Mem", entity_id="mem:invalid"
+        )
+        b = kg_store.upsert_entity(user_id="u1", entity_type=EntityType.CONCEPT, name="Fact")
+        with pytest.raises(ValueError, match="valid_to"):
+            kg_store.upsert_relation(
+                user_id="u1",
+                subject_entity_id=a.entity_id,
+                predicate=RelationPredicate.MENTIONS,
+                object_entity_id=b.entity_id,
+                valid_from="2026-02-01T00:00:00+00:00",
+                valid_to="2026-01-01T00:00:00+00:00",
+            )
