@@ -43,7 +43,7 @@ class TestSemanticCacheOperations:
     def test_stats_count_expired_without_returning_content(self, test_settings: Settings) -> None:
         settings = _enabled(test_settings)
         cache = SemanticCache(settings)
-        _put(cache, "user-a", "old")
+        _put(cache, "user-a", "private-cache-payload")
         past = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
         with get_connection(settings) as conn:
             conn.execute(
@@ -55,7 +55,17 @@ class TestSemanticCacheOperations:
         assert stats["total"] == 1
         assert stats["active"] == 0
         assert stats["expired"] == 1
-        assert "old" not in str(stats)
+        # Stats expose only aggregate/configuration fields, never cached question/answer data.
+        assert set(stats) == {
+            "enabled",
+            "ttl_sec",
+            "similarity_threshold",
+            "total",
+            "active",
+            "expired",
+            "active_by_query_type",
+        }
+        assert "private-cache-payload" not in repr(stats)
 
     def test_invalidate_only_current_tenant(self, test_settings: Settings) -> None:
         cache = SemanticCache(_enabled(test_settings))
@@ -98,6 +108,7 @@ class TestSemanticCacheAPI:
         assert resp.status_code == 200
         assert resp.json()["removed"] == 1
         assert cache.stats(user_id="local-default")["total"] == 1
+        assert cache.stats(user_id="local-default")["active_by_query_type"] == {"comparison": 1}
 
     def test_invalidation_rejects_empty_query_type(self, client: TestClient) -> None:
         resp = client.delete("/api/v1/cache/semantic?query_type=")
