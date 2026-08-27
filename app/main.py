@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import agent, agents, auth, cache, capture, chat, context, events, feedback, health, imports, intelligence, jobs, knowledge, memories, models, playlists, privacy, search, usage, videos, youtube
+from app.api.routes import agent, agents, auth, cache, capture, chat, connector_auth, context, events, feedback, health, imports, intelligence, jobs, knowledge, memories, models, playlists, privacy, search, usage, videos, youtube
 from app.config import get_settings
 from app.db.schema import migrate
 from app.middleware.observability import ObservabilityMiddleware
@@ -42,7 +42,6 @@ app = FastAPI(
 )
 
 _origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-# Drop bare chrome-extension:// prefix entries — handled via regex below.
 _origins = [o for o in _origins if o != "chrome-extension://" and not o.endswith("chrome-extension://")]
 app.add_middleware(
     CORSMiddleware,
@@ -67,6 +66,7 @@ app.include_router(playlists.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(capture.router, prefix="/api/v1")
 app.include_router(imports.router, prefix="/api/v1")
+app.include_router(connector_auth.router, prefix="/api/v1")
 app.include_router(usage.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
@@ -81,19 +81,16 @@ app.include_router(feedback.router, prefix="/api/v1")
 
 @app.get("/")
 async def serve_demo_ui() -> FileResponse:
-    """Serve the static HTML demo UI."""
     return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/privacy")
 async def privacy_policy_page() -> FileResponse:
-    """Hosted privacy policy for CWS disclosure (V1-8)."""
     return FileResponse(STATIC_DIR / "privacy.html")
 
 
 @app.get("/share")
 async def share_target_entry(url: str = "", text: str = "", title: str = "") -> FileResponse:
-    """Web Share Target landing page with prefilled ingest URL."""
     return FileResponse(STATIC_DIR / "index.html")
 
 
