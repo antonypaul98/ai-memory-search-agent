@@ -19,9 +19,17 @@ export function mountTopics(root, initialTopic = "", { signal } = {}) {
       </div>
       <div id="topic-cards" aria-live="polite">${skeleton(4)}</div>
     </section>
+    <section class="panel" id="duplicate-knowledge">
+      <div class="panel-header">
+        <h2>Duplicate knowledge</h2>
+        <span class="panel-caption">Review likely duplicates before merging</span>
+      </div>
+      <div id="duplicate-cards" aria-live="polite">${skeleton(2)}</div>
+    </section>
     <section class="panel" id="topic-detail" hidden></section>
   `;
   loadTopics(root, initialTopic, signal);
+  loadDuplicates(root, signal);
 }
 
 async function loadTopics(root, focus = "", signal) {
@@ -72,6 +80,103 @@ async function loadTopics(root, focus = "", signal) {
   } catch (err) {
     if (signal?.aborted) return;
     cards.innerHTML = emptyState("Topics unavailable", err.message);
+  }
+}
+
+async function loadDuplicates(root, signal) {
+  const cards = $("#duplicate-cards", root);
+  if (!cards) return;
+  try {
+    const response = await Api.duplicates(20, { abortTag: "duplicates", signal });
+    if (signal?.aborted) return;
+    const items = response.items || [];
+    if (!items.length) {
+      cards.innerHTML = emptyState(
+        "No duplicate knowledge found",
+        "Likely duplicate memories will appear here for review."
+      );
+      return;
+    }
+    cards.innerHTML = items.map(duplicateCard).join("");
+    cards.querySelectorAll("[data-merge-source]").forEach((button) => {
+      button.addEventListener("click", () => mergeDuplicate(root, button, signal));
+    });
+    cards.querySelectorAll("[data-open-video]").forEach((button) => {
+      button.addEventListener("click", () =>
+        navigate("memory", memoryRef("youtube", button.dataset.openVideo || ""))
+      );
+    });
+  } catch (err) {
+    if (signal?.aborted) return;
+    cards.innerHTML = emptyState("Duplicate review unavailable", err.message);
+  }
+}
+
+function duplicateCard(item) {
+  const shared = (item.shared_topics || []).slice(0, 6);
+  const diversity = Math.round(Number(item.diversity_score || 0) * 100);
+  return `
+    <article class="result-card duplicate-card">
+      <div class="panel-header">
+        <strong>${escapeHtml(item.relationship || "Possible duplicate")}</strong>
+        <span class="panel-caption">${diversity}% explanation diversity</span>
+      </div>
+      <div class="card-grid">
+        <div>
+          <button type="button" class="linkish" data-open-video="${escapeHtml(item.video_id_a)}">
+            ${escapeHtml(item.title_a || item.video_id_a)}
+          </button>
+          <small class="muted">A · ${escapeHtml(item.video_id_a)}</small>
+        </div>
+        <div>
+          <button type="button" class="linkish" data-open-video="${escapeHtml(item.video_id_b)}">
+            ${escapeHtml(item.title_b || item.video_id_b)}
+          </button>
+          <small class="muted">B · ${escapeHtml(item.video_id_b)}</small>
+        </div>
+      </div>
+      ${shared.length ? `<p class="muted">Shared topics: ${shared.map(escapeHtml).join(", ")}</p>` : ""}
+      ${item.evidence ? `<p>${escapeHtml(item.evidence)}</p>` : ""}
+      <div class="button-row">
+        <button type="button" class="secondary" data-merge-source="${escapeHtml(item.video_id_b)}" data-merge-target="${escapeHtml(item.video_id_a)}">
+          Keep A · merge B into A
+        </button>
+        <button type="button" class="secondary" data-merge-source="${escapeHtml(item.video_id_a)}" data-merge-target="${escapeHtml(item.video_id_b)}">
+          Keep B · merge A into B
+        </button>
+      </div>
+    </article>`;
+}
+
+async function mergeDuplicate(root, button, signal) {
+  const sourceVideoId = button.dataset.mergeSource || "";
+  const targetVideoId = button.dataset.mergeTarget || "";
+  if (!sourceVideoId || !targetVideoId) return;
+
+  const approved = window.confirm(
+    "Merge these memories? The source will be marked as merged into the memory you keep. This action is recorded in the lifecycle audit trail."
+  );
+  if (!approved) return;
+
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "Merging…";
+  try {
+    const [source, target] = await Promise.all([
+      Api.memoryByExternal("youtube", sourceVideoId, { cache: false, signal }),
+      Api.memoryByExternal("youtube", targetVideoId, { cache: false, signal }),
+    ]);
+    if (!source?.memory_id || !target?.memory_id) {
+      throw new Error("Could not resolve both memories to canonical records.");
+    }
+    await Api.mergeMemory(source.memory_id, target.memory_id, { signal });
+    if (signal?.aborted) return;
+    await loadDuplicates(root, signal);
+  } catch (err) {
+    if (signal?.aborted) return;
+    button.disabled = false;
+    button.textContent = original;
+    window.alert(`Merge failed: ${err.message}`);
   }
 }
 
