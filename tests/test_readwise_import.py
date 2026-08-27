@@ -71,7 +71,8 @@ def test_readwise_connector_turns_each_highlight_into_evidence_segment():
     transcript = connector.fetch_transcript(ref)
 
     assert item.connector_id == "readwise.v1"
-    assert item.canonical_url == "https://example.com/a"
+    assert item.canonical_url == "https://example.com/a#readwise-highlights"
+    assert item.raw_metadata["source_url"] == "https://example.com/a"
     assert item.raw_metadata["highlight_count"] == 2
     assert len(transcript.segments) == 2
     assert transcript.segments[0].text == "First idea\nNote: my note"
