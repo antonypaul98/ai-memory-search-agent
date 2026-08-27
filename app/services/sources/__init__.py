@@ -9,6 +9,7 @@ from app.services.sources.base_source import SourceConnector
 from app.services.sources.bookmark_connector import BookmarkConnector
 from app.services.sources.github_connector import GitHubConnector
 from app.services.sources.pdf_connector import PDFConnector
+from app.services.sources.readwise_connector import ReadwiseConnector
 from app.services.sources.web_connector import WebConnector
 from app.services.sources.youtube_connector import CONNECTOR_ID as YOUTUBE_ID
 from app.services.sources.youtube_connector import YouTubeConnector
@@ -20,6 +21,7 @@ _RESOLVE_ORDER = (
     "pdf.v1",
     "web.v1",
     "bookmarks.v1",
+    "readwise.v1",
 )
 
 
@@ -31,6 +33,7 @@ class ConnectorRegistry:
         self.register(PDFConnector())
         self.register(WebConnector())
         self.register(BookmarkConnector())
+        self.register(ReadwiseConnector())
 
     def register(self, connector: SourceConnector) -> None:
         self._by_id[connector.connector_id] = connector
