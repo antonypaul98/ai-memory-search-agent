@@ -133,7 +133,10 @@ class SearchResultItem(BaseModel):
     current_goal: str = Field(default="", description="User goal when saving.")
     reflection: ReflectionDisplay = Field(default_factory=ReflectionDisplay)
     usage: UsageStats = Field(default_factory=UsageStats)
-    confidence: float | None = Field(default=None, description="0–1 confidence for this hit.")
+    confidence: float | None = Field(default=None, description="0–1 retrieval confidence for this hit.")
+    trust_score: float | None = Field(default=None, ge=0, le=1, description="Persisted memory trust score.")
+    trust_tier: str | None = Field(default=None, description="Persisted trust tier for UI badges.")
+    verification_status: str | None = Field(default=None, description="Persisted memory verification status.")
     matching_metadata: list[str] = Field(default_factory=list)
     is_duplicate: bool = False
     processing_complete: bool = True

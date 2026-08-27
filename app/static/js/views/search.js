@@ -67,7 +67,6 @@ export function mountSearch(root, initialQuery = "") {
   }
 }
 
-/** Prefill / re-run when navigating with `#search/<query>` (V1-7 deep-link). */
 export function applySearchQuery(root, query = "") {
   const input = $("#search-q", root);
   if (!input) return;
@@ -75,6 +74,14 @@ export function applySearchQuery(root, query = "") {
   if (!q) return;
   input.value = q;
   void runSearch(root);
+}
+
+function trustBadge(result) {
+  const tier = result?.trust_tier;
+  const score = Number(result?.trust_score);
+  if (!tier || !Number.isFinite(score)) return "";
+  const label = String(tier).replaceAll("_", " ");
+  return `<span class="src-badge" title="Persisted trust score">Trust: ${escapeHtml(label)} ${Math.round(score * 100)}%</span>`;
 }
 
 async function runSearch(root) {
@@ -102,13 +109,9 @@ async function runSearch(root) {
   try {
     const data = await Api.retrieve(q, 20, filters, { abortTag: "search" });
     let hits = data.results || [];
-    if (sourceFilter) {
-      hits = hits.filter((h) => hitSourceType(h.result) === sourceFilter);
-    }
+    if (sourceFilter) hits = hits.filter((h) => hitSourceType(h.result) === sourceFilter);
     if (connectorFilter) {
-      hits = hits.filter((h) =>
-        String(h.result?.connector_id || "").toLowerCase().includes(connectorFilter)
-      );
+      hits = hits.filter((h) => String(h.result?.connector_id || "").toLowerCase().includes(connectorFilter));
     }
     if (topicFilter) {
       hits = hits.filter((h) => {
@@ -119,26 +122,23 @@ async function runSearch(root) {
     }
     const total = hits.length;
     hits = boundList(hits, RENDER_LIMITS.searchResults);
-    setStatus(
-      status,
-      `${total} result${total === 1 ? "" : "s"}${total > hits.length ? ` (showing ${hits.length})` : ""} · path: ${(data.search_path || []).join(" → ")}`
-    );
+    setStatus(status, `${total} result${total === 1 ? "" : "s"}${total > hits.length ? ` (showing ${hits.length})` : ""} · path: ${(data.search_path || []).join(" → ")}`);
     if (!hits.length) {
       out.innerHTML = emptyState("No matches", "Try another phrase or clear filters.");
       return;
     }
-    out.innerHTML = hits
-      .map((hit) => {
-        const r = hit.result || {};
-        const ex = hit.explanation || {};
-        const source = hitSourceType(r);
-        const ext = hitExternalId(r);
-        const link = externalLink(r.original_url || r.url, "Open source");
-        return `
+    out.innerHTML = hits.map((hit) => {
+      const r = hit.result || {};
+      const ex = hit.explanation || {};
+      const source = hitSourceType(r);
+      const ext = hitExternalId(r);
+      const link = externalLink(r.original_url || r.url, "Open source");
+      return `
         <article class="result-card">
           <div class="card-top">
             <span class="src-badge">${sourceIcon(source)} ${sourceLabel(source)}</span>
             ${confBadge(ex.confidence ?? r.confidence)}
+            ${trustBadge(r)}
             <span class="muted">${escapeHtml(r.connector_id || "")}</span>
           </div>
           <h3>${escapeHtml(r.title || "Untitled")}</h3>
@@ -150,11 +150,8 @@ async function runSearch(root) {
             ${link}
           </div>
         </article>`;
-      })
-      .join("");
-    out.querySelectorAll("[data-open]").forEach((btn) =>
-      btn.addEventListener("click", () => navigate("memory", btn.dataset.open))
-    );
+    }).join("");
+    out.querySelectorAll("[data-open]").forEach((btn) => btn.addEventListener("click", () => navigate("memory", btn.dataset.open)));
   } catch (err) {
     setStatus(status, err.message, "error");
     out.innerHTML = emptyState("Search failed", err.message);
