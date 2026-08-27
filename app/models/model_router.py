@@ -22,11 +22,22 @@ class ModelTaskType(str, Enum):
     EXTRACTION = "extraction"
 
 
+class OutputVerbosity(str, Enum):
+    AUTO = "auto"
+    CONCISE = "concise"
+    BALANCED = "balanced"
+    DETAILED = "detailed"
+
+
 class ModelRouteRequest(BaseModel):
     """One inference request and its routing constraints.
 
     `pinned_model` accepts either an exact route ID (`provider:model`) or an exact
     model ID. Pinned requests never fall over to a different model.
+
+    `max_output_tokens` is a hard ceiling. In the default AUTO verbosity mode the
+    router may choose a smaller learned/task-specific budget to avoid spending tokens
+    the user historically does not find useful. Explicit DETAILED mode keeps the full cap.
     """
 
     prompt: str = Field(min_length=1, max_length=200_000)
@@ -37,6 +48,8 @@ class ModelRouteRequest(BaseModel):
     max_provider_calls: int = Field(default=3, ge=1, le=10)
     max_latency_ms: int = Field(default=60_000, ge=100, le=300_000)
     max_output_tokens: int = Field(default=768, ge=1, le=16_384)
+    verbosity: OutputVerbosity = OutputVerbosity.AUTO
+    adaptive_output: bool = True
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
 
     @model_validator(mode="after")
@@ -75,6 +88,12 @@ class ModelRouteResponse(BaseModel):
     attempts: list[ModelRouteAttempt] = Field(default_factory=list)
     usage: ModelTokenUsage = Field(default_factory=ModelTokenUsage)
     route_fingerprint: str
+    interaction_id: str
+    output_budget_tokens: int
+    budget_tokens_saved_vs_cap: int = 0
+    preference_applied: bool = False
+    survey_available: bool = False
+    survey_reward_credits: int = 0
 
 
 class ModelCatalogItem(BaseModel):
