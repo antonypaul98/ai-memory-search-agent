@@ -125,6 +125,8 @@ export const Api = {
     apiFetch(`/intelligence/roadmap?topic=${encodeURIComponent(topic)}`, opts),
   capsules: (limit = 40, opts = {}) =>
     apiFetch(`/intelligence/capsules?limit=${limit}`, opts),
+  duplicates: (limit = 20, opts = {}) =>
+    apiFetch(`/intelligence/duplicates?limit=${limit}`, { ...opts, cache: false }),
   timeline: (mode = "recently_saved", topic = "", limit = 40, opts = {}) => {
     const q = new URLSearchParams({ mode, limit: String(limit) });
     if (topic) q.set("topic", topic);
@@ -155,6 +157,17 @@ export const Api = {
     apiFetch(`/memories/${encodeURIComponent(id)}`, opts),
   memoryLifecycle: (id, opts = {}) =>
     apiFetch(`/memories/${encodeURIComponent(id)}/lifecycle`, opts),
+  mergeMemory: (memoryId, intoMemoryId, opts = {}) =>
+    apiFetch(`/memories/${encodeURIComponent(memoryId)}/merge`, {
+      method: "POST",
+      body: JSON.stringify({
+        into_memory_id: intoMemoryId,
+        confirm: true,
+        reason: "duplicate_merge",
+      }),
+      cache: false,
+      ...opts,
+    }),
   deleteMemory: (id, opts = {}) =>
     apiFetch(`/memories/${encodeURIComponent(id)}`, {
       method: "DELETE",
