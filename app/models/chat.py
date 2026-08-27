@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.models.reflection import RecommendationItem
 from app.models.metrics import SearchMetrics
+from app.models.verification import VerificationReport
 
 
 class ChatRequest(BaseModel):
@@ -45,7 +46,7 @@ class ChatSource(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """Grounded chat response with citations."""
+    """Grounded chat response with citations and claim-level verification."""
 
     answer: str
     sources: list[ChatSource]
@@ -55,4 +56,5 @@ class ChatResponse(BaseModel):
     clarification_options: list[ClarificationOption] = Field(default_factory=list)
     recommendations: list[RecommendationItem] = Field(default_factory=list)
     confidence: str | None = None
+    verification: VerificationReport | None = None
     debug_metrics: SearchMetrics | None = None
