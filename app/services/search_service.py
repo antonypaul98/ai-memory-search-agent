@@ -5,6 +5,7 @@ Supports optional YouTube Memory filters without breaking the existing API.
 
 from __future__ import annotations
 
+import re
 import time
 
 from app.config import Settings, get_settings
@@ -17,6 +18,15 @@ from app.models.video import SearchFilters, SearchResponse, SearchResultItem
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.enrichment_service import build_why_matched
 from app.utils.youtube_urls import build_original_url, build_timestamp_url
+
+
+# Reflection is a secondary personalization signal, never a substitute for retrieval.
+# Keep the maximum boost intentionally small so a weak semantic hit cannot leapfrog a
+# materially stronger piece of evidence just because its saved context shares words.
+_REFLECTION_GOAL_WEIGHT = 0.05
+_REFLECTION_NOTE_WEIGHT = 0.025
+_REFLECTION_REASON_WEIGHT = 0.01
+_REFLECTION_MAX_BONUS = 0.075
 
 
 class SearchService:
@@ -68,20 +78,36 @@ class SearchService:
             )
 
         grouped = _group_by_video(chunk_hits)
+        reflection_signals: dict[str, tuple[float, list[str]]] = {}
+        for video_id in grouped:
+            try:
+                reflection = self._registry.get_reflection(video_id, user_id=owner)
+                reflection_signals[video_id] = _reflection_alignment(query, reflection)
+            except Exception:
+                # Personalization must fail open: core evidence ranking still works.
+                reflection_signals[video_id] = (0.0, [])
+
         ranked = sorted(
             grouped.values(),
-            key=lambda hit: hit["relevance_score"],
+            key=lambda hit: (
+                hit["relevance_score"]
+                + reflection_signals.get(hit.get("video_id") or "", (0.0, []))[0]
+            ),
             reverse=True,
         )
 
         results: list[SearchResultItem] = []
         for hit in ranked:
+            _bonus, signals = reflection_signals.get(
+                hit.get("video_id") or "", (0.0, [])
+            )
             item = _to_search_result_item(
                 hit=hit,
                 query=query,
                 registry=self._registry,
                 yt_store=self._yt_store,
                 user_id=owner,
+                reflection_signals=signals,
             )
             if filters and not _passes_filters(item, filters):
                 continue
@@ -122,6 +148,7 @@ def _to_search_result_item(
     registry: VideoRegistry,
     yt_store: YouTubeMemoryStore,
     user_id: str | None,
+    reflection_signals: list[str] | None = None,
 ) -> SearchResultItem:
     original_url = build_original_url(hit.get("url", ""))
     start_time = hit.get("start_time")
@@ -159,6 +186,13 @@ def _to_search_result_item(
         matching_metadata.append("channel")
     if hit.get("matched_text"):
         matching_metadata.append("transcript")
+
+    for signal in reflection_signals or []:
+        marker = f"reflection:{signal}"
+        if marker not in matching_metadata:
+            matching_metadata.append(marker)
+    if reflection_signals:
+        why += " Saved-context alignment: " + ", ".join(reflection_signals) + "."
 
     yt = yt_store.get(video_id, user_id=owner)
     tags = hit.get("tags") or (yt.tags if yt else [])
@@ -221,6 +255,54 @@ def _to_search_result_item(
         import_date=hit.get("created_at") or (yt.saved_at if yt else None),
         related_memories=list(hit.get("related_video_ids") or []),
     )
+
+
+def _reflection_alignment(query: str, reflection: object) -> tuple[float, list[str]]:
+    """Return a small deterministic ranking bonus from tenant-local save context.
+
+    The bonus is based only on lexical overlap with the current query. It is capped
+    below ordinary retrieval-score differences and never mutates the evidence score.
+    """
+    query_terms = _ranking_terms(query)
+    if not query_terms:
+        return 0.0, []
+
+    fields = (
+        ("goal", str(getattr(reflection, "goal", "") or ""), _REFLECTION_GOAL_WEIGHT),
+        (
+            "note",
+            str(getattr(reflection, "reflection_note", "") or ""),
+            _REFLECTION_NOTE_WEIGHT,
+        ),
+        (
+            "save_reason",
+            str(getattr(reflection, "save_reason", "") or "").replace("_", " "),
+            _REFLECTION_REASON_WEIGHT,
+        ),
+    )
+
+    bonus = 0.0
+    signals: list[str] = []
+    for name, value, weight in fields:
+        field_terms = _ranking_terms(value)
+        if not field_terms:
+            continue
+        overlap = query_terms & field_terms
+        if not overlap:
+            continue
+        ratio = len(overlap) / max(1, len(query_terms))
+        bonus += weight * ratio
+        signals.append(name)
+
+    return min(_REFLECTION_MAX_BONUS, round(bonus, 6)), signals
+
+
+def _ranking_terms(value: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", (value or "").lower())
+        if len(token) >= 3
+    }
 
 
 def _passes_filters(item: SearchResultItem, filters: SearchFilters) -> bool:
