@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import agent, agents, auth, cache, capture, chat, connector_auth, context, events, feedback, health, imports, intelligence, jobs, knowledge, memories, models, playlists, privacy, search, usage, videos, youtube
+from app.api.routes import agent, agents, auth, cache, capture, chat, connector_auth, context, events, feedback, health, imports, intelligence, jobs, knowledge, memories, models, playlists, podcasts, privacy, search, usage, videos, youtube
 from app.config import get_settings
 from app.db.schema import migrate
 from app.middleware.observability import ObservabilityMiddleware
@@ -66,6 +66,7 @@ app.include_router(playlists.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(capture.router, prefix="/api/v1")
 app.include_router(imports.router, prefix="/api/v1")
+app.include_router(podcasts.router, prefix="/api/v1")
 app.include_router(connector_auth.router, prefix="/api/v1")
 app.include_router(usage.router, prefix="/api/v1")
 app.include_router(search.router, prefix="/api/v1")
