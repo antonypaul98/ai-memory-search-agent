@@ -116,6 +116,11 @@ export const Api = {
   health: () => apiFetch("/health", {}, 15000),
   pwaConfig: () => apiFetch("/pwa/config", {}, 15000),
   agentStatus: (opts = {}) => apiFetch("/agent/status", opts, 20000),
+  events: (eventType = "", limit = 100, opts = {}) => {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (eventType) q.set("event_type", eventType);
+    return apiFetch(`/events?${q}`, { ...opts, cache: false });
+  },
   insights: (opts = {}) => apiFetch("/intelligence/insights", opts),
   topics: (limit = 40, opts = {}) =>
     apiFetch(`/intelligence/topics?limit=${limit}`, opts),
