@@ -8,6 +8,7 @@ Routes stay thin — they never construct repositories or Chroma clients directl
 from app.config import Settings, get_settings
 from app.db.repositories.memory_repository import MemoryRepository
 from app.services.chat_service import ChatService
+from app.services.context_router import ContextRouter, LocalMemoryContextProvider
 from app.services.health_service import HealthService
 from app.services.ingest_service import IngestService
 from app.services.recommendation_service import RecommendationService
@@ -47,6 +48,12 @@ def get_search_service() -> SearchService:
         settings=settings,
         repository=MemoryRepository(settings),
     )
+
+
+def get_context_router() -> ContextRouter:
+    """Provide the provider-neutral context router with local AHME as provider zero."""
+    search_service = get_search_service()
+    return ContextRouter([LocalMemoryContextProvider(search_service)])
 
 
 def get_chat_service() -> ChatService:
