@@ -174,16 +174,21 @@ class MemoryLifecycleService:
         user_id: str,
         into_memory_id: str,
         reason: str = "",
+        actor: str = "system",
     ) -> UniversalMemory:
-        """Mark a memory as merged into another trusted memory."""
+        """Mark a trusted memory as merged into another trusted memory."""
         target = self._store.get(into_memory_id, user_id=user_id)
         if not target:
             raise KeyError(f"Target memory not found: {into_memory_id}")
+        if target.lifecycle_state != MemoryLifecycleState.TRUSTED:
+            raise InvalidLifecycleTransitionError(
+                f"Merge target must be trusted, got {target.lifecycle_state.value}"
+            )
         return self.transition(
             memory_id=memory_id,
             user_id=user_id,
             to_state=MemoryLifecycleState.MERGED,
             reason=reason or f"merged_into:{into_memory_id}",
-            actor="system",
+            actor=actor,
             metadata={"into_memory_id": into_memory_id},
         )
