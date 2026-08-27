@@ -1,4 +1,4 @@
-"""Semantic query response cache."""
+"""Semantic query response cache with tenant isolation."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import numpy as np
 
 from app.config import Settings, get_settings
 from app.db.schema import get_connection, migrate, get_index_version, get_preference_version
+from app.models.user import LOCAL_DEFAULT_USER_ID
 
 
 def normalize_question(question: str) -> str:
@@ -25,6 +26,11 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return float(np.dot(va, vb) / denom)
 
 
+def _cache_key(user_id: str, normalized_question: str) -> str:
+    """Namespace the primary key so identical questions cannot overwrite another tenant."""
+    return f"{user_id}:{normalized_question}"
+
+
 class SemanticCache:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
@@ -36,10 +42,13 @@ class SemanticCache:
         question: str,
         query_embedding: list[float],
         query_type: str,
+        user_id: str | None = None,
     ) -> dict | None:
         if not self._settings.semantic_cache_enabled:
             return None
+        owner = user_id or LOCAL_DEFAULT_USER_ID
         normalized = normalize_question(question)
+        cache_key = _cache_key(owner, normalized)
         index_v = get_index_version(self._settings)
         pref_v = get_preference_version(self._settings)
         now = datetime.now(timezone.utc).isoformat()
@@ -48,10 +57,11 @@ class SemanticCache:
             exact = conn.execute(
                 """
                 SELECT answer_json FROM semantic_cache
-                WHERE cache_key = ? AND memory_index_version = ? AND preference_version = ?
+                WHERE cache_key = ? AND user_id = ?
+                  AND memory_index_version = ? AND preference_version = ?
                   AND expires_at > ? AND query_type = ?
                 """,
-                (normalized, index_v, pref_v, now, query_type),
+                (cache_key, owner, index_v, pref_v, now, query_type),
             ).fetchone()
             if exact:
                 return {"answer": json.loads(exact["answer_json"]), "cache_type": "exact"}
@@ -62,9 +72,10 @@ class SemanticCache:
             rows = conn.execute(
                 """
                 SELECT question_embedding, answer_json FROM semantic_cache
-                WHERE memory_index_version = ? AND preference_version = ? AND expires_at > ?
+                WHERE user_id = ? AND memory_index_version = ? AND preference_version = ?
+                  AND expires_at > ? AND query_type = ?
                 """,
-                (index_v, pref_v, now),
+                (owner, index_v, pref_v, now, query_type),
             ).fetchall()
             best = None
             best_sim = 0.0
@@ -77,7 +88,11 @@ class SemanticCache:
                     best_sim = sim
                     best = row
             if best and best_sim >= self._settings.semantic_cache_similarity_threshold:
-                return {"answer": json.loads(best["answer_json"]), "cache_type": "semantic", "similarity": best_sim}
+                return {
+                    "answer": json.loads(best["answer_json"]),
+                    "cache_type": "semantic",
+                    "similarity": best_sim,
+                }
         return None
 
     def put(
@@ -87,12 +102,15 @@ class SemanticCache:
         query_embedding: list[float],
         answer: dict,
         query_type: str,
+        user_id: str | None = None,
     ) -> None:
         if not self._settings.semantic_cache_enabled:
             return
         if query_type in {"ambiguous"}:
             return
+        owner = user_id or LOCAL_DEFAULT_USER_ID
         normalized = normalize_question(question)
+        cache_key = _cache_key(owner, normalized)
         index_v = get_index_version(self._settings)
         pref_v = get_preference_version(self._settings)
         now = datetime.now(timezone.utc)
@@ -102,11 +120,11 @@ class SemanticCache:
                 """
                 INSERT OR REPLACE INTO semantic_cache
                 (cache_key, question_normalized, question_embedding, answer_json, query_type,
-                 memory_index_version, preference_version, created_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 memory_index_version, preference_version, created_at, expires_at, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    normalized,
+                    cache_key,
                     normalized,
                     json.dumps(query_embedding),
                     json.dumps(answer),
@@ -115,5 +133,6 @@ class SemanticCache:
                     pref_v,
                     now.isoformat(),
                     expires.isoformat(),
+                    owner,
                 ),
             )
