@@ -12,6 +12,7 @@ import httpx
 
 from app.config import Settings, get_settings
 from app.models.capsule import StructuredAnswer
+from app.models.user import LOCAL_DEFAULT_USER_ID
 
 
 class LLMProvider(ABC):
@@ -92,6 +93,66 @@ class OpenAICompatibleProvider(LLMProvider):
             _synthesis_prompt(question, evidence, answer_format),
             self._settings.llm_timeout_sec,
             self._api_key,
+        )
+        return _parse_structured_answer(raw)
+
+
+class RoutedLLMProvider(LLMProvider):
+    """Use the Model Router for optional capsule/synthesis inference.
+
+    The caller may set MODEL_ROUTER_PINNED_MODEL to force one exact model. Without
+    a pin, task-aware automatic routing is used. Failures return None so the existing
+    deterministic grounding path remains authoritative.
+    """
+
+    def __init__(self, settings: Settings, *, user_id: str | None = None) -> None:
+        from app.services.model_router import ModelRouter
+
+        self._settings = settings
+        self._user_id = user_id or LOCAL_DEFAULT_USER_ID
+        self._router = ModelRouter(settings)
+
+    def _route(self, prompt: str, *, task_type: str, max_output_tokens: int) -> str | None:
+        from app.models.model_router import (
+            ModelRouteMode,
+            ModelRouteRequest,
+            ModelTaskType,
+        )
+        from app.services.model_router import ModelRouteError
+
+        pin = self._settings.model_router_pinned_model.strip()
+        mode = ModelRouteMode.PINNED if pin else ModelRouteMode.AUTO
+        try:
+            result = self._router.route(
+                ModelRouteRequest(
+                    prompt=prompt,
+                    mode=mode,
+                    pinned_model=pin or None,
+                    task_type=ModelTaskType(task_type),
+                    prefer_free=True,
+                    max_output_tokens=max_output_tokens,
+                    max_latency_ms=max(100, self._settings.llm_timeout_sec * 1000),
+                ),
+                user_id=self._user_id,
+            )
+            return result.content
+        except (ModelRouteError, ValueError):
+            return None
+
+    def generate_capsule_json(self, **kwargs: Any) -> str | None:
+        return self._route(
+            _capsule_prompt(kwargs),
+            task_type="extraction",
+            max_output_tokens=1400,
+        )
+
+    def synthesize(
+        self, *, question: str, evidence: list[dict], answer_format: str
+    ) -> StructuredAnswer | None:
+        raw = self._route(
+            _synthesis_prompt(question, evidence, answer_format),
+            task_type="reasoning",
+            max_output_tokens=1200,
         )
         return _parse_structured_answer(raw)
 
@@ -184,10 +245,16 @@ def _post_openai_chat(
         return None
 
 
-def get_llm_provider(settings: Settings | None = None) -> LLMProvider | None:
+def get_llm_provider(
+    settings: Settings | None = None,
+    *,
+    user_id: str | None = None,
+) -> LLMProvider | None:
     settings = settings or get_settings()
     if settings.llm_provider == "ollama":
         return OllamaProvider(settings)
     if settings.llm_provider == "openai_compatible":
         return OpenAICompatibleProvider(settings)
+    if settings.llm_provider == "router" and settings.model_router_enabled:
+        return RoutedLLMProvider(settings, user_id=user_id)
     return None
