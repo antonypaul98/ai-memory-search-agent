@@ -20,6 +20,7 @@
       }
       input[type="text"],
       input[type="password"],
+      input[type="number"],
       select {
         width: 100%;
         padding: 10px;
@@ -83,6 +84,18 @@
         <span>Debug Mode</span>
         <input type="checkbox" id="debugMode" />
       </div>
+    </section>
+
+    <section class="card">
+      <div class="card-label">Bookmark sync</div>
+      <div class="toggle">
+        <span>Automatically sync browser bookmarks</span>
+        <input type="checkbox" id="bookmarkSyncEnabled" />
+      </div>
+      <p class="muted">Off by default. Enabling asks for the optional bookmarks permission and periodically sends a fresh bookmark snapshot to your configured Memory backend.</p>
+      <label for="bookmarkSyncHours">Sync interval (hours)</label>
+      <input id="bookmarkSyncHours" type="number" min="1" max="168" step="1" value="24" />
+      <p class="status" id="bookmark-sync-status"></p>
     </section>
 
     <section class="card">
