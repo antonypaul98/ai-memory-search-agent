@@ -65,6 +65,31 @@ function normalizeConfidence(confRaw) {
   return Number.isFinite(n) ? n : null;
 }
 
+function renderConsensus(consensus) {
+  if (!consensus) return "";
+  const weight = Math.round(Number(consensus.consensus_weight || 0) * 100);
+  const status = String(consensus.status || "inconclusive").replaceAll("_", " ");
+  const conflicts = boundList(consensus.conflicts || [], 4);
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Source consensus</h3>
+        <span class="panel-caption">${escapeHtml(status)} · ${weight}% consensus · ${Number(consensus.source_count || 0)} sources</span>
+      </div>
+      ${
+        conflicts.length
+          ? `<div class="list">${conflicts
+              .map((c) => `<div class="list-row static"><span class="list-main">
+                <strong>${escapeHtml(c.reason === "numeric_mismatch" ? "Numeric disagreement" : "Source disagreement")}</strong>
+                <small>${escapeHtml(c.side_a?.source_title || c.side_a?.source_id || "Source A")}: ${escapeHtml(c.side_a?.claim || "")}</small>
+                <small>${escapeHtml(c.side_b?.source_title || c.side_b?.source_id || "Source B")}: ${escapeHtml(c.side_b?.claim || "")}</small>
+              </span></div>`)
+              .join("")}</div>`
+          : `<p class="muted">No explicit contradictions detected in the retrieved sources.</p>`
+      }
+    </section>`;
+}
+
 async function runAsk(root) {
   const q = $("#ask-q", root).value.trim();
   const status = $("#ask-status", root);
@@ -98,6 +123,7 @@ async function runAsk(root) {
         <div class="card-top">${confBadge(confNum)} <span class="muted">Grounded answer</span></div>
         <div class="answer-body">${escapeHtml(chat.answer || chat.answer_markdown || "No answer returned.").replaceAll("\n", "<br/>")}</div>
       </article>
+      ${renderConsensus(chat.consensus)}
       <section class="panel">
         <h3>Evidence</h3>
         <div class="list">

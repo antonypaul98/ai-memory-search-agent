@@ -8,8 +8,9 @@ from app.models.chat import ChatResponse, ChatSource, ClarificationOption
 from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.clarification_service import analyze_clarification, filter_chunks_by_choice
+from app.services.consensus_engine import ConsensusEngine
 from app.services.grounded_synthesis import synthesize_grounded_answer
-from app.services.query_router import route_query
+from app.services.query_router import QueryType, route_query
 from app.services.recommendation_service import RecommendationService
 from app.services.verification_engine import VerificationEngine
 from app.utils.youtube_urls import build_original_url, build_timestamp_url
@@ -28,6 +29,7 @@ class ChatService:
         recommendation_service: RecommendationService | None = None,
         ahme: AdaptiveHierarchicalMemoryEngine | None = None,
         verification_engine: VerificationEngine | None = None,
+        consensus_engine: ConsensusEngine | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._repository = repository or MemoryRepository(self._settings)
@@ -42,6 +44,7 @@ class ChatService:
             repository=self._repository,
         )
         self._verification = verification_engine or VerificationEngine()
+        self._consensus = consensus_engine or ConsensusEngine()
 
     def chat(
         self,
@@ -100,7 +103,19 @@ class ChatService:
         )
         metrics.synthesis_ms = synthesis_ms
         metrics.estimated_llm_tokens = max(1, len(generated.answer.split()) * 2)
-        verification = self._verification.verify(generated.answer, chunk_hits)
+
+        comparison_query = bool(
+            QueryType.COMPARISON in route.query_types or QueryType.CROSS_VIDEO in route.query_types
+        )
+        consensus = self._consensus.analyze(chunk_hits) if comparison_query else None
+        answer = generated.answer
+        grounded = generated.grounded
+        if consensus is not None and consensus.conflicts:
+            # Do not collapse contradictory retrieved claims into one confident statement.
+            answer = self._consensus.conflict_preserving_answer(consensus)
+            grounded = bool(answer and chunk_hits)
+
+        verification = self._verification.verify(answer, chunk_hits)
 
         top_video_ids = {hit.get("video_id") for hit in deduped_sources if hit.get("video_id")}
         recommendations = self._recommendations.recommend_for_query(
@@ -110,12 +125,13 @@ class ChatService:
         )
 
         response = ChatResponse(
-            answer=generated.answer,
+            answer=answer,
             sources=[_to_chat_source(hit) for hit in deduped_sources],
-            grounded=generated.grounded,
+            grounded=grounded,
             recommendations=recommendations,
             confidence=confidence,
             verification=verification,
+            consensus=consensus,
         )
         if debug and self._settings.debug:
             response.debug_metrics = metrics
