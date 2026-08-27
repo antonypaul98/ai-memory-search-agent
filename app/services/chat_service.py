@@ -11,6 +11,7 @@ from app.services.clarification_service import analyze_clarification, filter_chu
 from app.services.grounded_synthesis import synthesize_grounded_answer
 from app.services.query_router import route_query
 from app.services.recommendation_service import RecommendationService
+from app.services.verification_engine import VerificationEngine
 from app.utils.youtube_urls import build_original_url, build_timestamp_url
 
 _TIMESTAMP_BUCKET_SECONDS = 30
@@ -26,6 +27,7 @@ class ChatService:
         registry: VideoRegistry | None = None,
         recommendation_service: RecommendationService | None = None,
         ahme: AdaptiveHierarchicalMemoryEngine | None = None,
+        verification_engine: VerificationEngine | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._repository = repository or MemoryRepository(self._settings)
@@ -39,6 +41,7 @@ class ChatService:
             settings=self._settings,
             repository=self._repository,
         )
+        self._verification = verification_engine or VerificationEngine()
 
     def chat(
         self,
@@ -97,6 +100,7 @@ class ChatService:
         )
         metrics.synthesis_ms = synthesis_ms
         metrics.estimated_llm_tokens = max(1, len(generated.answer.split()) * 2)
+        verification = self._verification.verify(generated.answer, chunk_hits)
 
         top_video_ids = {hit.get("video_id") for hit in deduped_sources if hit.get("video_id")}
         recommendations = self._recommendations.recommend_for_query(
@@ -111,6 +115,7 @@ class ChatService:
             grounded=generated.grounded,
             recommendations=recommendations,
             confidence=confidence,
+            verification=verification,
         )
         if debug and self._settings.debug:
             response.debug_metrics = metrics
