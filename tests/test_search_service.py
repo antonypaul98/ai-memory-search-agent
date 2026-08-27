@@ -1,11 +1,16 @@
 """Tests for search service grouping and repository search."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from app.config import Settings
 from app.db.chroma_client import reset_chroma_cache
 from app.db.repositories.memory_repository import MemoryRepository
-from app.services.search_service import SearchService, _group_by_video
+from app.models.reflection import ReflectionDisplay, UsageStats
+from app.services.search_service import (
+    SearchService,
+    _group_by_video,
+    _reflection_alignment,
+)
 from app.utils.chunking import TranscriptChunk
 
 
@@ -59,6 +64,100 @@ class TestGroupByVideo:
         grouped = _group_by_video(hits)
         assert grouped["v1"]["matched_text"] == "high"
         assert len(grouped) == 2
+
+
+class TestReflectionAwareRanking:
+    def test_alignment_is_small_deterministic_and_explainable(self) -> None:
+        reflection = ReflectionDisplay(
+            goal="Kubernetes certification",
+            reflection_note="Use this for my cluster certification study plan",
+            save_reason="future_learning",
+        )
+        bonus, signals = _reflection_alignment("kubernetes certification", reflection)
+
+        assert 0 < bonus <= 0.075
+        assert "goal" in signals
+        assert "note" in signals
+
+    def test_unrelated_reflection_does_not_change_ranking(self) -> None:
+        reflection = ReflectionDisplay(
+            goal="Learn bread baking",
+            reflection_note="Weekend sourdough project",
+            save_reason="project",
+        )
+        bonus, signals = _reflection_alignment("kubernetes certification", reflection)
+
+        assert bonus == 0.0
+        assert signals == []
+
+    def test_tenant_local_goal_can_break_close_semantic_tie_without_mutating_similarity(
+        self, tmp_path
+    ) -> None:
+        settings = Settings(
+            sqlite_path=str(tmp_path / "reflection-ranking.db"),
+            chroma_persist_dir=str(tmp_path / "chroma"),
+            chroma_collection_name="reflection-ranking",
+            jobs_enabled=False,
+        )
+        registry = MagicMock()
+        repository = MagicMock()
+        service = SearchService(settings=settings, repository=repository, registry=registry)
+        service._yt_store = MagicMock()
+        service._yt_store.get.return_value = None
+
+        hits = [
+            {
+                "video_id": "semantic-first",
+                "relevance_score": 0.60,
+                "matched_text": "general certification preparation",
+                "title": "Certification overview",
+                "channel": "Channel A",
+                "thumbnail": "",
+                "url": "https://www.youtube.com/watch?v=semantic-first",
+            },
+            {
+                "video_id": "goal-aligned",
+                "relevance_score": 0.58,
+                "matched_text": "kubernetes exam preparation",
+                "title": "Kubernetes exam guide",
+                "channel": "Channel B",
+                "thumbnail": "",
+                "url": "https://www.youtube.com/watch?v=goal-aligned",
+            },
+        ]
+        service._ahme = MagicMock()
+        service._ahme.retrieve.return_value = (hits, {})
+
+        reflections = {
+            "semantic-first": ReflectionDisplay(),
+            "goal-aligned": ReflectionDisplay(
+                goal="Kubernetes certification",
+                reflection_note="",
+                save_reason="future_learning",
+            ),
+        }
+        registry.get_reflection.side_effect = lambda video_id, user_id: reflections[video_id]
+        registry.get_usage.return_value = UsageStats()
+
+        response = service.search(
+            "kubernetes certification",
+            limit=2,
+            user_id="tenant-a",
+        )
+
+        assert [item.video_id for item in response.results] == [
+            "goal-aligned",
+            "semantic-first",
+        ]
+        # Personalization affects order only; evidence/similarity scores remain honest.
+        assert response.results[0].relevance_score == 0.58
+        assert response.results[0].similarity_score == 0.58
+        assert "reflection:goal" in response.results[0].matching_metadata
+        assert "Saved-context alignment: goal" in response.results[0].why_matched
+        assert all(
+            call.kwargs.get("user_id") == "tenant-a"
+            for call in registry.get_reflection.call_args_list
+        )
 
 
 class TestSearchService:
