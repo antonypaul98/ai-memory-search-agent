@@ -1,4 +1,4 @@
-"""";
+/** Shared bookmark snapshot helpers for manual and scheduled sync. */
 
 /** Maximum bookmark URLs accepted by the backend request model. */
 export const BOOKMARK_SYNC_LIMIT = 500;
