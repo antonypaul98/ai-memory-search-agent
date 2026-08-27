@@ -56,12 +56,15 @@ def test_search_result_uses_current_tenant_reflection_and_usage(tmp_path) -> Non
     }
     yt_store = MagicMock()
     yt_store.get.return_value = None
+    memory_store = MagicMock()
+    memory_store.get_by_external.return_value = None
 
     item = _to_search_result_item(
         hit=hit,
         query="reference",
         registry=registry,
         yt_store=yt_store,
+        memory_store=memory_store,
         user_id="user-b",
     )
 
@@ -71,6 +74,11 @@ def test_search_result_uses_current_tenant_reflection_and_usage(tmp_path) -> Non
     assert item.usage.view_count == 1
     assert "private goal A" not in item.reflection.reflection_message
     yt_store.get.assert_called_once_with("shared-video", user_id="user-b")
+    memory_store.get_by_external.assert_called_once_with(
+        user_id="user-b",
+        source_type="youtube",
+        external_id="shared-video",
+    )
 
 
 def test_search_tracking_updates_only_current_tenant(tmp_path) -> None:
