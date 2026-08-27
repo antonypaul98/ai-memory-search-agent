@@ -11,6 +11,11 @@ from app.db.schema import get_connection
 from app.services.semantic_cache import SemanticCache
 
 
+def _enabled(settings: Settings) -> Settings:
+    """Enable the feature explicitly; the shared fixture disables cache by default."""
+    return settings.model_copy(update={"semantic_cache_enabled": True})
+
+
 def _put(cache: SemanticCache, user_id: str, question: str, query_type: str = "factual") -> None:
     cache.put(
         question=question,
@@ -23,7 +28,8 @@ def _put(cache: SemanticCache, user_id: str, question: str, query_type: str = "f
 
 class TestSemanticCacheOperations:
     def test_stats_are_tenant_scoped(self, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        settings = _enabled(test_settings)
+        cache = SemanticCache(settings)
         _put(cache, "user-a", "alpha")
         _put(cache, "user-a", "beta", "comparison")
         _put(cache, "user-b", "private")
@@ -35,10 +41,11 @@ class TestSemanticCacheOperations:
         assert stats["active_by_query_type"] == {"comparison": 1, "factual": 1}
 
     def test_stats_count_expired_without_returning_content(self, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        settings = _enabled(test_settings)
+        cache = SemanticCache(settings)
         _put(cache, "user-a", "old")
         past = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
-        with get_connection(test_settings) as conn:
+        with get_connection(settings) as conn:
             conn.execute(
                 "UPDATE semantic_cache SET expires_at = ? WHERE user_id = ?",
                 (past, "user-a"),
@@ -51,7 +58,7 @@ class TestSemanticCacheOperations:
         assert "old" not in str(stats)
 
     def test_invalidate_only_current_tenant(self, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        cache = SemanticCache(_enabled(test_settings))
         _put(cache, "user-a", "alpha")
         _put(cache, "user-b", "beta")
 
@@ -60,7 +67,7 @@ class TestSemanticCacheOperations:
         assert cache.stats(user_id="user-b")["total"] == 1
 
     def test_invalidate_can_limit_query_type(self, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        cache = SemanticCache(_enabled(test_settings))
         _put(cache, "user-a", "alpha", "factual")
         _put(cache, "user-a", "beta", "comparison")
 
@@ -72,7 +79,7 @@ class TestSemanticCacheOperations:
 
 class TestSemanticCacheAPI:
     def test_stats_endpoint(self, client: TestClient, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        cache = SemanticCache(_enabled(test_settings))
         _put(cache, "local-default", "cached question")
 
         resp = client.get("/api/v1/cache/semantic/stats")
@@ -83,7 +90,7 @@ class TestSemanticCacheAPI:
         assert "answer" not in body
 
     def test_invalidation_endpoint(self, client: TestClient, test_settings: Settings) -> None:
-        cache = SemanticCache(test_settings)
+        cache = SemanticCache(_enabled(test_settings))
         _put(cache, "local-default", "one", "factual")
         _put(cache, "local-default", "two", "comparison")
 
