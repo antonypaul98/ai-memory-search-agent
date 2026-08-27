@@ -1,7 +1,7 @@
 # Context Router Research — 2026-08-27
 
 **Status:** Active product direction and competitive guardrail.  
-**Working name:** ContextRail / Context Router (brand name intentionally not finalized).  
+**Engineering label:** Context Router. **Do not use “ContextRail” as the product name** — an active AI standards/context platform already uses it. Final branding requires a separate name/trademark/domain scan.  
 **Principle:** Do not become another generic vector database, memory API, enterprise search product, or prompt compressor. Build the neutral execution layer that decides **which context system to trust for this request, under this user's policy, latency, freshness, token, and cost constraints**.
 
 ---
@@ -38,6 +38,7 @@ We should treat uniqueness as a continuously tested market hypothesis, not a mar
 | **Glean** | Proven enterprise demand; excellent cross-tool search, permissions/connectors, employee productivity and onboarding use cases. | User reviews mention broad results, limited filtering/source transparency, conflicting or superseded sources, and occasional slowness/inconsistency. Those become explicit router requirements: source policy, temporal conflict handling, deterministic selection, latency budgets. |
 | **Hyperspell** | Company context graph, 50+ connectors, agent-neutral access. | Builds a company brain. Our layer should also route between company brain, personal memory, local sources, and specialized context systems without one store owning all context. |
 | **Corla / enterprise context brokers** | Scoped organizational context packages, MCP delivery, audit/governance. | Confirms that "context broker/control plane" alone is not a unique category claim. We need routing competition, measurable SLAs, shadow benchmarks, and cross-provider fallback as first-class primitives. |
+| **ContextRail (existing product)** | Makes organizational standards/durable truths available to coding AI tools through MCP and verification workflows. | Its existence makes the name unavailable to us and confirms that durable organization-context delivery is already occupied. Our scope is dynamic provider selection and context execution across many context systems, not a standards library. |
 | **Snowflake Horizon Context** | Governed enterprise semantic/business context; strong fit for data estates and consistent business logic. | Tied to an enterprise data platform. It can become a provider behind our router rather than define the whole user's context universe. |
 | **memio / unified memory gateways** | One interface across Mem0, Zep, Chroma, Letta, Qdrant, Supermemory; composable providers. | A common adapter is useful but not enough. We need the router to decide dynamically which backend(s) win for each request and prove the decision. |
 | **Stanford Portable Memory / HCP and other portability efforts** | User-controlled, interoperable, consent/purpose-aware personal context is an important emerging direction. | Portability is not ours to claim as unique. We should support open portable formats/protocols instead of inventing a proprietary prison. |
