@@ -18,6 +18,7 @@ from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.models.video import SearchFilters, SearchResponse, SearchResultItem
 from app.services.ahme_engine import AdaptiveHierarchicalMemoryEngine
 from app.services.enrichment_service import build_why_matched
+from app.services.learning_evolution_service import usage_learning_signal
 from app.utils.youtube_urls import build_original_url, build_timestamp_url
 
 
@@ -82,6 +83,7 @@ class SearchService:
 
         grouped = _group_by_video(chunk_hits)
         reflection_signals: dict[str, tuple[float, list[str]]] = {}
+        learning_signals: dict[str, tuple[float, list[str]]] = {}
         for video_id in grouped:
             try:
                 reflection = self._registry.get_reflection(video_id, user_id=owner)
@@ -89,12 +91,20 @@ class SearchService:
             except Exception:
                 # Personalization must fail open: core evidence ranking still works.
                 reflection_signals[video_id] = (0.0, [])
+            try:
+                usage = self._registry.get_usage(video_id, user_id=owner)
+                learning_signals[video_id] = usage_learning_signal(usage)
+            except Exception:
+                # Learned ranking is additive. Retrieval must remain available if
+                # analytics metadata is unavailable.
+                learning_signals[video_id] = (0.0, [])
 
         ranked = sorted(
             grouped.values(),
             key=lambda hit: (
                 hit["relevance_score"]
                 + reflection_signals.get(hit.get("video_id") or "", (0.0, []))[0]
+                + learning_signals.get(hit.get("video_id") or "", (0.0, []))[0]
             ),
             reverse=True,
         )
@@ -102,6 +112,9 @@ class SearchService:
         results: list[SearchResultItem] = []
         for hit in ranked:
             _bonus, signals = reflection_signals.get(
+                hit.get("video_id") or "", (0.0, [])
+            )
+            _learning_bonus, usage_signals = learning_signals.get(
                 hit.get("video_id") or "", (0.0, [])
             )
             item = _to_search_result_item(
@@ -112,6 +125,7 @@ class SearchService:
                 memory_store=self._memory_store,
                 user_id=owner,
                 reflection_signals=signals,
+                usage_signals=usage_signals,
             )
             if filters and not _passes_filters(item, filters):
                 continue
@@ -154,6 +168,7 @@ def _to_search_result_item(
     memory_store: MemoryStore,
     user_id: str | None,
     reflection_signals: list[str] | None = None,
+    usage_signals: list[str] | None = None,
 ) -> SearchResultItem:
     original_url = build_original_url(hit.get("url", ""))
     start_time = hit.get("start_time")
@@ -198,6 +213,13 @@ def _to_search_result_item(
             matching_metadata.append(marker)
     if reflection_signals:
         why += " Saved-context alignment: " + ", ".join(reflection_signals) + "."
+
+    for signal in usage_signals or []:
+        marker = f"learning:{signal}"
+        if marker not in matching_metadata:
+            matching_metadata.append(marker)
+    if usage_signals:
+        why += " Learned preference signals: " + ", ".join(usage_signals) + "."
 
     yt = yt_store.get(video_id, user_id=owner)
     tags = hit.get("tags") or (yt.tags if yt else [])
