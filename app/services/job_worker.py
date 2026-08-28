@@ -53,17 +53,25 @@ class JobWorker:
                     self._queue.wait()
                     continue
                 job_id, item_key, url = claim
-                self._process_item(job_id, item_key, url)
+                self._process_item(job_id, item_key, url, worker_id=worker_id)
             except Exception as exc:
                 # Queue/provider errors must not destroy durable work. Back off using
                 # the polling transport delay before retrying the authoritative store.
                 logger.exception("Job worker error: %s", exc)
                 self._stop.wait(self._settings.job_poll_interval_sec)
 
-    def _process_item(self, job_id: str, item_key: str, url: str) -> None:
+    def _process_item(self, job_id: str, item_key: str, url: str, *, worker_id: str) -> None:
         user_id = _job_user(self._settings, job_id)
         reflection = _job_reflection(self._settings, job_id)
         force_refresh = _job_force_refresh(self._settings, job_id)
+        heartbeat_stop = threading.Event()
+        heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop,
+            args=(job_id, item_key, worker_id, heartbeat_stop),
+            name=f"job-heartbeat-{item_key[:12]}",
+            daemon=True,
+        )
+        heartbeat_thread.start()
         try:
             result = self._ingest.ingest_single_url(
                 url,
@@ -72,23 +80,81 @@ class JobWorker:
                 force_refresh=force_refresh,
             )
             if result.skipped:
-                self._store.complete_item(job_id=job_id, item_key=item_key, status="skipped")
+                completed = self._store.complete_item(
+                    job_id=job_id,
+                    item_key=item_key,
+                    status="skipped",
+                    worker_id=worker_id,
+                )
             elif result.success:
-                self._store.complete_item(job_id=job_id, item_key=item_key, status="completed")
+                completed = self._store.complete_item(
+                    job_id=job_id,
+                    item_key=item_key,
+                    status="completed",
+                    worker_id=worker_id,
+                )
             else:
-                self._store.complete_item(
+                completed = self._store.complete_item(
                     job_id=job_id,
                     item_key=item_key,
                     status="failed",
                     error=result.error or "Unknown error",
+                    worker_id=worker_id,
+                )
+            if not completed:
+                logger.warning(
+                    "Discarded stale job completion job_id=%s item_key=%s worker_id=%s",
+                    job_id,
+                    item_key,
+                    worker_id,
                 )
         except Exception as exc:
-            self._store.complete_item(
+            completed = self._store.complete_item(
                 job_id=job_id,
                 item_key=item_key,
                 status="failed",
                 error=str(exc),
+                worker_id=worker_id,
             )
+            if not completed:
+                logger.warning(
+                    "Discarded stale failed completion job_id=%s item_key=%s worker_id=%s",
+                    job_id,
+                    item_key,
+                    worker_id,
+                )
+        finally:
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=1.0)
+
+    def _heartbeat_loop(
+        self,
+        job_id: str,
+        item_key: str,
+        worker_id: str,
+        stop_event: threading.Event,
+    ) -> None:
+        """Keep a long-running ingest claim alive; stop immediately after ownership loss."""
+        interval = max(0.1, self._settings.job_lease_seconds / 3)
+        while not stop_event.wait(interval):
+            try:
+                if not self._store.heartbeat_item(
+                    job_id=job_id,
+                    item_key=item_key,
+                    worker_id=worker_id,
+                ):
+                    return
+            except Exception as exc:
+                # A missed heartbeat must not make a stale worker authoritative. If
+                # another worker eventually reclaims the item, complete_item's owner
+                # check rejects this worker's late result.
+                logger.warning(
+                    "Job heartbeat failed job_id=%s item_key=%s worker_id=%s error=%s",
+                    job_id,
+                    item_key,
+                    worker_id,
+                    exc,
+                )
 
 
 def start_job_worker(settings: Settings | None = None) -> JobWorker:
