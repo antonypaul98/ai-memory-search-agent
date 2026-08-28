@@ -9,7 +9,9 @@ def test_single_node_default_is_allowed():
 
 
 def test_sqlite_polling_split_mode_is_allowed_for_non_redis_local_operation():
-    validate_runtime_topology(Settings(worker_mode="worker", job_queue_backend="sqlite"))
+    validate_runtime_topology(
+        Settings(jobs_enabled=True, worker_mode="worker", job_queue_backend="sqlite")
+    )
 
 
 def test_disabled_jobs_bypass_topology_gate():
@@ -20,7 +22,14 @@ def test_disabled_jobs_bypass_topology_gate():
 
 @pytest.mark.parametrize("worker_mode", ["api", "worker"])
 def test_split_redis_runtime_fails_closed_until_postgres_cutover(worker_mode):
-    settings = Settings(worker_mode=worker_mode, job_queue_backend="redis")
+    # CI intentionally exports JOBS_ENABLED=false for the general test suite.
+    # Make this topology test self-contained so the fail-closed contract is
+    # exercised regardless of ambient environment configuration.
+    settings = Settings(
+        jobs_enabled=True,
+        worker_mode=worker_mode,
+        job_queue_backend="redis",
+    )
 
     with pytest.raises(UnsafeRuntimeTopology) as exc:
         validate_runtime_topology(settings)
@@ -32,4 +41,6 @@ def test_split_redis_runtime_fails_closed_until_postgres_cutover(worker_mode):
 
 
 def test_single_process_redis_transport_remains_testable():
-    validate_runtime_topology(Settings(worker_mode="all", job_queue_backend="redis"))
+    validate_runtime_topology(
+        Settings(jobs_enabled=True, worker_mode="all", job_queue_backend="redis")
+    )
