@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     job_poll_interval_sec: float = 2.0
     youtube_api_key_env: str = "YOUTUBE_API_KEY"
     connector_token_key_env: str = "CONNECTOR_TOKEN_KEY"
+    # Optional comma-separated connector allowlist. Empty keeps all built-ins enabled.
+    connector_enabled_ids: str = ""
     playlist_page_size: int = 50
     playlist_max_videos: int = 500
     capture_max_response_bytes: int = 2_000_000
