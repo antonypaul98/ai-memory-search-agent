@@ -12,6 +12,7 @@ from app.models.reflection import ReflectionInput
 from app.models.trust import VerificationStatus
 from app.models.universal_memory import MemoryEmbeddingRefs, MemoryProvenance, UniversalMemory
 from app.models.video import SourceType, VideoMetadata
+from app.services.event_bus import EventBus
 from app.services.knowledge_graph_service import KnowledgeGraphService
 from app.services.memory_lifecycle_service import MemoryLifecycleService
 from app.services.trust_engine import TrustEngine
@@ -33,6 +34,7 @@ class UniversalMemoryService:
         self._lifecycle = lifecycle or MemoryLifecycleService(self._settings, self._store)
         self._trust = trust or TrustEngine(self._settings, self._store)
         self._graph = graph or KnowledgeGraphService(self._settings)
+        self._events = EventBus(self._settings)
 
     def begin_capture(
         self,
@@ -226,6 +228,20 @@ class UniversalMemoryService:
             # Intelligence layer must not break ingest.
             pass
 
+        self._events.emit(
+            user_id=user_id,
+            event_type="ingest.completed",
+            aggregate_type="memory",
+            aggregate_id=memory.memory_id,
+            actor="system",
+            payload={
+                "source_type": metadata.source_type.value,
+                "chunk_count": chunk_count,
+                "has_capsule": has_capsule,
+                "verification_status": memory.verification_status.value,
+                "lifecycle_state": memory.lifecycle_state.value,
+            },
+        )
         return memory
 
     def mark_existing_indexed(
@@ -268,9 +284,22 @@ class UniversalMemoryService:
             verification_status=VerificationStatus.VERIFIED,
             trust=trust,
         )
-        return self._lifecycle.advance_pipeline(
+        memory = self._lifecycle.advance_pipeline(
             memory_id=memory.memory_id,
             user_id=user_id,
             target_state=MemoryLifecycleState.TRUSTED,
             reason="already_indexed",
         )
+        self._events.emit(
+            user_id=user_id,
+            event_type="ingest.skipped",
+            aggregate_type="memory",
+            aggregate_id=memory.memory_id,
+            actor="system",
+            payload={
+                "source_type": source_type.value,
+                "reason": "already_indexed",
+                "lifecycle_state": memory.lifecycle_state.value,
+            },
+        )
+        return memory
