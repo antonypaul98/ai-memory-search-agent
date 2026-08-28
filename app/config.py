@@ -6,6 +6,7 @@ Values are read from .env and can be overridden in tests via dependency injectio
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -77,6 +78,9 @@ class Settings(BaseSettings):
     auth_secret_env: str = "AUTH_SECRET"
     session_ttl_hours: int = 168
     jobs_enabled: bool = True
+    # F-35/GAP-01: keep the historical single-process behavior by default,
+    # while allowing API-only processes to avoid spawning duplicate workers.
+    worker_mode: Literal["api", "worker", "all"] = "all"
     job_worker_concurrency: int = 2
     job_lease_seconds: int = 120
     job_poll_interval_sec: float = 2.0
