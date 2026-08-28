@@ -18,7 +18,7 @@ from app.config import get_settings
 from app.db.schema import migrate
 from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.services.job_worker import start_job_worker, stop_job_worker
+from app.services.job_worker import should_start_job_worker, start_job_worker, stop_job_worker
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -29,7 +29,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 async def lifespan(app: FastAPI):
     runtime_settings = get_settings()
     migrate(runtime_settings)
-    if runtime_settings.jobs_enabled:
+    if should_start_job_worker(runtime_settings):
         start_job_worker(runtime_settings)
     yield
     stop_job_worker()
