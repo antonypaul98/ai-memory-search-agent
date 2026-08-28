@@ -23,3 +23,7 @@ class MemoryEvent(BaseModel):
 class MemoryEventListResponse(BaseModel):
     events: list[MemoryEvent]
     next_after_id: int | None = None
+
+
+class MemoryEventMetricsResponse(BaseModel):
+    counts: dict[str, int] = Field(default_factory=dict)
