@@ -1,9 +1,10 @@
-"""Postgres-specific atomic claim primitive for distributed job workers.
+"""Postgres-specific atomic worker primitives for distributed job workers.
 
 This module is intentionally narrow: it implements the concurrency-critical
-claim/lease transaction without switching the application to Postgres yet.
-The existing SQLite JobStore remains the runtime source of truth until the
-remaining persistence methods are migrated and the backend factory is wired.
+claim/lease/heartbeat/finalization transactions without switching the
+application to Postgres yet. The existing SQLite JobStore remains the runtime
+source of truth until the remaining persistence methods are migrated and the
+backend factory is wired.
 """
 
 from __future__ import annotations
@@ -37,9 +38,17 @@ class PostgresJobClaimStore:
     """Concurrency-safe Postgres claim/lease operations.
 
     The claim query uses ``FOR UPDATE SKIP LOCKED`` so independent workers can
-    claim different rows concurrently without a process-wide mutex.  All lease
+    claim different rows concurrently without a process-wide mutex. All lease
     and aggregate-counter changes occur in the same transaction as the claim.
+    Heartbeat and completion similarly require the current worker lease so a
+    stale/reclaimed worker cannot mutate authoritative job state.
     """
+
+    _FINAL_COUNTERS = {
+        "completed": "completed",
+        "skipped": "skipped",
+        "failed": "failed",
+    }
 
     def __init__(self, connection_factory: ConnectionFactory, *, lease_seconds: int = 120) -> None:
         if lease_seconds <= 0:
@@ -78,9 +87,7 @@ class PostgresJobClaimStore:
         if not worker_id.strip():
             raise ValueError("worker_id is required")
 
-        now_dt = now or datetime.now(timezone.utc)
-        if now_dt.tzinfo is None:
-            raise ValueError("now must be timezone-aware")
+        now_dt = _aware_now(now)
         lease_until = now_dt + timedelta(seconds=self._lease_seconds)
         stale_without_lease = now_dt - timedelta(seconds=self._lease_seconds)
 
@@ -173,6 +180,149 @@ class PostgresJobClaimStore:
                 )
 
         return ClaimedJobItem(job_id=job_id, item_key=item_key, url=url)
+
+    def heartbeat_item(
+        self,
+        *,
+        job_id: str,
+        item_key: str,
+        worker_id: str,
+        now: datetime | None = None,
+    ) -> bool:
+        """Extend a processing lease only while ``worker_id`` still owns it."""
+        if not worker_id.strip():
+            raise ValueError("worker_id is required")
+        now_dt = _aware_now(now)
+        lease_until = now_dt + timedelta(seconds=self._lease_seconds)
+
+        with self._connection_factory() as conn:
+            cur = conn.execute(
+                """
+                UPDATE job_item_leases jl
+                SET lease_until = %s, updated_at = %s
+                WHERE jl.job_id = %s AND jl.item_key = %s AND jl.worker_id = %s
+                  AND EXISTS (
+                    SELECT 1 FROM job_items ji
+                    WHERE ji.job_id = jl.job_id
+                      AND ji.item_key = jl.item_key
+                      AND ji.status = 'processing'
+                  )
+                """,
+                (lease_until, now_dt, job_id, item_key, worker_id),
+            )
+            if not cur.rowcount:
+                return False
+            conn.execute(
+                """
+                UPDATE job_items
+                SET updated_at = %s
+                WHERE job_id = %s AND item_key = %s AND status = 'processing'
+                """,
+                (now_dt, job_id, item_key),
+            )
+            conn.execute(
+                """
+                UPDATE background_jobs
+                SET lease_owner = %s, lease_until = %s
+                WHERE job_id = %s AND status IN ('queued', 'running')
+                """,
+                (worker_id, lease_until, job_id),
+            )
+        return True
+
+    def complete_item(
+        self,
+        *,
+        job_id: str,
+        item_key: str,
+        status: str,
+        worker_id: str,
+        error: str | None = None,
+        now: datetime | None = None,
+    ) -> bool:
+        """Finalize a processing item only for the authoritative lease owner.
+
+        The worker ownership check and item mutation happen in one statement,
+        preventing a worker whose lease was reclaimed from reporting a late
+        success or failure. Aggregate counters and terminal job state are then
+        updated in the same transaction.
+        """
+        if not worker_id.strip():
+            raise ValueError("worker_id is required")
+        counter = self._FINAL_COUNTERS.get(status)
+        if counter is None:
+            raise ValueError("status must be completed, skipped, or failed")
+        now_dt = _aware_now(now)
+
+        with self._connection_factory() as conn:
+            cur = conn.execute(
+                """
+                UPDATE job_items ji
+                SET status = %s, error = %s, updated_at = %s
+                WHERE ji.job_id = %s AND ji.item_key = %s AND ji.status = 'processing'
+                  AND EXISTS (
+                    SELECT 1 FROM job_item_leases jl
+                    WHERE jl.job_id = ji.job_id
+                      AND jl.item_key = ji.item_key
+                      AND jl.worker_id = %s
+                  )
+                """,
+                (status, error, now_dt, job_id, item_key, worker_id),
+            )
+            if not cur.rowcount:
+                return False
+
+            conn.execute(
+                """
+                DELETE FROM job_item_leases
+                WHERE job_id = %s AND item_key = %s AND worker_id = %s
+                """,
+                (job_id, item_key, worker_id),
+            )
+            conn.execute(
+                f"""
+                UPDATE background_jobs
+                SET processing = GREATEST(0, processing - 1),
+                    {counter} = {counter} + 1
+                WHERE job_id = %s
+                """,
+                (job_id,),
+            )
+            remaining_row = conn.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM job_items
+                WHERE job_id = %s AND status IN ('queued', 'processing')
+                """,
+                (job_id,),
+            ).fetchone()
+            remaining = int(_field(remaining_row, "count", 0)) if remaining_row else 0
+            if remaining == 0:
+                finished = conn.execute(
+                    """
+                    UPDATE background_jobs
+                    SET status = 'completed', finished_at = %s,
+                        lease_owner = NULL, lease_until = NULL
+                    WHERE job_id = %s AND status <> 'cancelled'
+                    """,
+                    (now_dt, job_id),
+                )
+                if finished.rowcount:
+                    conn.execute(
+                        """
+                        INSERT INTO job_events (job_id, event_type, message, created_at)
+                        VALUES (%s, 'completed', 'Job finished', %s)
+                        """,
+                        (job_id, now_dt),
+                    )
+        return True
+
+
+def _aware_now(now: datetime | None) -> datetime:
+    now_dt = now or datetime.now(timezone.utc)
+    if now_dt.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    return now_dt
 
 
 def _field(row: Any, name: str, index: int) -> Any:
