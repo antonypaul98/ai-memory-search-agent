@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.config import Settings
 from app.db.job_store import JobStore
 from app.db.schema import get_connection
+from app.services.event_bus import EventBus
 from app.services.job_worker import JobWorker
 from app.services.playlist_service import PlaylistVideoEntry
 
@@ -195,3 +196,73 @@ def test_worker_completion_carries_claim_owner(test_settings: Settings) -> None:
     kwargs = worker._store.complete_item.call_args.kwargs
     assert kwargs["worker_id"] == "worker-owner"
     assert kwargs["status"] == "completed"
+
+    events, _ = EventBus(settings).list_events(
+        user_id="tenant-a", event_type="job.state_changed"
+    )
+    assert len(events) == 1
+    assert events[0].actor == "worker"
+    assert events[0].aggregate_id == job.job_id
+    assert events[0].payload == {
+        "action": "item_finalized",
+        "item_status": "completed",
+    }
+    serialized = str(events[0].payload)
+    assert "youtube.com" not in serialized
+    assert "Video 1" not in serialized
+    assert "video-1" not in serialized
+
+
+def test_stale_worker_completion_does_not_emit_audit_event(test_settings: Settings) -> None:
+    settings = test_settings.model_copy(update={"job_lease_seconds": 60})
+    worker = JobWorker(settings)
+    worker._store = MagicMock()
+    worker._store.complete_item.return_value = False
+    worker._ingest = MagicMock()
+    worker._ingest.ingest_single_url.return_value = SimpleNamespace(
+        skipped=False,
+        success=True,
+        error=None,
+    )
+
+    store = JobStore(settings)
+    job = _create_job(store)
+    worker._process_item(
+        job.job_id,
+        "private-item-key",
+        "https://private.example/secret",
+        worker_id="stale-worker",
+    )
+
+    events, _ = EventBus(settings).list_events(
+        user_id="tenant-a", event_type="job.state_changed"
+    )
+    assert events == []
+
+
+def test_audit_failure_cannot_rewrite_success_as_failed(test_settings: Settings) -> None:
+    settings = test_settings.model_copy(update={"job_lease_seconds": 60})
+    worker = JobWorker(settings)
+    worker._store = MagicMock()
+    worker._store.complete_item.return_value = True
+    worker._ingest = MagicMock()
+    worker._ingest.ingest_single_url.return_value = SimpleNamespace(
+        skipped=False,
+        success=True,
+        error=None,
+    )
+
+    store = JobStore(settings)
+    job = _create_job(store)
+    with patch("app.services.job_worker.EventBus.emit", side_effect=RuntimeError("audit down")):
+        worker._process_item(
+            job.job_id,
+            "video-1",
+            "https://www.youtube.com/watch?v=video-1",
+            worker_id="worker-owner",
+        )
+
+    assert worker._store.complete_item.call_count == 1
+    kwargs = worker._store.complete_item.call_args.kwargs
+    assert kwargs["status"] == "completed"
+    assert "error" not in kwargs
