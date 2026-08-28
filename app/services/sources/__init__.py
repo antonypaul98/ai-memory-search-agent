@@ -7,6 +7,7 @@ from functools import lru_cache
 from app.core.exceptions import AppError
 from app.services.sources.base_source import SourceConnector
 from app.services.sources.bookmark_connector import BookmarkConnector
+from app.services.sources.gdrive_connector import GoogleDriveConnector
 from app.services.sources.github_connector import GitHubConnector
 from app.services.sources.notion_connector import NotionConnector
 from app.services.sources.pdf_connector import PDFConnector
@@ -21,6 +22,7 @@ _RESOLVE_ORDER = (
     "youtube.v1",
     "github.v1",
     "pdf.v1",
+    "gdrive.v1",
     "podcast.v1",
     "web.v1",
     "bookmarks.v1",
@@ -35,6 +37,7 @@ class ConnectorRegistry:
         self.register(YouTubeConnector())
         self.register(GitHubConnector())
         self.register(PDFConnector())
+        self.register(GoogleDriveConnector())
         self.register(PodcastConnector())
         self.register(WebConnector())
         self.register(BookmarkConnector())
