@@ -1,8 +1,8 @@
 """Durable in-process domain event bus with a SQLite audit log.
 
-Phase 4 starts with a deliberately small abstraction: publish typed events, persist
-an immutable audit row, and notify local subscribers. The interface can later be
-backed by Redis/NATS without changing producers.
+Phase 4 uses a deliberately small abstraction: publish typed events, persist an
+immutable audit row, expose tenant-scoped metrics, and notify local subscribers.
+The interface can later be backed by Redis/NATS without changing producers.
 """
 
 from __future__ import annotations
@@ -21,6 +21,38 @@ from app.models.event import MemoryEvent
 
 logger = logging.getLogger(__name__)
 EventHandler = Callable[[MemoryEvent], None]
+
+# Event payloads are audit metadata, never a credential store. Redact common
+# credential fields recursively before persistence so accidental instrumentation
+# cannot leak secrets into the durable event log.
+_SENSITIVE_KEYS = {
+    "access_token",
+    "refresh_token",
+    "authorization",
+    "password",
+    "secret",
+    "api_key",
+    "apikey",
+    "client_secret",
+    "connector_token_key",
+}
+
+
+def _redact_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): (
+                "[REDACTED]"
+                if str(key).strip().lower() in _SENSITIVE_KEYS
+                else _redact_payload(item)
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_payload(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_payload(item) for item in value]
+    return value
 
 
 class EventBus:
@@ -56,6 +88,8 @@ class EventBus:
                     ON memory_events(user_id, id);
                 CREATE INDEX IF NOT EXISTS idx_memory_events_user_type_id
                     ON memory_events(user_id, event_type, id);
+                CREATE INDEX IF NOT EXISTS idx_memory_events_user_request_id
+                    ON memory_events(user_id, request_id, id);
                 """
             )
 
@@ -101,7 +135,7 @@ class EventBus:
             aggregate_id=(aggregate_id or "").strip()[:240],
             actor=(actor or "system").strip()[:120] or "system",
             request_id=(request_id or "").strip()[:120] or None,
-            payload=dict(payload or {}),
+            payload=_redact_payload(dict(payload or {})),
             created_at=datetime.now(timezone.utc),
         )
 
@@ -148,6 +182,7 @@ class EventBus:
         user_id: str,
         event_type: str | None = None,
         after_id: int | None = None,
+        request_id: str | None = None,
         limit: int = 100,
     ) -> tuple[list[MemoryEvent], int | None]:
         if not user_id:
@@ -159,6 +194,9 @@ class EventBus:
         if event_type:
             clauses.append("event_type = ?")
             params.append(event_type)
+        if request_id:
+            clauses.append("request_id = ?")
+            params.append(request_id)
         if after_id is not None:
             if after_id < 0:
                 raise ValueError("after_id must be non-negative")
@@ -195,3 +233,21 @@ class EventBus:
         ]
         next_after_id = int(rows[-1]["id"]) if rows else after_id
         return events, next_after_id
+
+    def metrics(self, *, user_id: str) -> dict[str, int]:
+        """Return durable per-event counters scoped to one tenant."""
+        user_id = (user_id or "").strip()
+        if not user_id:
+            raise ValueError("user_id is required")
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT event_type, COUNT(*) AS event_count
+                FROM memory_events
+                WHERE user_id = ?
+                GROUP BY event_type
+                ORDER BY event_type ASC
+                """,
+                (user_id,),
+            ).fetchall()
+        return {row["event_type"]: int(row["event_count"]) for row in rows}
