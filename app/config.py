@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     job_worker_concurrency: int = 2
     job_lease_seconds: int = 120
     job_poll_interval_sec: float = 2.0
+    # F-35 queue wake transport. SQLite remains the durable job source of truth.
+    job_queue_backend: Literal["sqlite", "redis"] = "sqlite"
+    redis_url_env: str = "REDIS_URL"
+    redis_queue_name: str = "memory-agent:jobs:wakeup"
+    redis_block_timeout_sec: int = 5
     youtube_api_key_env: str = "YOUTUBE_API_KEY"
     connector_token_key_env: str = "CONNECTOR_TOKEN_KEY"
     # Optional comma-separated connector allowlist. Empty keeps all built-ins enabled.
