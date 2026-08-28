@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 _WORKER: JobWorker | None = None
 
 
+def should_start_job_worker(settings: Settings) -> bool:
+    """Return whether this process is allowed to execute background jobs."""
+    return settings.jobs_enabled and settings.worker_mode in {"worker", "all"}
+
+
 class JobWorker:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
@@ -28,7 +33,7 @@ class JobWorker:
         self._threads: list[threading.Thread] = []
 
     def start(self) -> None:
-        if not self._settings.jobs_enabled:
+        if not should_start_job_worker(self._settings):
             return
         for idx in range(self._settings.job_worker_concurrency):
             thread = threading.Thread(target=self._loop, name=f"job-worker-{idx}", daemon=True)
