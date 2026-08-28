@@ -41,10 +41,12 @@ def _preview_data(*, title: str = "AI Tools Course", n: int = 3) -> PlaylistPrev
 @pytest.fixture()
 def playlist_client(test_settings, monkeypatch):
     from app.api import auth as auth_mod
+    from app.api.dependencies import get_app_settings
     from app.config import get_settings
 
     get_settings.cache_clear()
     app.dependency_overrides[get_settings] = lambda: test_settings
+    app.dependency_overrides[get_app_settings] = lambda: test_settings
     app.dependency_overrides[auth_mod.get_current_user] = lambda: UserPublic(
         user_id=LOCAL_DEFAULT_USER_ID, display_name="Demo"
     )
@@ -281,6 +283,7 @@ class TestPlaylistJobControls:
     def test_cancel_http_and_isolation(
         self, playlist_client: TestClient, tmp_path, monkeypatch
     ) -> None:
+        from app.api.dependencies import get_app_settings
         from app.config import get_settings
 
         settings = Settings(
@@ -293,6 +296,7 @@ class TestPlaylistJobControls:
         monkeypatch.setattr("app.config.get_settings", lambda: settings)
         monkeypatch.setattr("app.db.job_store.get_settings", lambda: settings)
         app.dependency_overrides[get_settings] = lambda: settings
+        app.dependency_overrides[get_app_settings] = lambda: settings
 
         store = JobStore(settings)
         job = store.create_playlist_job(
