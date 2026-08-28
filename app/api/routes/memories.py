@@ -1,8 +1,9 @@
 """Universal memory API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.auth import get_current_user
+from app.api.dependencies import get_app_settings
 from app.config import Settings, get_settings
 from app.db.memory_store import MemoryStore, get_memory_store
 from app.models.lifecycle import MemoryMergeRequest
@@ -10,6 +11,7 @@ from app.models.trust import TrustMetrics
 from app.models.universal_memory import UniversalMemory, UniversalMemoryDetail
 from app.models.user import UserPublic
 from app.models.video import SourceType
+from app.services.event_bus import EventBus
 from app.services.memory_lifecycle_service import (
     InvalidLifecycleTransitionError,
     MemoryLifecycleService,
@@ -153,11 +155,23 @@ def merge_memory(
 
 @router.delete("/{memory_id}")
 def delete_memory(
+    request: Request,
     memory_id: str,
     user: UserPublic = Depends(get_current_user),
     privacy: PrivacyService = Depends(_privacy),
+    settings: Settings = Depends(get_app_settings),
 ) -> dict:
     try:
-        return privacy.delete_memory(memory_id=memory_id, user_id=user.user_id)
+        result = privacy.delete_memory(memory_id=memory_id, user_id=user.user_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Memory not found.") from exc
+    EventBus(settings).emit(
+        user_id=user.user_id,
+        event_type="memory.deleted",
+        aggregate_type="memory",
+        aggregate_id=memory_id,
+        actor="user",
+        request_id=getattr(request.state, "request_id", None),
+        payload={"deleted": True},
+    )
+    return result

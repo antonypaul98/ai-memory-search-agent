@@ -9,9 +9,10 @@ from app.db.job_store import JobStore
 from app.main import app
 from app.models.chat import ChatResponse
 from app.models.user import LOCAL_DEFAULT_USER_ID
-from app.models.video import SearchResponse
+from app.models.video import SearchResponse, SourceType
 from app.services.event_bus import EventBus
 from app.services.playlist_service import PlaylistVideoEntry
+from app.services.universal_memory_service import UniversalMemoryService
 
 
 class _SearchStub:
@@ -158,3 +159,42 @@ def test_job_lifecycle_events_are_correlated_and_exclude_private_job_content(
     assert private_url not in persisted
     assert private_title not in persisted
     assert private_playlist_title not in persisted
+
+
+def test_memory_delete_event_is_correlated_and_excludes_private_memory_content(
+    client: TestClient, test_settings
+) -> None:
+    private_url = "https://example.com/private-memory-url"
+    private_title = "private memory title"
+    memory = UniversalMemoryService(test_settings).begin_capture(
+        user_id=LOCAL_DEFAULT_USER_ID,
+        source_type=SourceType.WEB,
+        external_id="private-delete-external",
+        canonical_url=private_url,
+        title=private_title,
+        source_author="private author",
+    )
+
+    response = client.delete(
+        f"/api/v1/memories/{memory.memory_id}",
+        headers={"X-Request-ID": "memory-delete-trace"},
+    )
+    assert response.status_code == 200
+
+    events, _ = EventBus(test_settings).list_events(
+        user_id=LOCAL_DEFAULT_USER_ID,
+        event_type="memory.deleted",
+    )
+    assert len(events) == 1
+    event = events[0]
+    assert event.aggregate_type == "memory"
+    assert event.aggregate_id == memory.memory_id
+    assert event.request_id == "memory-delete-trace"
+    assert event.actor == "user"
+    assert event.payload == {"deleted": True}
+
+    persisted = str(event.payload)
+    assert private_url not in persisted
+    assert private_title not in persisted
+    assert "private author" not in persisted
+    assert "private-delete-external" not in persisted

@@ -8,6 +8,7 @@ from app.models.lifecycle import MemoryLifecycleState
 from app.models.reflection import ReflectionInput, SaveReason
 from app.models.trust import VerificationStatus
 from app.models.video import SourceType, VideoMetadata
+from app.services.event_bus import EventBus
 from app.services.universal_memory_service import UniversalMemoryService
 
 
@@ -104,14 +105,55 @@ class TestUniversalMemoryService:
         assert MemoryLifecycleState.EMBEDDED in states
         assert MemoryLifecycleState.CONNECTED in states
 
-    def test_mark_existing_indexed(self, memory_os: UniversalMemoryService) -> None:
+        events, _ = EventBus(test_settings).list_events(
+            user_id="user-a",
+            event_type="ingest.completed",
+        )
+        assert len(events) == 1
+        event = events[0]
+        assert event.aggregate_type == "memory"
+        assert event.aggregate_id == memory.memory_id
+        assert event.actor == "system"
+        assert event.payload == {
+            "chunk_count": 4,
+            "has_capsule": True,
+            "lifecycle_state": memory.lifecycle_state.value,
+            "source_type": SourceType.YOUTUBE.value,
+            "verification_status": memory.verification_status.value,
+        }
+        persisted = str(event.payload)
+        assert metadata.webpage_url not in persisted
+        assert metadata.title not in persisted
+        assert capsule.short_summary not in persisted
+        assert reflection.goal not in persisted
+
+    def test_mark_existing_indexed(self, memory_os: UniversalMemoryService, test_settings) -> None:
+        private_url = "https://youtu.be/private-skip"
+        private_title = "private skipped title"
         memory = memory_os.mark_existing_indexed(
             user_id="user-a",
             source_type=SourceType.YOUTUBE,
             external_id="skip1",
-            canonical_url="https://youtu.be/skip1",
-            title="Already There",
-            source_author="Chan",
+            canonical_url=private_url,
+            title=private_title,
+            source_author="private channel",
         )
         assert memory.lifecycle_state == MemoryLifecycleState.TRUSTED
         assert memory.trust is not None
+
+        events, _ = EventBus(test_settings).list_events(
+            user_id="user-a",
+            event_type="ingest.skipped",
+        )
+        assert len(events) == 1
+        event = events[0]
+        assert event.aggregate_id == memory.memory_id
+        assert event.payload == {
+            "lifecycle_state": MemoryLifecycleState.TRUSTED.value,
+            "reason": "already_indexed",
+            "source_type": SourceType.YOUTUBE.value,
+        }
+        persisted = str(event.payload)
+        assert private_url not in persisted
+        assert private_title not in persisted
+        assert "private channel" not in persisted
