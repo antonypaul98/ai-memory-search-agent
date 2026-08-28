@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import threading
-import time
 import uuid
 
 from app.config import Settings, get_settings
@@ -13,6 +12,7 @@ from app.db.job_store import JobStore
 from app.db.schema import get_connection, migrate
 from app.models.reflection import ReflectionInput
 from app.services.ingest_service import IngestService
+from app.services.job_queue_transport import get_job_queue_transport
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class JobWorker:
         self._settings = settings or get_settings()
         self._store = JobStore(self._settings)
         self._ingest = IngestService(settings=self._settings)
+        self._queue = get_job_queue_transport(self._settings)
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
@@ -49,13 +50,15 @@ class JobWorker:
             try:
                 claim = self._store.claim_next_item(worker_id=worker_id)
                 if not claim:
-                    time.sleep(self._settings.job_poll_interval_sec)
+                    self._queue.wait()
                     continue
                 job_id, item_key, url = claim
                 self._process_item(job_id, item_key, url)
             except Exception as exc:
+                # Queue/provider errors must not destroy durable work. Back off using
+                # the polling transport delay before retrying the authoritative store.
                 logger.exception("Job worker error: %s", exc)
-                time.sleep(self._settings.job_poll_interval_sec)
+                self._stop.wait(self._settings.job_poll_interval_sec)
 
     def _process_item(self, job_id: str, item_key: str, url: str) -> None:
         user_id = _job_user(self._settings, job_id)
