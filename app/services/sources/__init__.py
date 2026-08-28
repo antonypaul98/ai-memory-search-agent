@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from app.config import get_settings
 from app.core.exceptions import AppError
 from app.services.sources.base_source import SourceConnector
 from app.services.sources.bookmark_connector import BookmarkConnector
@@ -30,19 +31,39 @@ _RESOLVE_ORDER = (
     "notion.v1",
 )
 
+_BUILTIN_CONNECTORS = (
+    YouTubeConnector,
+    GitHubConnector,
+    PDFConnector,
+    GoogleDriveConnector,
+    PodcastConnector,
+    WebConnector,
+    BookmarkConnector,
+    ReadwiseConnector,
+    NotionConnector,
+)
+
+
+def _configured_connector_ids() -> set[str] | None:
+    raw = get_settings().connector_enabled_ids.strip()
+    if not raw:
+        return None
+    return {item.strip() for item in raw.split(",") if item.strip()}
+
 
 class ConnectorRegistry:
     def __init__(self) -> None:
         self._by_id: dict[str, SourceConnector] = {}
-        self.register(YouTubeConnector())
-        self.register(GitHubConnector())
-        self.register(PDFConnector())
-        self.register(GoogleDriveConnector())
-        self.register(PodcastConnector())
-        self.register(WebConnector())
-        self.register(BookmarkConnector())
-        self.register(ReadwiseConnector())
-        self.register(NotionConnector())
+        enabled = _configured_connector_ids()
+        known_ids = {connector_cls.connector_id for connector_cls in _BUILTIN_CONNECTORS}
+        if enabled is not None:
+            unknown = sorted(enabled - known_ids)
+            if unknown:
+                raise AppError(f"Unknown configured connector(s): {', '.join(unknown)}")
+
+        for connector_cls in _BUILTIN_CONNECTORS:
+            if enabled is None or connector_cls.connector_id in enabled:
+                self.register(connector_cls())
 
     def register(self, connector: SourceConnector) -> None:
         self._by_id[connector.connector_id] = connector
