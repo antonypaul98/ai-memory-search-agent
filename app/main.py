@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import agent, agents, auth, cache, capture, chat, connector_auth, context, events, feedback, gdrive, health, imports, intelligence, jobs, knowledge, memories, models, playlists, podcasts, privacy, search, usage, videos, youtube
 from app.config import get_settings
+from app.db.runtime_safety import validate_runtime_topology
 from app.db.schema import migrate
 from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -28,6 +29,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     runtime_settings = get_settings()
+    validate_runtime_topology(runtime_settings)
     migrate(runtime_settings)
     if should_start_job_worker(runtime_settings):
         start_job_worker(runtime_settings)
