@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.db.job_store import JobStore
 from app.db.schema import get_connection, migrate
 from app.models.reflection import ReflectionInput
+from app.services.event_bus import EventBus
 from app.services.ingest_service import IngestService
 from app.services.job_queue_transport import get_job_queue_transport
 
@@ -80,24 +81,27 @@ class JobWorker:
                 force_refresh=force_refresh,
             )
             if result.skipped:
+                item_status = "skipped"
                 completed = self._store.complete_item(
                     job_id=job_id,
                     item_key=item_key,
-                    status="skipped",
+                    status=item_status,
                     worker_id=worker_id,
                 )
             elif result.success:
+                item_status = "completed"
                 completed = self._store.complete_item(
                     job_id=job_id,
                     item_key=item_key,
-                    status="completed",
+                    status=item_status,
                     worker_id=worker_id,
                 )
             else:
+                item_status = "failed"
                 completed = self._store.complete_item(
                     job_id=job_id,
                     item_key=item_key,
-                    status="failed",
+                    status=item_status,
                     error=result.error or "Unknown error",
                     worker_id=worker_id,
                 )
@@ -107,6 +111,12 @@ class JobWorker:
                     job_id,
                     item_key,
                     worker_id,
+                )
+            else:
+                self._emit_worker_state_change(
+                    user_id=user_id,
+                    job_id=job_id,
+                    item_status=item_status,
                 )
         except Exception as exc:
             completed = self._store.complete_item(
@@ -123,9 +133,43 @@ class JobWorker:
                     item_key,
                     worker_id,
                 )
+            else:
+                self._emit_worker_state_change(
+                    user_id=user_id,
+                    job_id=job_id,
+                    item_status="failed",
+                )
         finally:
             heartbeat_stop.set()
             heartbeat_thread.join(timeout=1.0)
+
+    def _emit_worker_state_change(
+        self,
+        *,
+        user_id: str,
+        job_id: str,
+        item_status: str,
+    ) -> None:
+        """Audit authoritative worker completion without content or error details.
+
+        Audit delivery is deliberately isolated from durable job completion. A
+        telemetry failure must never cause a successfully finalized item to be
+        rewritten as failed or retried.
+        """
+        try:
+            EventBus(self._settings).emit(
+                user_id=user_id,
+                event_type="job.state_changed",
+                aggregate_type="job",
+                aggregate_id=job_id,
+                actor="worker",
+                payload={
+                    "action": "item_finalized",
+                    "item_status": item_status,
+                },
+            )
+        except Exception:
+            logger.exception("Failed to audit worker job transition job_id=%s", job_id)
 
     def _heartbeat_loop(
         self,
