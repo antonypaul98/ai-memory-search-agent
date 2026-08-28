@@ -10,6 +10,7 @@ from app.services.sources.bookmark_connector import BookmarkConnector
 from app.services.sources.github_connector import GitHubConnector
 from app.services.sources.notion_connector import NotionConnector
 from app.services.sources.pdf_connector import PDFConnector
+from app.services.sources.podcast_connector import PodcastConnector
 from app.services.sources.readwise_connector import ReadwiseConnector
 from app.services.sources.web_connector import WebConnector
 from app.services.sources.youtube_connector import CONNECTOR_ID as YOUTUBE_ID
@@ -20,6 +21,7 @@ _RESOLVE_ORDER = (
     "youtube.v1",
     "github.v1",
     "pdf.v1",
+    "podcast.v1",
     "web.v1",
     "bookmarks.v1",
     "readwise.v1",
@@ -33,6 +35,7 @@ class ConnectorRegistry:
         self.register(YouTubeConnector())
         self.register(GitHubConnector())
         self.register(PDFConnector())
+        self.register(PodcastConnector())
         self.register(WebConnector())
         self.register(BookmarkConnector())
         self.register(ReadwiseConnector())
