@@ -51,7 +51,7 @@ class OllamaProvider(LLMProvider):
             _synthesis_prompt(question, evidence, answer_format),
             self._settings.llm_timeout_sec,
         )
-        return _parse_structured_answer(raw)
+        return _parse_structured_answer(raw, allowed_evidence_ids=_evidence_ids(evidence))
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -94,7 +94,7 @@ class OpenAICompatibleProvider(LLMProvider):
             self._settings.llm_timeout_sec,
             self._api_key,
         )
-        return _parse_structured_answer(raw)
+        return _parse_structured_answer(raw, allowed_evidence_ids=_evidence_ids(evidence))
 
 
 class RoutedLLMProvider(LLMProvider):
@@ -154,7 +154,7 @@ class RoutedLLMProvider(LLMProvider):
             task_type="reasoning",
             max_output_tokens=1200,
         )
-        return _parse_structured_answer(raw)
+        return _parse_structured_answer(raw, allowed_evidence_ids=_evidence_ids(evidence))
 
 
 def _capsule_prompt(kwargs: dict[str, Any]) -> str:
@@ -167,6 +167,14 @@ def _capsule_prompt(kwargs: dict[str, Any]) -> str:
         f"\nTitle: {kwargs.get('title')}\nDescription: {kwargs.get('description')}"
         f"\nGoal: {kwargs.get('reflection_goal')}\nTranscript:\n{transcript}"
     )
+
+
+def _evidence_ids(evidence: list[dict]) -> set[str]:
+    ids: set[str] = set()
+    for i, item in enumerate(evidence[:8]):
+        evidence_id = item.get("evidence_id") or item.get("doc_id") or str(i)
+        ids.add(str(evidence_id))
+    return ids
 
 
 def _synthesis_prompt(question: str, evidence: list[dict], answer_format: str) -> str:
@@ -184,7 +192,9 @@ def _synthesis_prompt(question: str, evidence: list[dict], answer_format: str) -
     )
 
 
-def _parse_structured_answer(raw: str | None) -> StructuredAnswer | None:
+def _parse_structured_answer(
+    raw: str | None, *, allowed_evidence_ids: set[str] | None = None
+) -> StructuredAnswer | None:
     if not raw:
         return None
     try:
@@ -192,7 +202,12 @@ def _parse_structured_answer(raw: str | None) -> StructuredAnswer | None:
         if not match:
             return None
         data = json.loads(match.group(0))
-        return StructuredAnswer.model_validate(data)
+        answer = StructuredAnswer.model_validate(data)
+        if allowed_evidence_ids is not None:
+            returned_ids = {str(item) for item in answer.evidence_ids}
+            if not returned_ids.issubset(allowed_evidence_ids):
+                return None
+        return answer
     except (json.JSONDecodeError, ValueError, TypeError):
         return None
 
