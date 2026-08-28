@@ -2,12 +2,14 @@
 Semantic search routes.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_search_service
+from app.api.dependencies import get_app_settings, get_search_service
+from app.config import Settings
 from app.models.user import UserPublic
 from app.models.video import SearchFilters, SearchResponse
+from app.services.event_bus import EventBus
 from app.services.search_service import SearchService
 
 router = APIRouter(tags=["search"])
@@ -15,6 +17,7 @@ router = APIRouter(tags=["search"])
 
 @router.get("/search", response_model=SearchResponse)
 def search_memories(
+    request: Request,
     q: str = Query(..., description="Search query (keywords or natural language)."),
     limit: int = Query(5, ge=1, le=20, description="Maximum videos to return."),
     debug: bool = Query(False, description="Include debug metrics when app debug mode is enabled."),
@@ -33,6 +36,7 @@ def search_memories(
     tags: str | None = Query(None, description="Comma-separated tags."),
     service: SearchService = Depends(get_search_service),
     user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
 ) -> SearchResponse:
     """Hybrid semantic search over saved memories (YouTube transcript chunks + metadata)."""
     query = q.strip()
@@ -51,10 +55,23 @@ def search_memories(
         min_confidence=min_confidence,
         tags=[t.strip() for t in (tags or "").split(",") if t.strip()],
     )
-    return service.search(
+    response = service.search(
         query=query,
         limit=limit,
         debug=debug,
         user_id=user.user_id,
         filters=filters,
     )
+    EventBus(settings).emit(
+        user_id=user.user_id,
+        event_type="search.completed",
+        aggregate_type="search",
+        actor="user",
+        request_id=getattr(request.state, "request_id", None),
+        payload={
+            "result_count": len(response.results),
+            "limit": limit,
+            "filters_applied": bool(response.filters_applied),
+        },
+    )
+    return response
