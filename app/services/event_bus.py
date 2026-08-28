@@ -1,8 +1,9 @@
-"""Durable in-process domain event bus with a SQLite audit log.
+"""Durable domain event bus with audit log and opt-in webhook subscriptions.
 
-Phase 4 uses a deliberately small abstraction: publish typed events, persist an
-immutable audit row, expose tenant-scoped metrics, and notify local subscribers.
-The interface can later be backed by Redis/NATS without changing producers.
+Phase 4 keeps the abstraction deliberately small: publish typed events, persist an
+immutable audit row, expose tenant-scoped metrics, notify local subscribers, and
+deliver privacy-safe events to explicitly confirmed webhook subscriptions. The
+interface can later be backed by Redis/NATS without changing producers.
 """
 
 from __future__ import annotations
@@ -15,16 +16,16 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
+
 from app.config import Settings, get_settings
 from app.db.schema import get_connection
-from app.models.event import MemoryEvent
+from app.models.event import MemoryEvent, WebhookSubscription
+from app.services.ssrf_fetch import validate_public_http_url
 
 logger = logging.getLogger(__name__)
 EventHandler = Callable[[MemoryEvent], None]
 
-# Event payloads are audit metadata, never a credential store. Redact common
-# credential fields recursively before persistence so accidental instrumentation
-# cannot leak secrets into the durable event log.
 _SENSITIVE_KEYS = {
     "access_token",
     "refresh_token",
@@ -63,12 +64,7 @@ class EventBus:
         self._ensure_table()
 
     def _ensure_table(self) -> None:
-        """Create the Phase-4 audit table idempotently.
-
-        The table is self-initializing so the event foundation can be introduced
-        without making older databases unreadable. A later production-scale
-        migration can externalize this store behind the same interface.
-        """
+        """Create the Phase-4 audit and webhook tables idempotently."""
         with get_connection(self._settings) as conn:
             conn.executescript(
                 """
@@ -90,6 +86,19 @@ class EventBus:
                     ON memory_events(user_id, event_type, id);
                 CREATE INDEX IF NOT EXISTS idx_memory_events_user_request_id
                     ON memory_events(user_id, request_id, id);
+
+                CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+                    subscription_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL DEFAULT '*',
+                    url TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_user
+                    ON webhook_subscriptions(user_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_delivery
+                    ON webhook_subscriptions(user_id, active, event_type);
                 """
             )
 
@@ -106,6 +115,81 @@ class EventBus:
             handlers = self._subscribers.get(key, [])
             if handler in handlers:
                 handlers.remove(handler)
+
+    def create_webhook_subscription(
+        self, *, user_id: str, url: str, event_type: str = "*"
+    ) -> WebhookSubscription:
+        user_id = (user_id or "").strip()
+        event_type = (event_type or "*").strip() or "*"
+        if not user_id:
+            raise ValueError("user_id is required")
+        if len(event_type) > 120:
+            raise ValueError("event_type is too long")
+        # Creation validates scheme/host/private literal without requiring a DNS
+        # lookup. Delivery revalidates DNS immediately before the outbound POST.
+        safe_url = validate_public_http_url(url, resolve_dns=False)
+        subscription = WebhookSubscription(
+            subscription_id=str(uuid.uuid4()),
+            event_type=event_type,
+            url=safe_url,
+            active=True,
+            created_at=datetime.now(timezone.utc),
+        )
+        with get_connection(self._settings) as conn:
+            conn.execute(
+                """
+                INSERT INTO webhook_subscriptions (
+                    subscription_id, user_id, event_type, url, active, created_at
+                ) VALUES (?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    subscription.subscription_id,
+                    user_id,
+                    subscription.event_type,
+                    str(subscription.url),
+                    subscription.created_at.isoformat(),
+                ),
+            )
+        return subscription
+
+    def list_webhook_subscriptions(self, *, user_id: str) -> list[WebhookSubscription]:
+        user_id = (user_id or "").strip()
+        if not user_id:
+            raise ValueError("user_id is required")
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT subscription_id, event_type, url, active, created_at
+                FROM webhook_subscriptions
+                WHERE user_id = ?
+                ORDER BY created_at ASC, subscription_id ASC
+                """,
+                (user_id,),
+            ).fetchall()
+        return [
+            WebhookSubscription(
+                subscription_id=row["subscription_id"],
+                event_type=row["event_type"],
+                url=row["url"],
+                active=bool(row["active"]),
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def delete_webhook_subscription(self, *, user_id: str, subscription_id: str) -> bool:
+        user_id = (user_id or "").strip()
+        subscription_id = (subscription_id or "").strip()
+        if not user_id:
+            raise ValueError("user_id is required")
+        if not subscription_id:
+            raise ValueError("subscription_id is required")
+        with get_connection(self._settings) as conn:
+            cursor = conn.execute(
+                "DELETE FROM webhook_subscriptions WHERE user_id = ? AND subscription_id = ?",
+                (user_id, subscription_id),
+            )
+        return cursor.rowcount > 0
 
     def emit(
         self,
@@ -174,7 +258,48 @@ class EventBus:
                 handler(event)
             except Exception:
                 logger.exception("event subscriber failed for %s", event.event_type)
+
+        self._deliver_webhooks(event)
         return event
+
+    def _deliver_webhooks(self, event: MemoryEvent) -> None:
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT url
+                FROM webhook_subscriptions
+                WHERE user_id = ? AND active = 1 AND event_type IN ('*', ?)
+                ORDER BY created_at ASC, subscription_id ASC
+                """,
+                (event.user_id, event.event_type),
+            ).fetchall()
+        if not rows:
+            return
+
+        body = {
+            "event_id": event.event_id,
+            "event_type": event.event_type,
+            "aggregate_type": event.aggregate_type,
+            "aggregate_id": event.aggregate_id,
+            "actor": event.actor,
+            "request_id": event.request_id,
+            "payload": event.payload,
+            "created_at": event.created_at.isoformat(),
+        }
+        for row in rows:
+            try:
+                safe_url = validate_public_http_url(row["url"], resolve_dns=True)
+                with httpx.Client(timeout=5.0, follow_redirects=False) as client:
+                    response = client.post(
+                        safe_url,
+                        json=body,
+                        headers={"User-Agent": "ai-memory-search-agent-webhook/1"},
+                    )
+                    response.raise_for_status()
+            except Exception:
+                # Webhooks are observability side effects. Never turn an already
+                # committed memory operation into a failure because delivery failed.
+                logger.exception("webhook delivery failed for event %s", event.event_id)
 
     def list_events(
         self,
