@@ -1,5 +1,7 @@
 """Playlist ingestion routes."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.auth import get_current_user
@@ -8,9 +10,11 @@ from app.core.exceptions import AppError
 from app.db.job_store import JobStore
 from app.models.job import BackgroundJob, PlaylistIngestRequest, PlaylistPreviewResponse
 from app.models.user import UserPublic
+from app.services.job_queue_transport import get_job_queue_transport
 from app.services.playlist_service import PlaylistResolver
 
 router = APIRouter(prefix="/playlists", tags=["playlists"])
+logger = logging.getLogger(__name__)
 
 
 def _preview_or_400(playlist_url: str):
@@ -18,6 +22,16 @@ def _preview_or_400(playlist_url: str):
         return PlaylistResolver().preview(playlist_url)
     except AppError as exc:
         raise HTTPException(status_code=400, detail=exc.message) from exc
+
+
+def _notify_workers(settings: Settings, count: int) -> None:
+    try:
+        get_job_queue_transport(settings).notify(count)
+    except Exception as exc:
+        # The SQLite job store is durable and authoritative. A notification
+        # failure may delay processing until the worker's bounded fallback poll,
+        # but must not turn a successfully-created job into an API failure.
+        logger.warning("Job queue notification failed: %s", exc)
 
 
 @router.post("/preview", response_model=PlaylistPreviewResponse)
@@ -55,9 +69,9 @@ def ingest_playlist(
                 f"{max_videos}. Split the playlist or raise PLAYLIST_MAX_VIDEOS."
             ),
         )
-    store = JobStore()
+    store = JobStore(settings)
     try:
-        return store.create_playlist_job(
+        job = store.create_playlist_job(
             user_id=user.user_id,
             playlist_id=data.playlist_id,
             playlist_title=data.title,
@@ -65,6 +79,8 @@ def ingest_playlist(
             reflection=body.reflection,
             force_refresh=body.force_refresh,
         )
+        _notify_workers(settings, len(data.entries))
+        return job
     except AppError as exc:
         raise HTTPException(status_code=400, detail=exc.message) from exc
     except Exception as exc:
