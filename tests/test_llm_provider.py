@@ -74,6 +74,46 @@ class TestOllamaContract:
         assert kwargs["json"]["model"] == "test-model"
         assert "headers" not in kwargs
 
+    def test_rejects_hallucinated_evidence_id(self) -> None:
+        answer = {
+            "answer_markdown": "Looks grounded but cites unknown evidence",
+            "answer_type": "general",
+            "evidence_ids": ["invented-id"],
+            "confidence": "high",
+            "missing_information": [],
+        }
+        context, _client = _mock_client({"message": {"content": json.dumps(answer)}})
+        with patch("app.services.llm_provider.httpx.Client", return_value=context):
+            provider = OllamaProvider(_settings(llm_provider="ollama"))
+            result = provider.synthesize(
+                question="What did I save?",
+                evidence=[{"evidence_id": "e1", "matched_text": "Real evidence"}],
+                answer_format="concise",
+            )
+        assert result is None
+
+    def test_rejects_citation_outside_prompted_evidence_window(self) -> None:
+        answer = {
+            "answer_markdown": "Cites an item the model was not shown",
+            "answer_type": "general",
+            "evidence_ids": ["e8"],
+            "confidence": "high",
+            "missing_information": [],
+        }
+        context, _client = _mock_client({"message": {"content": json.dumps(answer)}})
+        evidence = [
+            {"evidence_id": f"e{i}", "matched_text": f"Evidence {i}"}
+            for i in range(9)
+        ]
+        with patch("app.services.llm_provider.httpx.Client", return_value=context):
+            provider = OllamaProvider(_settings(llm_provider="ollama"))
+            result = provider.synthesize(
+                question="What did I save?",
+                evidence=evidence,
+                answer_format="concise",
+            )
+        assert result is None
+
 
 class TestOpenAICompatibleContract:
     def test_missing_api_key_falls_back_without_http(self, monkeypatch) -> None:
@@ -129,6 +169,7 @@ class TestOpenAICompatibleContract:
         prompt = kwargs["json"]["messages"][0]["content"]
         assert "[vid@12]" in prompt
         assert "Answer ONLY from the supplied evidence" in prompt
+        assert "top-secret" not in prompt
 
     def test_base_url_already_ending_v1_is_not_duplicated(self, monkeypatch) -> None:
         monkeypatch.setenv("TEST_LLM_API_KEY", "secret")
