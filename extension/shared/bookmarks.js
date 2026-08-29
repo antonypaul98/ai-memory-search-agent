@@ -2,6 +2,36 @@
 
 /** Maximum bookmark URLs accepted by the backend request model. */
 export const BOOKMARK_SYNC_LIMIT = 500;
+export const DEFAULT_BOOKMARK_SYNC_HOURS = 24;
+export const MIN_BOOKMARK_SYNC_HOURS = 1;
+export const MAX_BOOKMARK_SYNC_HOURS = 168;
+
+/**
+ * Normalize a user-controlled sync cadence to the supported 1h–7d range.
+ */
+export function normalizeBookmarkSyncHours(value) {
+  const hours = Number(value ?? DEFAULT_BOOKMARK_SYNC_HOURS);
+  if (!Number.isFinite(hours)) return DEFAULT_BOOKMARK_SYNC_HOURS;
+  return Math.min(
+    MAX_BOOKMARK_SYNC_HOURS,
+    Math.max(MIN_BOOKMARK_SYNC_HOURS, Math.round(hours))
+  );
+}
+
+/**
+ * Build the alarm policy without touching Chrome APIs.
+ * Scheduled bookmark reads stay fail-closed unless the user explicitly opted in
+ * and the optional bookmarks permission is still present.
+ */
+export function buildBookmarkSyncPlan(settings, hasPermission) {
+  if (!settings?.bookmarkSyncEnabled || !hasPermission) {
+    return { enabled: false, periodInMinutes: null };
+  }
+  return {
+    enabled: true,
+    periodInMinutes: normalizeBookmarkSyncHours(settings.bookmarkSyncHours) * 60,
+  };
+}
 
 /**
  * Flatten a chrome.bookmarks tree into API import items.
