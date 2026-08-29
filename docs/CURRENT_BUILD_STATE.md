@@ -28,15 +28,16 @@ Recent acceptance closeouts include:
 - A-01 deterministic agent runtime with tenant isolation and approval gates;
 - A-02 approved deterministic ingest-agent rules with canonical deduplication;
 - A-03 bounded three-hop research with at least three distinct cited saved-memory sources;
-- A-04 spaced Review Agent queue for active-goal memories stale for 14+ days.
+- A-04 spaced Review Agent queue for active-goal memories stale for 14+ days;
+- A-05 deterministic Capture Triage with canonical queue deduplication, tenant-scoped existing-memory checks, and explicit junk/unsafe URL rejection (pending full closeout PR CI).
 
-The implementation also already contains Capture Triage, Gap, Consolidation, Reverse Memory, trust/consensus, learning evolution, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
+The implementation also already contains Gap, Consolidation, Reverse Memory, trust/consensus, learning evolution, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
 
 ## Next required Memory Search work
 
-Continue the agent catalog in source-of-truth order. After A-04 validation, audit **A-05 Capture Triage Agent** against `AGENT_BIBLE.md` and the existing implementation/tests. Do not duplicate working functionality: add only missing acceptance coverage or the smallest correctness fix required by the canonical contract.
+Continue the agent catalog in source-of-truth order. After A-05 validation, audit **A-06 Gap Agent** against `AGENT_BIBLE.md`, `KNOWLEDGE_ENGINE.md`, and the existing implementation/tests. Do not duplicate working functionality: add only missing acceptance coverage or the smallest correctness fix required by the canonical contract.
 
-After A-05 through A-07 are validated, reconcile F-32 Agent System and remaining feature/version rows across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, then run the final Memory Search acceptance/stability gate.
+After A-06 and A-07 are validated, reconcile F-32 Agent System and remaining feature/version rows across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, then run the final Memory Search acceptance/stability gate.
 
 ## Jarvis transition gate
 
