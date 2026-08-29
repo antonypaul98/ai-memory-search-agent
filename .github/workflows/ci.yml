@@ -31,6 +31,15 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -66,6 +75,7 @@ jobs:
           JOBS_ENABLED: "false"
           PWA_ENABLED: "true"
           MEMORY_AGENT_TEST_POSTGRES_DSN: "postgresql://postgres:postgres@127.0.0.1:5432/memory_agent_test"
+          MEMORY_AGENT_TEST_REDIS_URL: "redis://127.0.0.1:6379/0"
         run: pytest -q
 
       - name: AHME benchmark smoke
