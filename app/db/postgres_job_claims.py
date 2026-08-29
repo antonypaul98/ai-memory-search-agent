@@ -104,7 +104,7 @@ class PostgresJobClaimStore:
                 JOIN background_jobs bj ON bj.job_id = ji.job_id
                 LEFT JOIN job_item_leases jl
                   ON jl.job_id = ji.job_id AND jl.item_key = ji.item_key
-                WHERE bj.paused = 0
+                WHERE bj.paused = FALSE
                   AND bj.status IN ('queued', 'running')
                   AND (
                     ji.status = 'queued'
