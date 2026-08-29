@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -19,6 +21,14 @@ class EntityMergeSuggestion(BaseModel):
     source_name: str
     entity_type: str
     reason: str
+
+
+class ConsolidationMergeApproval(BaseModel):
+    """Explicit human confirmation required before a proposed entity merge writes."""
+
+    target_entity_id: str = Field(min_length=1, max_length=200)
+    source_entity_id: str = Field(min_length=1, max_length=200)
+    confirm: Literal[True]
 
 
 class StaleMemorySuggestion(BaseModel):
