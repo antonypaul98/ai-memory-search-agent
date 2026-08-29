@@ -6,7 +6,7 @@ from app.api.auth import get_current_user
 from app.api.dependencies import get_app_settings
 from app.config import Settings
 from app.core.exceptions import AppError
-from app.db.job_store import JobStore
+from app.db.job_store_factory import get_job_store
 from app.models.job import BackgroundJob, JobDetailResponse
 from app.models.user import UserPublic
 from app.services.event_bus import EventBus
@@ -58,8 +58,12 @@ def _emit_job_state_change(
 
 
 @router.get("/jobs/{job_id}", response_model=JobDetailResponse)
-def get_job(job_id: str, user: UserPublic = Depends(get_current_user)) -> JobDetailResponse:
-    store = JobStore()
+def get_job(
+    job_id: str,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> JobDetailResponse:
+    store = get_job_store(settings)
     try:
         return store.get_job_detail(job_id, user_id=user.user_id)
     except KeyError as exc:
@@ -73,7 +77,7 @@ def pause_job(
     user: UserPublic = Depends(get_current_user),
     settings: Settings = Depends(get_app_settings),
 ) -> BackgroundJob:
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         job = store.set_paused(job_id, user_id=user.user_id, paused=True)
     except (KeyError, AppError) as exc:
@@ -96,7 +100,7 @@ def resume_job(
     user: UserPublic = Depends(get_current_user),
     settings: Settings = Depends(get_app_settings),
 ) -> BackgroundJob:
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         job = store.set_paused(job_id, user_id=user.user_id, paused=False)
     except (KeyError, AppError) as exc:
@@ -119,7 +123,7 @@ def retry_failed(
     user: UserPublic = Depends(get_current_user),
     settings: Settings = Depends(get_app_settings),
 ) -> BackgroundJob:
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         job = store.retry_failed(job_id, user_id=user.user_id)
     except (KeyError, AppError) as exc:
@@ -142,7 +146,7 @@ def cancel_job(
     user: UserPublic = Depends(get_current_user),
     settings: Settings = Depends(get_app_settings),
 ) -> BackgroundJob:
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         job = store.cancel_job(job_id, user_id=user.user_id)
     except (KeyError, AppError) as exc:
@@ -165,7 +169,7 @@ def delete_job(
     user: UserPublic = Depends(get_current_user),
     settings: Settings = Depends(get_app_settings),
 ) -> dict:
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         store.delete_job(job_id, user_id=user.user_id)
     except KeyError as exc:
