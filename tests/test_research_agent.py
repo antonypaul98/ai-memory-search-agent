@@ -77,6 +77,65 @@ class TestResearchAgent:
         for call in MockSearch.return_value.search.call_args_list:
             assert call.kwargs["user_id"] == "tenant-a"
 
+    def test_three_hop_acceptance_returns_three_distinct_cited_sources(
+        self, test_settings: Settings
+    ) -> None:
+        rows_by_hop = [
+            [
+                {
+                    "video_id": "v1",
+                    "source_type": "youtube",
+                    "title": "Retrieval",
+                    "matched_text": "Retrieval finds saved evidence.",
+                    "citation_ref": "https://youtu.be/v1?t=10",
+                    "relevance_score": 0.95,
+                }
+            ],
+            [
+                {
+                    "video_id": "v2",
+                    "source_type": "youtube",
+                    "title": "Reranking",
+                    "matched_text": "Reranking improves evidence ordering.",
+                    "citation_ref": "https://youtu.be/v2?t=20",
+                    "relevance_score": 0.9,
+                }
+            ],
+            [
+                {
+                    "video_id": "v3",
+                    "source_type": "youtube",
+                    "title": "Verification",
+                    "matched_text": "Verification checks grounded claims.",
+                    "citation_ref": "https://youtu.be/v3?t=30",
+                    "relevance_score": 0.85,
+                }
+            ],
+        ]
+        with patch("app.services.research_agent.SearchService") as MockSearch:
+            MockSearch.return_value.search.side_effect = [
+                _search_response(rows) for rows in rows_by_hop
+            ]
+            out = ResearchAgent(test_settings).run(
+                user_id="tenant-a",
+                request=ResearchAgentRequest(
+                    question="How does my memory system ground research?",
+                    depth=3,
+                    max_sources=6,
+                ),
+            )
+
+        assert MockSearch.return_value.search.call_count == 3
+        assert len(out.queries) == 3
+        assert len(out.sources) == 3
+        assert len({source.source_id for source in out.sources}) == 3
+        assert [source.hop for source in out.sources] == [1, 2, 3]
+        for index, source in enumerate(out.sources, start=1):
+            assert f"[S{index}]" in out.report
+            assert source.citation_ref in out.report
+        for call in MockSearch.return_value.search.call_args_list:
+            assert call.kwargs["user_id"] == "tenant-a"
+
     def test_depth_and_source_count_are_bounded_by_model(self) -> None:
         try:
             ResearchAgentRequest(question="x", depth=4, max_sources=6)
