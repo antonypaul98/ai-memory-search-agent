@@ -17,6 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: memory_agent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d memory_agent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,6 +65,7 @@ jobs:
           RATE_LIMIT_ENABLED: "false"
           JOBS_ENABLED: "false"
           PWA_ENABLED: "true"
+          MEMORY_AGENT_TEST_POSTGRES_DSN: "postgresql://postgres:postgres@127.0.0.1:5432/memory_agent_test"
         run: pytest -q
 
       - name: AHME benchmark smoke
