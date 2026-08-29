@@ -4,6 +4,7 @@
  */
 import { abortInflight } from "./js/api.js";
 import { bindNav, currentRoute, navigate } from "./js/router.js";
+import { extractSharedUrl, shareDestination } from "./js/share_target.js";
 import { loadSettings } from "./js/util.js";
 import { renderDashboard } from "./js/views/dashboard.js";
 import { mountSearch, applySearchQuery } from "./js/views/search.js";
@@ -99,6 +100,16 @@ function disposeLeaving(prevRoute) {
 }
 
 let _prevRoute = "";
+let _pendingSharedUrl = "";
+
+function applyPendingShare(root) {
+  if (!_pendingSharedUrl) return;
+  const destination = shareDestination(_pendingSharedUrl);
+  const inputId = destination === "youtube" ? "url-input" : "capture-url";
+  const input = root?.querySelector?.(`#${inputId}`) || document.getElementById(inputId);
+  if (input && !input.value) input.value = _pendingSharedUrl;
+  _pendingSharedUrl = "";
+}
 
 async function onRoute(route, param, ctx = {}) {
   const { signal } = ctx;
@@ -159,10 +170,12 @@ async function onRoute(route, param, ctx = {}) {
     return;
   }
   if (route === "capture") {
+    const root = document.getElementById("view-capture");
     if (!mounted.capture) {
-      mountCapture(document.getElementById("view-capture"));
+      mountCapture(root);
       mounted.capture = true;
     }
+    applyPendingShare(root);
     return;
   }
   if (route === "settings") {
@@ -173,13 +186,13 @@ async function onRoute(route, param, ctx = {}) {
 
 function handleShareTarget() {
   const params = new URLSearchParams(location.search);
-  const shared = params.get("url") || params.get("text") || "";
+  const shared = extractSharedUrl({
+    url: params.get("url") || "",
+    text: params.get("text") || "",
+  });
   if (!shared) return;
+  _pendingSharedUrl = shared;
   navigate("capture");
-  setTimeout(() => {
-    const input = document.getElementById("url-input");
-    if (input && !input.value) input.value = shared;
-  }, 50);
 }
 
 function boot() {
