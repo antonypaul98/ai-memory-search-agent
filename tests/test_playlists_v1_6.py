@@ -114,7 +114,7 @@ class TestPlaylistPreviewAPI:
 
 class TestPlaylistIngestAPI:
     def test_ingest_creates_job_with_title_and_flags(
-        self, playlist_client: TestClient
+        self, playlist_client: TestClient, test_settings: Settings
     ) -> None:
         from app.models.job import BackgroundJob
 
@@ -133,10 +133,10 @@ class TestPlaylistIngestAPI:
 
         with (
             patch("app.api.routes.playlists.PlaylistResolver") as mock_resolver,
-            patch("app.api.routes.playlists.JobStore") as mock_store,
+            patch("app.api.routes.playlists.get_job_store") as mock_store_factory,
         ):
             mock_resolver.return_value.preview.return_value = data
-            mock_store.return_value.create_playlist_job.return_value = job
+            mock_store_factory.return_value.create_playlist_job.return_value = job
             resp = playlist_client.post(
                 "/api/v1/playlists/ingest",
                 json={
@@ -155,7 +155,8 @@ class TestPlaylistIngestAPI:
         assert body["playlist_title"] == "Demo Playlist"
         assert body["total_videos"] == 2
         assert body["status"] == "queued"
-        kwargs = mock_store.return_value.create_playlist_job.call_args.kwargs
+        mock_store_factory.assert_called_once_with(test_settings)
+        kwargs = mock_store_factory.return_value.create_playlist_job.call_args.kwargs
         assert kwargs["force_refresh"] is True
         assert kwargs["playlist_title"] == "Demo Playlist"
         assert kwargs["reflection"] is not None
