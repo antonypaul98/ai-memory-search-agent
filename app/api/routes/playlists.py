@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.auth import get_current_user
 from app.config import Settings, get_settings
 from app.core.exceptions import AppError
-from app.db.job_store import JobStore
+from app.db.job_store_factory import get_job_store
 from app.models.job import BackgroundJob, PlaylistIngestRequest, PlaylistPreviewResponse
 from app.models.user import UserPublic
 from app.services.job_queue_transport import get_job_queue_transport
@@ -28,7 +28,7 @@ def _notify_workers(settings: Settings, count: int) -> None:
     try:
         get_job_queue_transport(settings).notify(count)
     except Exception as exc:
-        # The SQLite job store is durable and authoritative. A notification
+        # The configured durable job store is authoritative. A notification
         # failure may delay processing until the worker's bounded fallback poll,
         # but must not turn a successfully-created job into an API failure.
         logger.warning("Job queue notification failed: %s", exc)
@@ -69,7 +69,7 @@ def ingest_playlist(
                 f"{max_videos}. Split the playlist or raise PLAYLIST_MAX_VIDEOS."
             ),
         )
-    store = JobStore(settings)
+    store = get_job_store(settings)
     try:
         job = store.create_playlist_job(
             user_id=user.user_id,
