@@ -1,4 +1,3 @@
-import json
 from contextlib import contextmanager
 
 import pytest
@@ -58,7 +57,7 @@ def test_postgres_backend_initializes_schema_and_facade(monkeypatch):
 
 def test_postgres_execution_context_uses_selected_backend(monkeypatch):
     settings = Settings(_env_file=None, job_store_backend="postgres")
-    reflection = ReflectionInput(why_saved="Need this later")
+    reflection = ReflectionInput(reflection_note="Need this later")
     executed = []
 
     class Connection:
