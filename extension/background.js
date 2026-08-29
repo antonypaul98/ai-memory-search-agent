@@ -18,7 +18,10 @@ import {
   sweepExpiredContext,
   STORAGE_KEYS,
 } from "./shared/storage.js";
-import { collectBookmarkSnapshot } from "./shared/bookmarks.js";
+import {
+  buildBookmarkSyncPlan,
+  collectBookmarkSnapshot,
+} from "./shared/bookmarks.js";
 import { isRestrictedUrl, classifyPlatform } from "./shared/context.js";
 
 const BOOKMARK_SYNC_ALARM = "bookmark-sync";
@@ -200,13 +203,12 @@ async function handleMessage(message, sender) {
 async function configureBookmarkSync() {
   const settings = await loadSettings();
   await chrome.alarms.clear(BOOKMARK_SYNC_ALARM);
-  if (!settings.bookmarkSyncEnabled) return;
   const hasPermission = await chrome.permissions.contains({ permissions: ["bookmarks"] });
-  if (!hasPermission) return;
-  const minutes = Math.max(60, Number(settings.bookmarkSyncHours || 24) * 60);
+  const plan = buildBookmarkSyncPlan(settings, hasPermission);
+  if (!plan.enabled) return;
   chrome.alarms.create(BOOKMARK_SYNC_ALARM, {
-    delayInMinutes: minutes,
-    periodInMinutes: minutes,
+    delayInMinutes: plan.periodInMinutes,
+    periodInMinutes: plan.periodInMinutes,
   });
 }
 
