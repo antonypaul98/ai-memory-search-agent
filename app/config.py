@@ -84,7 +84,12 @@ class Settings(BaseSettings):
     job_worker_concurrency: int = 2
     job_lease_seconds: int = 120
     job_poll_interval_sec: float = 2.0
-    # F-35 queue wake transport. SQLite remains the durable job source of truth.
+    # GAP-02 durable job state. SQLite remains the safe default until the
+    # application/backend cutover and Postgres E2E validation are complete.
+    job_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    postgres_dsn_env: str = "DATABASE_URL"
+    postgres_connect_timeout_sec: int = 10
+    # F-35 wake transport is independent from the durable job store backend.
     job_queue_backend: Literal["sqlite", "redis"] = "sqlite"
     redis_url_env: str = "REDIS_URL"
     redis_queue_name: str = "memory-agent:jobs:wakeup"
