@@ -29,6 +29,13 @@ class ConnectionLike(Protocol):
 ConnectionFactory = Callable[[], Any]
 
 
+_JOB_COLUMNS = """
+    job_id, user_id, job_type, playlist_id, playlist_title, total_videos,
+    queued, processing, completed, skipped, failed, status, error_summary,
+    created_at, started_at, finished_at, paused
+"""
+
+
 class PostgresJobRepository:
     """Postgres create/read/detail/list operations with strict tenant scoping."""
 
@@ -96,7 +103,7 @@ class PostgresJobRepository:
         _require("user_id", user_id)
         with self._connection_factory() as conn:
             row = conn.execute(
-                "SELECT * FROM background_jobs WHERE job_id = %s AND user_id = %s",
+                f"SELECT {_JOB_COLUMNS} FROM background_jobs WHERE job_id = %s AND user_id = %s",
                 (job_id, user_id),
             ).fetchone()
         if not row:
@@ -165,9 +172,9 @@ class PostgresJobRepository:
 
 
 def _row_to_job(row: Any) -> BackgroundJob:
-    completed = int(_field(row, "completed", 7)) + int(_field(row, "skipped", 8)) + int(_field(row, "failed", 9))
-    total = int(_field(row, "total_videos", 4))
-    started_at = _field(row, "started_at", 13)
+    completed = int(_field(row, "completed", 8)) + int(_field(row, "skipped", 9)) + int(_field(row, "failed", 10))
+    total = int(_field(row, "total_videos", 5))
+    started_at = _field(row, "started_at", 14)
     estimated = None
     if completed > 0 and started_at and total > completed:
         estimated = float(max(1, total - completed) * 8)
@@ -176,16 +183,16 @@ def _row_to_job(row: Any) -> BackgroundJob:
         user_id=_field(row, "user_id", 1),
         job_type=_field(row, "job_type", 2),
         playlist_id=_field(row, "playlist_id", 3),
-        playlist_title=_field(row, "playlist_title", 5) or "",
+        playlist_title=_field(row, "playlist_title", 4) or "",
         total_videos=total,
         queued=int(_field(row, "queued", 6)),
-        processing=int(_field(row, "processing", 10)),
-        completed=int(_field(row, "completed", 7)),
-        skipped=int(_field(row, "skipped", 8)),
-        failed=int(_field(row, "failed", 9)),
+        processing=int(_field(row, "processing", 7)),
+        completed=int(_field(row, "completed", 8)),
+        skipped=int(_field(row, "skipped", 9)),
+        failed=int(_field(row, "failed", 10)),
         status=_field(row, "status", 11),
         error_summary=_field(row, "error_summary", 12),
-        created_at=_iso(_field(row, "created_at", 14)),
+        created_at=_iso(_field(row, "created_at", 13)),
         started_at=_iso(started_at),
         finished_at=_iso(_field(row, "finished_at", 15)),
         paused=bool(_field(row, "paused", 16)),
