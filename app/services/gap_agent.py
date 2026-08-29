@@ -12,6 +12,7 @@ from app.models.gap_agent import (
     GapAnalysisRequest,
     GapAnalysisResponse,
     GapFinding,
+    GoalGapNotification,
     GoalGapReport,
 )
 
@@ -109,11 +110,20 @@ class GapAgent:
                     )
                 )
 
-        total_goals = len(grouped)
+        limited_reports = reports[: request.limit]
+        notifications = [
+            GoalGapNotification(
+                goal=report.goal,
+                message=f"{report.goal} has {len(report.findings)} actionable learning gap(s).",
+                actions=[finding.action for finding in report.findings if finding.action.strip()],
+            )
+            for report in limited_reports
+        ]
         return GapAnalysisResponse(
-            goals_analyzed=total_goals,
+            goals_analyzed=len(grouped),
             goals_with_gaps=len(reports),
-            reports=reports[: request.limit],
+            reports=limited_reports,
+            notifications=notifications,
         )
 
 
