@@ -17,7 +17,8 @@ def test_canonical_duplicate_is_kept_once(test_settings: Settings) -> None:
             {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=20"},
         ]
     )
-    out = CaptureTriageAgent(test_settings).triage(user_id="user-a", request=request)
+    agent = CaptureTriageAgent(test_settings)
+    out = agent.triage(user_id="user-a", request=request)
     assert out.ready == 1
     assert out.duplicates == 1
     assert out.rejected == 0
@@ -25,6 +26,10 @@ def test_canonical_duplicate_is_kept_once(test_settings: Settings) -> None:
     assert out.decisions[1].decision == "duplicate"
     assert out.decisions[1].duplicate_of_index == 0
     assert out.decisions[0].canonical_url == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+    ready_items = agent.ready_items(request, out)
+    assert len(ready_items) == 1
+    assert ready_items[0].url == "https://youtu.be/dQw4w9WgXcQ"
 
 
 def test_rejects_unsupported_or_unsafe_url(test_settings: Settings) -> None:
