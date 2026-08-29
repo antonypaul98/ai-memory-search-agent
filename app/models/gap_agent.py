@@ -29,7 +29,16 @@ class GoalGapReport(BaseModel):
     findings: list[GapFinding]
 
 
+class GoalGapNotification(BaseModel):
+    """Read-only notification payload for one goal with actionable gaps."""
+
+    goal: str
+    message: str
+    actions: list[str] = Field(min_length=1)
+
+
 class GapAnalysisResponse(BaseModel):
     goals_analyzed: int
     goals_with_gaps: int
     reports: list[GoalGapReport]
+    notifications: list[GoalGapNotification] = Field(default_factory=list)

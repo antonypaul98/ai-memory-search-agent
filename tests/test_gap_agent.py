@@ -66,6 +66,31 @@ def test_explicit_goal_with_no_memories_reports_actionable_gap(test_settings: Se
     assert report.memory_count == 0
     assert {finding.kind for finding in report.findings} == {"coverage", "source_diversity"}
     assert all(finding.action for finding in report.findings)
+    assert len(out.notifications) == 1
+    notification = out.notifications[0]
+    assert notification.goal == "Kubernetes"
+    assert notification.actions
+    assert set(notification.actions) == {finding.action for finding in report.findings}
+
+
+def test_each_gap_goal_gets_one_actionable_notification(test_settings: Settings) -> None:
+    for goal, video_id in (("Python", "py1"), ("Networking", "net1")):
+        _seed(
+            test_settings,
+            user_id=LOCAL_DEFAULT_USER_ID,
+            video_id=video_id,
+            goal=goal,
+            channel="Same Creator",
+            last_viewed=None,
+        )
+    out = GapAgent(test_settings).analyze(
+        user_id=LOCAL_DEFAULT_USER_ID,
+        request=GapAnalysisRequest(min_memories=3, min_sources=2, stale_days=30),
+    )
+    assert out.goals_with_gaps == 2
+    assert len(out.notifications) == len(out.reports) == 2
+    assert [n.goal for n in out.notifications] == [r.goal for r in out.reports]
+    assert all(n.actions and all(action.strip() for action in n.actions) for n in out.notifications)
 
 
 def test_well_covered_recent_goal_has_no_gap(test_settings: Settings) -> None:
@@ -87,6 +112,7 @@ def test_well_covered_recent_goal_has_no_gap(test_settings: Settings) -> None:
     assert out.goals_analyzed == 1
     assert out.goals_with_gaps == 0
     assert out.reports == []
+    assert out.notifications == []
 
 
 def test_stale_and_single_source_goal_reports_evidence(test_settings: Settings) -> None:
@@ -135,6 +161,7 @@ def test_goal_discovery_and_tenant_isolation(test_settings: Settings) -> None:
     )
     assert out.goals_analyzed == 1
     assert [report.goal for report in out.reports] == ["Python"]
+    assert [notification.goal for notification in out.notifications] == ["Python"]
     assert "Secret Goal" not in str(out.model_dump())
 
 
@@ -163,3 +190,5 @@ def test_gap_api_uses_authenticated_user(client: TestClient, test_settings: Sett
     body = resp.json()
     assert body["goals_analyzed"] == 1
     assert [report["goal"] for report in body["reports"]] == ["Networking"]
+    assert [notification["goal"] for notification in body["notifications"]] == ["Networking"]
+    assert body["notifications"][0]["actions"]
