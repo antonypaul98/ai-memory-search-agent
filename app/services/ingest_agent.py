@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from app.config import Settings, get_settings
 from app.db.schema import get_connection
@@ -182,12 +183,23 @@ class IngestAgent:
         decisions: list[IngestAgentDecision] = []
         for index, candidate in enumerate(candidates):
             original_url = candidate.url.strip()
+            scheme = urlsplit(original_url).scheme.lower()
+            if scheme not in {"http", "https"}:
+                decisions.append(
+                    IngestAgentDecision(
+                        index=index,
+                        decision="rejected",
+                        reason="Unsupported or unsafe URL scheme.",
+                    )
+                )
+                continue
             try:
                 connector = self._connectors.resolve_for_url(original_url)
                 ref = connector.parse_ref(original_url)
                 canonical_url = ref.url.strip()
-                if not canonical_url:
-                    raise ValueError("connector returned an empty canonical URL")
+                canonical_scheme = urlsplit(canonical_url).scheme.lower()
+                if not canonical_url or canonical_scheme not in {"http", "https"}:
+                    raise ValueError("connector returned an unsafe canonical URL")
             except Exception as exc:
                 decisions.append(
                     IngestAgentDecision(
