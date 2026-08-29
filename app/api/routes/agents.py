@@ -9,7 +9,11 @@ from app.api.dependencies import get_app_settings
 from app.config import Settings
 from app.models.agent_runtime import AgentRunRequest, AgentRunResponse
 from app.models.capture_triage import CaptureTriageRequest, CaptureTriageResponse
-from app.models.consolidation_agent import ConsolidationRequest, ConsolidationResponse
+from app.models.consolidation_agent import (
+    ConsolidationMergeApproval,
+    ConsolidationRequest,
+    ConsolidationResponse,
+)
 from app.models.gap_agent import GapAnalysisRequest, GapAnalysisResponse
 from app.models.ingest_agent import (
     IngestAgentRunRequest,
@@ -17,12 +21,14 @@ from app.models.ingest_agent import (
     IngestRule,
     IngestRuleCreate,
 )
+from app.models.knowledge_graph import GraphEntityMergeResult
 from app.models.research_agent import ResearchAgentRequest, ResearchAgentResponse
 from app.models.review_agent import ReviewQueueRequest, ReviewQueueResponse
 from app.models.user import UserPublic
 from app.services.agent_runtime import AgentRuntime
 from app.services.capture_triage_agent import CaptureTriageAgent
 from app.services.consolidation_agent import ConsolidationAgent
+from app.services.entity_merge_service import EntityMergeError, EntityMergeService
 from app.services.gap_agent import GapAgent
 from app.services.ingest_agent import IngestAgent
 from app.services.research_agent import ResearchAgent
@@ -84,6 +90,25 @@ def analyze_consolidation(
 ) -> ConsolidationResponse:
     """Return read-only entity-merge and stale-memory maintenance suggestions."""
     return ConsolidationAgent(settings).analyze(user_id=user.user_id, request=body)
+
+
+@router.post("/consolidation/approve-merge", response_model=GraphEntityMergeResult)
+def approve_consolidation_merge(
+    body: ConsolidationMergeApproval,
+    user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_app_settings),
+) -> GraphEntityMergeResult:
+    """Apply one proposed entity merge only after an explicit `confirm: true`."""
+    try:
+        return EntityMergeService(settings).merge(
+            user_id=user.user_id,
+            target_entity_id=body.target_entity_id,
+            source_entity_id=body.source_entity_id,
+        )
+    except EntityMergeError as exc:
+        detail = str(exc)
+        status = 404 if "not found" in detail else 409
+        raise HTTPException(status_code=status, detail=detail) from exc
 
 
 @router.post("/capture/triage", response_model=CaptureTriageResponse)
