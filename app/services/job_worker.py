@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import uuid
 
 from app.config import Settings, get_settings
-from app.db.job_store import JobStore
-from app.db.schema import get_connection, migrate
-from app.models.reflection import ReflectionInput
+from app.db.job_store_factory import get_job_execution_context, get_job_store
 from app.services.event_bus import EventBus
 from app.services.ingest_service import IngestService
 from app.services.job_queue_transport import get_job_queue_transport
@@ -28,7 +25,7 @@ def should_start_job_worker(settings: Settings) -> bool:
 class JobWorker:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
-        self._store = JobStore(self._settings)
+        self._store = get_job_store(self._settings)
         self._ingest = IngestService(settings=self._settings)
         self._queue = get_job_queue_transport(self._settings)
         self._stop = threading.Event()
@@ -62,9 +59,10 @@ class JobWorker:
                 self._stop.wait(self._settings.job_poll_interval_sec)
 
     def _process_item(self, job_id: str, item_key: str, url: str, *, worker_id: str) -> None:
-        user_id = _job_user(self._settings, job_id)
-        reflection = _job_reflection(self._settings, job_id)
-        force_refresh = _job_force_refresh(self._settings, job_id)
+        context = get_job_execution_context(self._settings, job_id)
+        user_id = context.user_id
+        reflection = context.reflection
+        force_refresh = context.force_refresh
         heartbeat_stop = threading.Event()
         heartbeat_thread = threading.Thread(
             target=self._heartbeat_loop,
@@ -217,38 +215,3 @@ def stop_job_worker() -> None:
         for thread in _WORKER._threads:
             thread.join(timeout=2.0)
         _WORKER = None
-
-
-def _job_user(settings: Settings, job_id: str) -> str:
-    migrate(settings)
-    with get_connection(settings) as conn:
-        row = conn.execute(
-            "SELECT user_id FROM background_jobs WHERE job_id = ?",
-            (job_id,),
-        ).fetchone()
-    return row["user_id"] if row else "local-default"
-
-
-def _job_reflection(settings: Settings, job_id: str) -> ReflectionInput | None:
-    migrate(settings)
-    with get_connection(settings) as conn:
-        row = conn.execute(
-            "SELECT reflection_json FROM background_jobs WHERE job_id = ?",
-            (job_id,),
-        ).fetchone()
-    if not row or not row["reflection_json"]:
-        return None
-    try:
-        return ReflectionInput.model_validate(json.loads(row["reflection_json"]))
-    except Exception:
-        return None
-
-
-def _job_force_refresh(settings: Settings, job_id: str) -> bool:
-    migrate(settings)
-    with get_connection(settings) as conn:
-        row = conn.execute(
-            "SELECT force_refresh FROM background_jobs WHERE job_id = ?",
-            (job_id,),
-        ).fetchone()
-    return bool(row and row["force_refresh"])
