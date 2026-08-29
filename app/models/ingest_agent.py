@@ -29,6 +29,10 @@ class IngestCandidate(BaseModel):
     attributes: dict[str, str] = Field(default_factory=dict)
 
 
+class IngestAgentRunRequest(BaseModel):
+    candidates: list[IngestCandidate] = Field(min_length=1, max_length=100)
+
+
 class IngestAgentDecision(BaseModel):
     index: int
     decision: Literal["ingested", "duplicate", "skipped", "rejected", "failed"]
