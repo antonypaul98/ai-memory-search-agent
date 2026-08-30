@@ -20,6 +20,8 @@ The following rows already have CI-validated closeouts on `main`, or have exact 
 - F-29 Source/Connector framework — registry, normalized connector contract, provenance-preserving ingest path.
 - F-30 SQLite registry client — tenant-scoped list/delete behavior without Chroma scan.
 - F-33 Knowledge Graph & Entity Intelligence — tenant-scoped entities/relations, temporal facts, deterministic merge/dedup, visible Entity Merge Review UI, and literal `confirm: true` at the generic merge boundary.
+- F-34 Event bus — durable tenant-scoped domain/audit events with request correlation and privacy-safe payload handling.
+- F-35 Distributed queue — Postgres-authoritative durable jobs with Redis opaque wake transport, claims/leases, heartbeats, and fail-closed split-worker safety.
 - N-01 Consensus Engine — deterministic independent-source consensus, explicit disagreement preservation, visible weight/source count, no contradictory-claim collapse.
 - N-02 Verification Engine — claim/evidence verification closeout already validated; future freshness/trust enhancements remain separate unless explicitly accepted.
 - N-04 Gap Engine — evidence-backed coverage/source-diversity/review gaps; no invented curriculum topics.
@@ -32,8 +34,16 @@ The following rows already have CI-validated closeouts on `main`, or have exact 
 - A-05 Capture Triage Agent — deterministic queue deduplication, existing-memory checks, SSRF/junk rejection, tenant isolation.
 - A-06 Gap Agent — read-only deterministic gap analysis with actionable per-goal notification contract.
 - A-07 Consolidation Agent — read-only deterministic proposals; entity merge writes require authenticated explicit confirmation and tenant-safe merge service reuse.
+- C-02 OAuth adapter framework — tenant-scoped encrypted token storage, scoped refresh/rotation/revocation, and secret-safe lifecycle audit behavior. Provider-specific consent/callback approval remains external.
+- C-03 Web article connector — SSRF-safe HTML normalization into canonical, provenance-preserving memories with deterministic connector routing/deduplication.
+- C-04 Google Drive connector — tenant-scoped Docs/PDF ingestion with provider-ID deduplication, provenance, bounded downloads, and secret-safe authorization failures. Live Google app approval remains external.
+- C-05 Notion export connector — bounded offline Notion ZIP import with path-safety checks, provenance, deterministic deduplication, and no implicit live-provider dependency.
+- C-06 Readwise bridge — CSV highlights normalized into groundable evidence with deterministic repeated-row collapse while preserving merged tags.
+- C-07 Podcast RSS connector — SSRF-safe bounded RSS/show-notes ingestion with deterministic episode identity, provenance, tenant-safe shared ingest, and no mandatory AI.
+- C-08 Markdown export adapter — complete tenant-scoped export with lossless, versioned Markdown round-trip parsing and no implicit write on import.
 - P-01 Readiness vs liveness — separate process liveness and dependency readiness with the legacy health alias preserved.
 - P-04 Structured metrics — privacy-safe Prometheus 0.0.4 exposition at `/api/v1/metrics`, with the prior JSON snapshot retained at `/api/v1/metrics.json`.
+- P-08 Multi-worker safe jobs — covered by the validated F-35 Postgres + Redis runtime: authoritative Postgres claims/leases and fail-closed unsafe SQLite split-worker mode.
 
 ## Known naming drift
 
@@ -48,7 +58,7 @@ The old labels must not be treated as separate missing features unless `MASTER_S
 
 ### FEATURE_IDEAS.md
 
-Reconcile the stale Partial/Planned/Missing statuses for the validated rows above. Preserve genuinely future enhancements such as OAuth-dependent connectors, the incomplete production-wide Postgres cutover, optional trust ranking, and Jarvis-only UX.
+Reconcile the stale Partial/Planned/Missing statuses for the validated rows above. Preserve genuinely future enhancements such as provider-specific OAuth setup, the incomplete production-wide Postgres cutover, optional trust ranking, and Jarvis-only UX.
 
 ### KNOWLEDGE_ENGINE.md
 
@@ -64,7 +74,7 @@ Reconcile maturity language that still describes agents, consensus/gap engines, 
 
 ### CONNECTOR_SDK.md and README.md
 
-Audit wording against the validated connector framework and current product surface. Do not mark OAuth/provider-specific connectors complete unless their own acceptance tests exist.
+Audit wording against the validated connector framework and current product surface. Provider-specific OAuth registration/consent/verification must not be represented as repository-controlled completion merely because the shared OAuth framework is accepted.
 
 ## Still pending individual acceptance audit
 
@@ -72,13 +82,13 @@ The following areas must be checked separately rather than promoted from file pr
 
 - N-03 / F-38 trust UI/ranking/feedback boundaries beyond the already validated trust foundation;
 - N-08 cross-source duplicate review/merge behavior if distinct from F-33 entity merge;
-- C-02 and provider OAuth flows;
-- C-03/C-04/C-05/C-06/C-07/C-08/C-09 connector/export/share-sheet rows against exact acceptance criteria;
+- C-09 native mobile share-sheet row against exact acceptance criteria and the master-spec phase boundary; native-mobile work remains deferred before the Jarvis transition unless explicitly promoted out of that boundary;
 - P-03 production Postgres migration: current Postgres job durability is not enough to satisfy GAP-02's users/registry/FTS plus production SQLite-retirement boundary;
 - P-07 embedding microservice;
-- P-08/F-35 and F-34 root-inventory wording against the already validated distributed-job/event foundation;
 - U-01/U-02/U-03/U-04 and any other Memory Search UX rows that are not Jarvis-specific;
 - any remaining version/milestone acceptance criteria referenced by repository roadmaps.
+
+F-34, F-35, and P-08 no longer belong in the pending-audit list: `docs/closeouts/RUNTIME_PLATFORM_CLOSEOUT.md` and the associated PostgreSQL/Redis CI coverage already establish their documented Memory Search runtime correctness boundary. C-02 through C-08 likewise have dedicated closeouts on `main`; external provider registration, credentials, consent verification, billing, or human approval remain blockers only for live provider deployment, not for those repository-controlled acceptance contracts.
 
 ## Jarvis transition gate
 
