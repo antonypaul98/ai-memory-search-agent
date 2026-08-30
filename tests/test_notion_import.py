@@ -134,6 +134,17 @@ def test_notion_export_rejects_non_zip_and_empty_markdown_archive(tmp_path):
         service.preview_zip(_zip({"assets/readme.txt": "hello"}))
 
 
+def test_notion_export_rejects_oversized_markdown_before_ingest(tmp_path):
+    fake = FakeIngest()
+    service = _service(tmp_path, fake)
+    data = _zip({"Huge.md": "# Huge\n" + ("x" * (5 * 1024 * 1024))})
+
+    with pytest.raises(Exception, match="too large"):
+        service.ingest_zip(data, user_id="tenant-a")
+
+    assert fake.calls == []
+
+
 def test_notion_connector_is_registered():
     registry = ConnectorRegistry()
     assert "notion.v1" in registry.list_connectors()
