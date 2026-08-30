@@ -48,11 +48,11 @@ def test_grounded_rate_excludes_clarification_only_responses() -> None:
     }
 
 
-def test_metrics_endpoint_exposes_only_aggregate_quality_data(client) -> None:
+def test_metrics_json_endpoint_exposes_only_aggregate_quality_data(client) -> None:
     record_chat_outcome(grounded=True, needs_clarification=False)
     _record_finish(200, 25.0, "/api/v1/search")
 
-    response = client.get("/api/v1/metrics")
+    response = client.get("/api/v1/metrics.json")
     assert response.status_code == 200
     data = response.json()
     assert data["chat_quality"]["grounded_rate"] == 1.0

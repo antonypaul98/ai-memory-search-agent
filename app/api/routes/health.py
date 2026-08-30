@@ -4,14 +4,15 @@ Health and lightweight observability routes.
 GET /api/v1/live — process liveness; no external dependency checks.
 GET /api/v1/ready — dependency readiness; verifies ChromaDB is reachable.
 GET /api/v1/health — backward-compatible alias for readiness.
-GET /api/v1/metrics — process-local request counters for single-node ops.
+GET /api/v1/metrics — Prometheus text exposition for single-node ops.
+GET /api/v1/metrics.json — backward-compatible process-local JSON snapshot.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.api.dependencies import get_health_service
 from app.core.exceptions import ChromaConnectionError
-from app.middleware.observability import metrics_snapshot
+from app.middleware.observability import metrics_snapshot, prometheus_metrics_text
 from app.models.health import HealthResponse
 from app.services.health_service import HealthService
 
@@ -47,7 +48,16 @@ def health_check(
     return _dependency_health(service)
 
 
-@router.get("/metrics")
-def request_metrics() -> dict[str, object]:
-    """Return process-local HTTP counters for the single-node deployment profile."""
+@router.get("/metrics", response_class=Response)
+def request_metrics() -> Response:
+    """Return privacy-safe Prometheus text exposition for local scraping."""
+    return Response(
+        content=prometheus_metrics_text(),
+        media_type="text/plain; version=0.0.4",
+    )
+
+
+@router.get("/metrics.json")
+def request_metrics_json() -> dict[str, object]:
+    """Retain the original JSON snapshot for existing local consumers."""
     return metrics_snapshot()
