@@ -1,34 +1,47 @@
 # KNOWLEDGE ENGINE — Architecture Specification
 
-**Purpose:** Define the memory intelligence layer — implemented (AHME) and planned engines.  
-**Status:** Architecture phase — engines marked **Implemented** exist in code; others are spec-only.  
-**Last updated:** 2026-07-21  
-**Code anchors:** `app/services/ahme_engine.py`, `universal_memory_service.py`, `trust_engine.py`, `knowledge_graph_service.py`, `memory_lifecycle_service.py`
+**Purpose:** Define the Memory Search knowledge-intelligence layer and its validated execution boundaries.  
+**Status:** Reconciled against executable implementation and accepted closeouts.  
+**Last updated:** 2026-08-30  
+**Code anchors:** `app/services/ahme_engine.py`, `universal_memory_service.py`, `trust_engine.py`, `knowledge_graph_service.py`, `verification_engine.py`, `consensus_engine.py`, `gap_agent.py`, `reverse_memory_service.py`, `learning_evolution_service.py`
 
 ---
 
 ## 1. Overview
 
-The Knowledge Engine is the **reasoning substrate** of AI Memory OS. It transforms raw captures into structured, retrievable, trustworthy knowledge.
+The Knowledge Engine transforms captured material into structured, retrievable, trustworthy knowledge while keeping deterministic behavior available without mandatory AI.
 
-```
-Capture → Universal Memory (F-36) → Lifecycle (F-37) → Capsule → Index → Graph (F-33) → Trust (F-38)
-  → Retrieve (AHME) → Verify → Synthesize → Learn
+```text
+Capture
+  → Universal Memory (F-36)
+  → Lifecycle (F-37)
+  → Capsule / Index
+  → Knowledge Graph (F-33)
+  → Trust (F-38)
+  → Retrieve (AHME)
+  → Verify (N-02)
+  → Consensus when applicable (N-01)
+  → Synthesize / Explain
+  → Learn from bounded feedback (N-07)
+
+Goals → Gap Engine (N-04) → Reverse Memory (N-06)
 ```
 
-| Engine | Status | Role |
-|--------|--------|------|
-| **Universal Memory Schema** | ✅ Implemented (F-36) | Normalized object for all sources |
-| **Memory Lifecycle** | ✅ Implemented (F-37) | State machine + audit trail |
-| **Trust Engine** | ✅ Foundation (F-38) | Scoring + persistence |
-| **Knowledge Graph** | ⚠️ Foundation (F-33) | Entities, relations, graph APIs |
-| **AHME** | ✅ Implemented | Hierarchical hybrid retrieval |
-| **Memory Capsules** | ✅ Implemented | Structured summaries per item |
-| **Verification Engine** | ⚠️ Partial | Grounding checks on answers |
-| **Consensus Engine** | 📋 Planned | Reconcile conflicting sources |
-| **Gap Engine** | 📋 Planned | Detect missing knowledge |
-| **Reverse Memory** | 📋 Planned | Recommend what to learn |
-| **Learning Evolution** | 📋 Planned | Improve memory over time |
+| Engine | Status | Validated role |
+|---|---|---|
+| **Universal Memory Schema** | ✅ Implemented (F-36) | Canonical normalized object across sources |
+| **Memory Lifecycle** | ✅ Implemented (F-37) | Deterministic state machine + audit trail |
+| **Trust Engine** | ✅ Foundation complete (F-38) | Persisted confidence/trust components |
+| **Knowledge Graph** | ✅ Acceptance-complete (F-33) | Tenant-scoped entities, relations, temporal facts, merge review |
+| **AHME** | ✅ Implemented | Hierarchical hybrid retrieval with safe flat fallback |
+| **Memory Capsules** | ✅ Implemented | Structured summaries and sections |
+| **Verification Engine** | ✅ Acceptance-complete (N-02) | Claim-level evidence verification |
+| **Consensus Engine** | ✅ Acceptance-complete (N-01) | Explicit cross-source agreement/conflict handling |
+| **Gap Engine** | ✅ Acceptance-complete (N-04) | Evidence-backed goal coverage gaps |
+| **Reverse Memory** | ✅ Acceptance-complete (N-06) | Grounded “what should I learn next?” actions |
+| **Learning Evolution** | ✅ Acceptance-complete (N-07) | Bounded tenant-local ranking evolution without re-ingest |
+
+Status here means the repository-controlled acceptance boundary is implemented and validated. Optional future enhancements remain future work unless separately promoted in `MASTER_SPEC.md` / `FEATURE_IDEAS.md`.
 
 ---
 
@@ -36,74 +49,55 @@ Capture → Universal Memory (F-36) → Lifecycle (F-37) → Capsule → Index �
 
 ### 2.1 Purpose
 
-Coarse-to-fine retrieval that scales to large personal libraries without scanning every chunk. Adapts to query intent and falls back safely.
+Coarse-to-fine retrieval that scales beyond scanning every chunk, adapts to query intent, and falls back safely when the hierarchical path is unavailable.
 
 ### 2.2 Status: **Implemented**
 
 **Module:** `AdaptiveHierarchicalMemoryEngine` (`app/services/ahme_engine.py`)  
-**Flag:** `hierarchical_retrieval_enabled` (default `true`)
+**Flag:** `hierarchical_retrieval_enabled`
 
 ### 2.3 Pipeline
 
-```
+```text
 Query
-  → QueryRouter (intent: procedural, comparison, conceptual, …)
-  → SemanticCache lookup (optional hit)
-  → Capsule retrieval (Chroma memory_capsules)
-  → Video narrowing (top videos)
-  → Section retrieval (Chroma memory_sections)
-  → Evidence retrieval (Chroma memory_items + FTS5 hybrid)
-  → RRF fusion (vector ranks + FTS ranks)
+  → QueryRouter
+  → SemanticCache lookup
+  → Capsule retrieval
+  → source narrowing
+  → Section retrieval
+  → Evidence retrieval (vector + FTS)
+  → RRF fusion
   → MMR diversification
-  → Deduplication (content hash / simhash)
-  → Return ranked evidence chunks + SearchMetrics
+  → deterministic deduplication
+  → ranked evidence + metrics
 ```
 
-On any hierarchical failure → **flat fallback** (direct chunk search).  
-When flag off → **flat mode** only.
+On hierarchical failure the engine falls back to flat chunk retrieval. With the feature flag disabled, the flat path remains available.
 
-### 2.4 Components
+### 2.4 Core components
 
-| Component | Module | Function |
-|-----------|--------|----------|
-| Query router | `query_router.py` | Classify query type for ranking tweaks |
-| Hierarchical store | `hierarchical_store.py` | Capsule/section CRUD + level search |
-| FTS index | `fts_index.py` | SQLite FTS5 lexical search |
-| RRF | `rrf.py` | `reciprocal_rank_fusion` |
-| MMR | `mmr.py` | `mmr_select` — reduce redundancy |
-| Semantic cache | `semantic_cache.py` | Cosine similarity on question embeddings |
-| Dedup | `deduplication_service.py` | Transcript/chunk hash reuse |
+| Component | Module | Role |
+|---|---|---|
+| Query router | `query_router.py` | Classifies query type for ranking behavior |
+| Hierarchical store | `hierarchical_store.py` | Capsule / section CRUD and search |
+| FTS index | `fts_index.py` | SQLite FTS lexical retrieval |
+| RRF | `rrf.py` | Rank fusion |
+| MMR | `mmr.py` | Redundancy reduction |
+| Semantic cache | `semantic_cache.py` | Similar-query cache |
+| Dedup | `deduplication_service.py` | Deterministic content/chunk deduplication |
 
-### 2.5 Configuration
-
-| Setting | Default | Effect |
-|---------|---------|--------|
-| `capsule_top_k` | 8 | Capsule candidates |
-| `video_top_k` | 4 | Videos after capsule filter |
-| `section_top_k` | 6 | Sections per video |
-| `evidence_top_k` | 8 | Final evidence chunks |
-| `rrf_k` | 60 | RRF constant |
-| `mmr_lambda` | 0.7 | Relevance vs diversity |
-| `semantic_cache_enabled` | true | Cache on/off |
-| `semantic_cache_similarity_threshold` | 0.92 | Hit threshold |
-
-### 2.6 Data touched
+### 2.5 Data touched
 
 - Chroma: `memory_items`, `memory_capsules`, `memory_sections`
-- SQLite: `memory_fts`, `semantic_cache`, `content_hashes`, `chunk_hashes`
-- Metadata filter: `user_id` when provided
+- SQLite in the local/single-node profile: FTS, semantic cache, registry/dedup metadata
+- Every user-visible retrieval path propagates tenant identity where multi-user mode is enabled.
 
-### 2.7 Tests & benchmarks
+### 2.6 Acceptance criteria
 
-- `tests/test_ahme.py` (~20 cases)
-- `scripts/benchmark_ahme.py` → `docs/BENCHMARK_AHME.md`
-
-### 2.8 Acceptance criteria (met)
-
-- [x] Hierarchical path returns evidence with metrics  
-- [x] Flat fallback on error  
-- [x] Cache invalidates on index version bump  
-- [x] User-scoped search when `user_id` set  
+- [x] Hierarchical path returns evidence with metrics
+- [x] Flat fallback on error
+- [x] Cache invalidates on index-version changes
+- [x] User-scoped search when `user_id` is present
 
 ---
 
@@ -111,385 +105,331 @@ When flag off → **flat mode** only.
 
 ### 3.1 Purpose
 
-Compress a video into a **structured memory object** — topics, entities, procedures, sections — for fast routing before chunk-level search.
+Compress an item into structured memory metadata for fast routing before evidence-level retrieval.
 
 ### 3.2 Status: **Implemented**
 
-**Module:** `capsule_service.py` — `build_capsule_deterministic()` + optional LLM path  
-**Model:** `MemoryCapsule`, `MemorySection` (`app/models/capsule.py`)
+**Module:** `capsule_service.py`  
+**Models:** `MemoryCapsule`, `MemorySection`
 
-### 3.3 Capsule schema (logical)
+Capsules can be built deterministically; optional AI enrichment is not required for the core path. They preserve topics/entities, procedures/components where detectable, section boundaries, claims, and reflection fields such as save reason and user goal.
 
-| Field | Source |
-|-------|--------|
-| `one_line_memory` | EnrichmentService |
-| `short_summary` | Transcript excerpt |
-| `topics`, `entities` | Keyword/regex extraction |
-| `tools_or_components`, `procedures` | Pattern extraction (e.g. PC build) |
-| `claims` | Sentence-level claims list |
-| `sections[]` | Time-bounded transcript segments |
-| Reflection fields | `save_reason`, `user_goal`, `difficulty`, `content_style` |
+### 3.3 Acceptance criteria
 
-### 3.4 Storage
-
-- JSON: SQLite `memory_capsules_json`
-- Vectors: Chroma `memory_capsules` collection (embedded capsule summary)
-- Sections: Chroma `memory_sections` + FTS rows
-
-### 3.5 Ingest integration
-
-Generated during `IngestService` after transcript + enrichment; stored before chunk upsert.
-
-### 3.6 Acceptance criteria (met)
-
-- [x] Deterministic capsule without LLM  
-- [x] Sections align to transcript segments  
-- [x] Reflection metadata embedded when provided  
+- [x] Deterministic capsule without LLM
+- [x] Sections align to source evidence segments
+- [x] Reflection metadata is preserved when provided
 
 ---
 
-## 4. Verification Engine
+## 4. Verification Engine — N-02
 
 ### 4.1 Purpose
 
-Ensure answers and agent outputs are **supported by retrieved evidence**, not invented.
+Ensure chat answers are traceable to retrieved evidence instead of treating fluent synthesis as proof.
 
-### 4.2 Status: **Partial** (grounding validation only)
+### 4.2 Status: **Acceptance-complete**
 
-**Implemented today:**
+**Modules:** `app/services/verification_engine.py`, `app/models/verification.py`, `app/services/chat_service.py`
 
-- `grounded_synthesis._validate_grounding()` — token overlap between answer and evidence corpus  
-- `DeterministicAnswerGenerator` — marks insufficient evidence  
-- `ChatService` — returns `grounded: bool` + sources with timestamp URLs  
+The implemented pipeline deterministically segments answer sentences into claims and assigns `supported`, `uncertain`, or `unsupported`. Supported and uncertain claims retain evidence IDs. Numeric claims are penalized when the cited evidence does not contain the asserted factual number. Chat responses expose aggregate verification score, per-claim status, evidence IDs, and supported/uncertain/unsupported counts.
 
-**Not yet implemented:**
+Verification runs after both deterministic and optional-provider synthesis, so enabling an LLM does not bypass the evidence gate.
 
-- Per-claim verification  
-- Source freshness checks  
-- Contradiction detection  
+### 4.3 Acceptance criteria
 
-### 4.3 Target architecture (planned)
+- [x] Every answer sentence maps to evidence or is explicitly flagged
+- [x] Unsupported claims are labeled rather than silently treated as grounded
+- [x] API exposes `verification: { score, claims: [...] }`
+- [x] Adversarial regressions cover fabricated claims, numeric mismatches, mixed support, and empty answers
 
-```
-StructuredAnswer / Agent output
-  → Claim segmentation
-  → For each claim: link to evidence_id(s)
-  → Verification score per claim (supported / unsupported / uncertain)
-  → Aggregate → response confidence + UI badges
-```
+### 4.4 Scope boundaries
 
-### 4.4 Acceptance criteria (future)
+Source freshness remains part of trust/freshness work. Cross-source contradiction reconciliation belongs to N-01 Consensus. Those are not prerequisites for N-02 claim-to-evidence acceptance.
 
-- [ ] Every sentence in chat answer maps to ≥1 evidence_id or is flagged  
-- [ ] Unsupported claims stripped or labeled  
-- [ ] API field: `verification: { score, claims: [...] }`  
-- [ ] Tests with adversarial LLM outputs  
-
-**Priority:** P1 · **Depends on:** F-12, F-16 · **ID:** N-02
+Closeout: `docs/N02_VERIFICATION_CLOSEOUT.md`.
 
 ---
 
-## 5. Consensus Engine
+## 5. Consensus Engine — N-01
 
 ### 5.1 Purpose
 
-When multiple memories disagree (e.g. two creators give different advice), produce a **balanced answer** with explicit disagreement — not false certainty.
+When retrieved sources disagree, preserve the disagreement explicitly rather than manufacturing a single confident answer.
 
-### 5.2 Status: **Planned**
+### 5.2 Status: **Acceptance-complete**
 
-### 5.3 Architecture (spec)
+**Module:** `app/services/consensus_engine.py`  
+**Integration:** `ChatService` for comparison / cross-source queries
 
-```
-Question + retrieved evidence (grouped by source/video)
-  → Claim extraction per source
-  → Cluster semantically similar claims
-  → Detect conflict clusters (negation / numeric mismatch)
-  → Build consensus view:
-       - agreement_set (cited by N sources)
-       - disagreement_pairs (A says X, B says Y)
-       - single_source (low consensus weight)
-  → Synthesis template or LLM with structured conflict section
-```
+The deterministic engine operates only over already-retrieved tenant-scoped evidence. Source independence is keyed by canonical source identity so multiple chunks from one source cannot create false consensus. Numeric and negation mismatches are represented as explicit conflict sides. Agreement weight is based on independent supporting sources.
 
-### 5.4 Data model (planned)
+When a conflict is detected, the response preserves both source titles/claims and the normal citation/evidence list instead of merging contradictory claims into one sentence. The Ask workspace exposes consensus status, consensus weight, independent source count, and conflict sides.
 
-```text
-consensus_clusters (
-  cluster_id, query_hash, claim_text, supporting_video_ids[], opposing_video_ids[], weight
-)
-```
+### 5.3 Acceptance criteria
 
-### 5.5 Acceptance criteria (future)
+- [x] Comparison queries surface both sides with citations/evidence
+- [x] Consensus weight and independent source count are visible in the Ask UI
+- [x] Contradictory claims are not merged into one sentence
+- [x] Same-source duplicate chunks do not inflate consensus
 
-- [ ] Comparison queries surface both sides with citations  
-- [ ] Consensus weight visible in UI  
-- [ ] No merge of contradictory claims into one sentence  
+### 5.4 Safety
 
-**Priority:** P2 · **Depends on:** N-05, F-09 · **ID:** N-01
+- deterministic and tenant-scoped
+- no external research fetch inside the engine
+- no autonomous memory mutation
+- no mandatory LLM call
+
+Closeout: `docs/closeouts/N01_CONSENSUS_ENGINE_CLOSEOUT.md`.
 
 ---
 
-## 6. Trust Engine
+## 6. Trust Engine — F-38
 
 ### 6.1 Purpose
 
-Assign **trust scores** to memories so users and future agents know what to rely on.
+Persist interpretable trust/confidence components so retrieval and future policy layers can distinguish stronger and weaker memories.
 
-### 6.2 Status: **Foundation complete** (F-38)
+### 6.2 Status: **Foundation complete**
 
 **Module:** `TrustEngine` (`app/services/trust_engine.py`)  
-**Persistence:** `memory_records.trust_snapshot_json`, `memory_trust_history`  
-**Integration:** `UniversalMemoryService.finalize_ingest()` computes trust after verification stage
+**Persistence:** memory trust snapshot + trust history
 
-### 6.3 Scoring model (implemented)
+The current scoring foundation combines source reliability, freshness, verification, evidence strength, and bounded feedback into an overall score/tier. Disputed material is capped rather than promoted by other components.
 
-| Component | Weight in confidence | Logic |
-|-----------|---------------------|--------|
-| `source_reliability` | 20% of confidence | Lookup by `source_type` (YouTube 0.78, web 0.62, …) |
-| `freshness` | 15% | Age buckets from `published_at` / `updated_at` |
-| `verification` | 25% | Maps `VerificationStatus` enum |
-| `evidence_strength` | 40% | Chunk count + capsule bonus |
-| `overall` | confidence ± feedback | Capped at 0.35 if `DISPUTED` |
+### 6.3 Validated foundation
 
-**Tiers:** `trusted` (≥0.62), `moderate`, `single_source`, `low`, `disputed`
+- [x] Component scores persisted for ingested memories
+- [x] Trust history appended on recompute
+- [x] Lifecycle can advance to trusted based on the configured score boundary
 
-### 6.4 API
+### 6.4 Explicit future enhancements
 
-- `GET /api/v1/memories/{memory_id}/trust`
-- Trust history: `MemoryStore.list_trust_history()`
+The following are not claimed complete merely by F-38 foundation status:
 
-### 6.5 Acceptance criteria (met)
+- richer consensus-weighted trust policies
+- additional trust-aware search controls beyond already validated surfaces
+- future agent policy tiers
 
-- [x] Five component scores persisted on every ingested memory  
-- [x] Trust history append on recompute  
-- [x] Lifecycle advances to `trusted` when `overall >= 0.62`  
-- [ ] User feedback hooks wired from registry (future)  
-- [ ] Search sort by trust (future)
-
-**Not built:** Consensus-weighted trust, agent policy tiers.
+These must be audited against their own source-of-truth rows before promotion.
 
 ---
 
-## 7. Knowledge Graph
+## 7. Knowledge Graph & Entity Intelligence — F-33
 
 ### 7.1 Purpose
 
-Connect **entities** across memories for traversal queries and future engines.
+Connect entities and facts across memories while preserving tenant ownership, provenance, deterministic merge behavior, and explicit approval for destructive/rewiring operations.
 
-### 7.2 Status: **Foundation complete** (F-33 partial)
+### 7.2 Status: **Acceptance-complete**
 
-**Modules:** `KnowledgeGraphStore`, `KnowledgeGraphService`  
-**Tables:** `kg_entities`, `kg_relations`, `kg_memory_entities` (schema v4)
+**Modules:** `KnowledgeGraphStore`, `KnowledgeGraphService`, `EntityMergeService`  
+**Core data:** graph entities, relations, memory links, temporal relation bounds
 
-### 7.3 Entity types (implemented)
+### 7.3 Validated behavior
 
-`memory`, `concept`, `person`, `company`, `project`, `technology`, `creator`, `tag`
+- tenant-scoped entities, relations, and memory links
+- ingest-time automatic linking
+- entity search and bounded neighbor traversal
+- temporal facts with half-open `valid_from` / `valid_to` filtering and historical neighbor queries
+- deterministic entity merge that rewires links/relations, collapses duplicates, preserves strongest confidence/evidence metadata, aliases and merged IDs
+- same-type and tenant constraints; memory-entity merges rejected
+- visible Entity Merge Review UI
+- literal `confirm: true` required at the generic merge API boundary; omitted/false confirmation is rejected before mutation
 
-### 7.4 Relation predicates (implemented)
+### 7.4 Acceptance criteria
 
-`mentions`, `authored_by`, `tagged_with`, `related_to`, `part_of_project`, `uses_technology`, `derived_from`
+- [x] Entities/relations are tenant-scoped
+- [x] Auto-link on ingest
+- [x] Entity search + neighbors
+- [x] Temporal facts
+- [x] Entity merge/dedup review UI with explicit confirmation
 
-### 7.5 Ingest integration
+### 7.5 Future enhancement
 
-`KnowledgeGraphService.connect_memory()` called from `UniversalMemoryService.finalize_ingest()` — extracts from capsule topics/entities/tools, creator, reflection goal.
+Graph-powered retrieval inside AHME remains a separate future enhancement and is not required to claim the F-33 acceptance boundary complete.
 
-### 7.6 Graph query APIs (implemented)
-
-| Method | Path |
-|--------|------|
-| GET | `/api/v1/knowledge/entities?q=&entity_type=` |
-| GET | `/api/v1/knowledge/entities/{entity_id}` |
-| GET | `/api/v1/knowledge/entities/{entity_id}/relations` |
-| GET | `/api/v1/knowledge/graph/neighbors?entity_id=&depth=` |
-| GET | `/api/v1/knowledge/memories/{memory_id}/entities` |
-
-### 7.7 Tests
-
-- `tests/test_knowledge_graph.py`
-- `tests/test_brain_api.py`
-
-### 7.8 Acceptance criteria
-
-- [x] Entities/relations per user  
-- [x] Auto-link on ingest  
-- [x] Search + neighbors  
-- [ ] Temporal facts  
-- [ ] Entity merge/dedup UI  
-- [ ] Graph-powered retrieval in AHME (future)
+Closeout: `docs/closeouts/F33_KNOWLEDGE_GRAPH_CLOSEOUT.md`.
 
 ---
 
-## 8. Universal Memory Schema (F-36)
+## 8. Universal Memory Schema — F-36
 
 ### 8.1 Status: **Implemented**
 
-**Model:** `UniversalMemory` — `memory_id`, `user_id`, `source_type`, `external_id`, `canonical_url`, `title`, `source_author`, `lifecycle_state`, `verification_status`, `provenance`, `embedding_refs`, `trust`, `metadata`, `relationship_summary`, `content_version`, timestamps.
+`UniversalMemory` provides canonical identity and normalized fields across source types, including tenant, source type/external ID, canonical URL, lifecycle/verification state, provenance, embedding refs, trust, metadata, relationships, versions and timestamps.
 
-**Store:** `MemoryStore` — SQLite `memory_records`, `memory_versions`, `memory_trust_history`
+`UniversalMemoryService` orchestrates capture/finalization while `MemoryStore` persists canonical records and version history.
 
-**Orchestrator:** `UniversalMemoryService` — `begin_capture()`, `finalize_ingest()`, `mark_existing_indexed()`
+### 8.2 Acceptance criteria
 
-### 8.2 Acceptance criteria (met)
-
-- [x] Unique `(user_id, source_type, external_id)`  
-- [x] Version snapshots on content change  
-- [x] Wired into `IngestService` after successful vector store  
+- [x] Deterministic uniqueness for `(user_id, source_type, external_id)`
+- [x] Version snapshots on content change
+- [x] Ingest path writes canonical memory state after successful indexing
 
 ---
 
-## 9. Memory Lifecycle (F-37)
+## 9. Memory Lifecycle — F-37
 
-### 9.1 States (all implemented)
+### 9.1 Status: **Implemented**
 
-`captured` → `parsed` → `enriched` → `embedded` → `connected` → `verified` → `trusted` → `merged` | `archived` → `revived`
+The lifecycle service enforces the documented capture → parse/enrich/embed/connect/verify/trust progression plus archive/revive/merge paths. Every transition records actor, reason, previous state, next state, and timestamp.
 
-### 9.2 Service
+### 9.2 Acceptance criteria
 
-`MemoryLifecycleService` — `transition()`, `advance_pipeline()`, `archive()`, `revive()`, `merge()`
-
-Every transition recorded in `memory_lifecycle_events` with `from_state`, `to_state`, `reason`, `actor`, `created_at`.
-
-### 9.3 Acceptance criteria (met)
-
-- [x] Invalid transitions rejected (`InvalidLifecycleTransitionError`)  
-- [x] Ingest pipeline advances through ENRICHED → TRUSTED automatically  
-- [x] Archive/revive API routes  
+- [x] Invalid transitions rejected
+- [x] Ingest advances through the validated pipeline automatically
+- [x] Archive/revive operations are exposed through authenticated boundaries
 
 ---
 
-## 10. Gap Engine
+## 10. Gap Engine — N-04
 
 ### 10.1 Purpose
 
-Detect **holes in the user's memory** relative to stated goals.
+Detect evidence-backed holes in the user's saved knowledge relative to explicit goals.
 
-### 10.2 Status: **Planned** (not in Phase 2 scope)
+### 10.2 Status: **Acceptance-complete**
 
-**Priority:** P2 · **ID:** N-04
+The current deterministic Gap Agent analyzes only the authenticated tenant's reflection-goal data. It includes explicitly requested goals even when zero memories exist and grounds findings in observable coverage, source diversity, and stale/never-reviewed state.
+
+It deliberately does **not** invent arbitrary missing curriculum topics when the repository has no ontology/evidence for them.
+
+### 10.3 Acceptance boundary
+
+- [x] Explicit zero-memory goals produce grounded coverage/diversity gaps
+- [x] Findings retain evidence such as memory count, source count, or review state
+- [x] Sufficiently covered/recently reviewed goals do not produce false gaps
+- [x] Tenant isolation is enforced
+- [x] Output is deterministic and requires no AI/network fetch/autonomous write
+
+Closeout: `docs/closeouts/N04_GAP_ENGINE_CLOSEOUT.md`.
 
 ---
 
-## 11. Reverse Memory
+## 11. Reverse Memory — N-06
 
 ### 11.1 Purpose
 
-Answer **“what should I learn next?”** given goals and gaps.
+Answer “what should I learn next for goal G?” using grounded knowledge gaps rather than invented recommendations.
 
-### 11.2 Status: **Planned**
+### 11.2 Status: **Acceptance-complete**
 
-**Priority:** P2 · **ID:** N-06
+`ReverseMemoryService` consumes deterministic Gap Agent evidence. It can recommend beginning foundational coverage for zero-memory goals, reviewing stale existing knowledge first, or increasing coverage/source diversity only when the corresponding gap exists. A goal that already meets the configured thresholds receives no unnecessary suggestion.
+
+### 11.3 Acceptance boundary
+
+- [x] Explicit goals produce deterministic next-learning actions from N-04 evidence
+- [x] Zero-memory recommendations record zero-memory evidence
+- [x] Stale review is prioritized when applicable
+- [x] Well-covered goals are suppressed
+- [x] Tenant isolation is preserved
+- [x] No network fetch, autonomous write, or mandatory AI
+
+Closeout: `docs/closeouts/N06_REVERSE_MEMORY_CLOSEOUT.md`.
 
 ---
 
-## 12. Learning Evolution
+## 12. Learning Evolution — N-07
 
 ### 12.1 Purpose
 
-Memory **improves over time** from usage without full re-ingest.
+Allow retrieval ranking to improve from bounded user usage/feedback without full re-ingest or mutation of the original evidence score.
 
-### 12.2 Status: **Planned**
+### 12.2 Status: **Acceptance-complete**
 
-**Priority:** P3 · **ID:** N-07
+`LearningEvolutionService` converts tenant-local explicit helpful/not-helpful feedback and weaker view signals into a small deterministic ranking adjustment. Search counts are excluded to avoid self-reinforcing retrieval. The learned influence is capped so it can resolve close ranking ties without rescuing weak evidence.
+
+`SearchService` retains the original relevance/similarity score for auditability and applies the learning signal as a separate additive layer. Learning-metadata failure is fail-open: core retrieval continues.
+
+### 12.3 Acceptance boundary
+
+- [x] Ranking can evolve after later tenant-local feedback without re-ingest
+- [x] Original evidence scores remain unchanged
+- [x] Positive/negative influence is bounded
+- [x] Search retrieval does not train itself through search-count reinforcement
+- [x] Tenant isolation and fail-open core retrieval are tested
+- [x] No mandatory AI or autonomous content mutation
+
+Closeout: `docs/closeouts/N07_LEARNING_EVOLUTION_CLOSEOUT.md`.
 
 ---
 
-## 13. Consensus Engine
+## 13. Intelligence interaction rules
 
-### 13.1 Purpose
+The accepted engines compose in a deliberately constrained way:
 
-Reconcile **conflicting sources** with explicit disagreement.
+1. Retrieval produces tenant-scoped evidence.
+2. Synthesis may be deterministic or optional-AI, but citations/evidence remain first-class.
+3. N-02 verifies claims against retrieved evidence.
+4. N-01 runs only where comparison/cross-source reasoning is applicable and preserves conflicts.
+5. Trust remains an interpretable persisted signal rather than a substitute for evidence.
+6. N-04 detects only evidence-backed goal gaps.
+7. N-06 converts those grounded gaps into next-learning actions.
+8. N-07 changes ranking only through bounded, tenant-local feedback signals.
 
-### 13.2 Status: **Planned** (not in Phase 2 scope)
-
-**Priority:** P2 · **ID:** N-01
+No engine in this accepted Memory Search layer authorizes irreversible writes by itself. Where entity merge mutates graph structure, the explicit confirmation boundary remains mandatory.
 
 ---
 
-## 14. Internal Architecture Diagram
+## 14. Architecture diagram
 
 ```mermaid
 flowchart TB
-    subgraph ingest [Ingest Path]
-        CAP[Capture / Ingest API]
-        META[Metadata + Transcript]
-        ENR[Enrichment]
-        CAPS[Memory Capsule Builder]
-        CHK[Chunk + Embed]
-        CAP --> META --> ENR --> CAPS --> CHK
-    end
+    CAP[Capture / Connector] --> UMS[Universal Memory]
+    UMS --> LIFE[Lifecycle]
+    LIFE --> KG[Knowledge Graph]
+    KG --> TRUST[Trust]
+    UMS --> IDX[(Evidence / Vector / FTS Indexes)]
 
-    subgraph stores [Stores]
-        CHROMA[(ChromaDB)]
-        SQL[(SQLite FTS + Cache + Registry)]
-        GRAPH[(Knowledge Graph)]
-    end
+    Q[Query] --> AHME[AHME Retrieval]
+    IDX --> AHME
+    AHME --> SYN[Synthesis]
+    SYN --> VER[N-02 Verification]
+    AHME --> CONS[N-01 Consensus]
+    CONS --> SYN
+    VER --> OUT[Search / Ask Response]
 
-    subgraph brain [Phase 2 Brain]
-        UMS[UniversalMemoryService]
-        LIFE[Lifecycle]
-        TRUST[TrustEngine]
-        KG[KnowledgeGraphService]
-    end
+    GOAL[User Goal] --> GAP[N-04 Gap Engine]
+    GAP --> REV[N-06 Reverse Memory]
 
-    CAP --> UMS
-    UMS --> LIFE --> KG --> TRUST
-    KG --> GRAPH
-    UMS --> SQL
-    CHK --> CHROMA
-    CAPS --> CHROMA
-    CAPS --> SQL
-    CHK --> SQL
-
-    subgraph retrieve [Retrieval Path]
-        Q[Query]
-        AHME[AHME Engine]
-        CACHE[Semantic Cache]
-        RRF[RRF + MMR]
-        DEDUP[Dedup]
-        Q --> CACHE
-        CACHE -->|miss| AHME
-        AHME --> RRF --> DEDUP
-    end
-
-    DEDUP --> SYN[Grounded Synthesis]
-    SYN --> VER[Verification Engine]
-    VER --> OUT[Chat / Search Response]
-
-    subgraph planned [Future Engines]
-        CONS[Consensus Engine]
-        GAP[Gap Engine]
-        REV[Reverse Memory]
-        EVOL[Learning Evolution]
-    end
-
-    GRAPH --> AHME
-    TRUST --> AHME
-    CONS -.-> SYN
-    GAP -.-> REV
-    EVOL -.-> SQL
+    FB[Explicit Feedback / Usage] --> EVOL[N-07 Learning Evolution]
+    EVOL --> AHME
 ```
 
 ---
 
-## 15. Engine Dependency Order
+## 15. Validated dependency order
 
+```text
+1. Universal Memory + Lifecycle + Trust + Graph foundation — done
+2. Memory Capsules + AHME — done
+3. N-02 Verification — done
+4. Durable Event Bus foundation — done (runtime/platform closeout)
+5. N-01 Consensus — done
+6. N-04 Gap → N-06 Reverse Memory — done
+7. N-07 Learning Evolution — done
 ```
-1. Universal Memory + Lifecycle + Trust + Graph foundation (Phase 2 — done)
-2. Memory Capsules + AHME (done)
-3. Verification Engine (extend grounding)
-4. Event Bus
-5. Consensus Engine
-6. Gap Engine → Reverse Memory
-7. Learning Evolution
-```
+
+This dependency completion does **not** by itself authorize a Jarvis transition. Remaining Memory Search source-of-truth rows, platform gaps, trust/cross-source-dedup work, UX acceptance items, and final stability criteria must still be completed/reconciled first.
 
 ---
 
-## 16. Related Documents
+## 16. Related documents
 
-| Doc | Link |
-|-----|------|
-| Feature backlog | `FEATURE_IDEAS.md` (N-01–N-08) |
-| Execution status | `MASTER_SPEC.md` (F-36–F-38, F-33) |
-| Agents using engines | `AGENT_BIBLE.md` |
-| Product UX | `JARVIS_VISION.md` |
+| Document | Purpose |
+|---|---|
+| `MASTER_SPEC.md` | Canonical feature inventory / phases / gates |
+| `FEATURE_IDEAS.md` | Backlog and acceptance summaries |
+| `AGENT_BIBLE.md` | Agent catalog and approval policies |
+| `CONNECTOR_SDK.md` | Connector ingestion contract |
+| `docs/CURRENT_BUILD_STATE.md` | Active reconciliation/build-state ledger |
+| `docs/SOURCE_OF_TRUTH_RECONCILIATION.md` | Evidence-led reconciliation ledger |
+| `docs/N02_VERIFICATION_CLOSEOUT.md` | N-02 evidence |
+| `docs/closeouts/N01_CONSENSUS_ENGINE_CLOSEOUT.md` | N-01 evidence |
+| `docs/closeouts/N04_GAP_ENGINE_CLOSEOUT.md` | N-04 evidence |
+| `docs/closeouts/N06_REVERSE_MEMORY_CLOSEOUT.md` | N-06 evidence |
+| `docs/closeouts/N07_LEARNING_EVOLUTION_CLOSEOUT.md` | N-07 evidence |
+| `docs/closeouts/F33_KNOWLEDGE_GRAPH_CLOSEOUT.md` | F-33 evidence |
+
+Jarvis-specific voice, vision, gesture, spatial/holographic, ambient-capture, and hardware-interface work remains out of scope until the separate Memory Search completion/stability transition gate is satisfied.
