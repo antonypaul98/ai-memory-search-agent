@@ -69,6 +69,36 @@ def test_zero_coverage_goal_gets_foundation_first(test_settings: Settings) -> No
     assert item.evidence["memory_count"] == 0
 
 
+def test_learning_next_for_explicit_goal_is_grounded_and_deterministic(
+    client: TestClient,
+) -> None:
+    """N-06 acceptance: answer "what should I learn next for goal G?" directly."""
+    payload = {
+        "goals": ["Distributed systems"],
+        "min_memories": 3,
+        "min_sources": 2,
+        "stale_days": 30,
+        "limit": 20,
+    }
+
+    first = client.post("/api/v1/intelligence/reverse-memory", json=payload)
+    second = client.post("/api/v1/intelligence/reverse-memory", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json() == second.json()
+
+    body = first.json()
+    assert body["goals_analyzed"] == 1
+    assert body["total"] == 1
+    suggestion = body["suggestions"][0]
+    assert suggestion["goal"] == "Distributed systems"
+    assert suggestion["priority"] == 1
+    assert suggestion["kind"] == "start_foundation"
+    assert "Distributed systems" in suggestion["action"]
+    assert suggestion["evidence"]["memory_count"] == 0
+
+
 def test_stale_existing_memory_is_reviewed_before_more_collection(test_settings: Settings) -> None:
     now = datetime.now(timezone.utc)
     _seed(
