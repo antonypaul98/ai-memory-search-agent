@@ -24,6 +24,7 @@ Recent acceptance closeouts include:
 - F-23 opt-in bookmark re-import;
 - F-29 Connector SDK contract;
 - F-30 SQLite registry client;
+- F-33 Knowledge Graph & Entity Intelligence with deterministic temporal facts, tenant-safe entity merge/dedup, a visible Entity Merge Review UI, and literal `confirm: true` required at the generic merge API boundary;
 - N-02 claim/evidence verification;
 - A-01 deterministic agent runtime with tenant isolation and approval gates;
 - A-02 approved deterministic ingest-agent rules with canonical deduplication;
@@ -39,36 +40,32 @@ Recent acceptance closeouts include:
 
 N-04, N-06, and N-07 were carried together by the validated stacked PR #93 after CI run #656 passed and were squash-merged into `main` as commit `277063394e95da6b47d25a7d0d7d68064598b848`.
 
-The implementation also already contains trust, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
+F-33 passed full CI in PR #94 / run #658 and was squash-merged into `main` as commit `4c466d73d136b003462a81b91d1738af6f700e17`.
 
-## Current validation gate: F-33 Knowledge Graph & Entity Intelligence
+The implementation also already contains trust, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
 
-`MASTER_SPEC.md` marks F-33 Partial and defines the remaining acceptance criteria as temporal facts and a cross-source entity merge UI.
+## Current validation gate: source-of-truth reconciliation after F-33
 
-The temporal portion is already implemented and regression-covered: graph relations support `valid_from` / `valid_to`, authenticated relation and neighbor queries accept an `at` timestamp, future/expired facts are filtered deterministically, and invalid timestamps are rejected.
+F-33 is no longer validation-pending. The current gate is the required reconciliation of root source-of-truth documents against validated executable behavior.
 
-The deterministic `EntityMergeService` already rewires memory links and graph relations, preserves aliases and merge provenance, collapses duplicate relations while keeping strongest confidence/evidence metadata, rejects memory-entity merges, enforces same-type entities, and remains tenant-scoped.
+Reconcile `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md` conservatively. Correct only rows whose exact acceptance behavior is backed by implementation and automated tests. Do not infer completion merely from a service, route, or file existing.
 
-The remaining UI/safety boundary is being closed in `f33-knowledge-graph-closeout`: the Topics workspace exposes an Entity Merge Review surface that lists tenant-visible non-memory entities, limits candidates to the same entity type, requires visible user confirmation, and submits literal `confirm: true`. The generic entity-merge API now also requires literal `confirm: true`, so omitted or false confirmation cannot mutate the graph.
-
-Regression coverage includes the existing temporal/merge suites plus `tests/test_entity_merge_ui.py` and an API confirmation-gate regression in `tests/test_entity_merge.py`.
-
-Closeout candidate: `docs/closeouts/F33_KNOWLEDGE_GRAPH_CLOSEOUT.md`.
-
-Do **not** mark F-33 complete until the full repository CI workflow passes on the PR containing this closeout candidate.
+The first reconciliation targets are the rows now known to be stale from completed closeouts: F-12, F-16, F-23, F-29, F-30, F-33, N-01, N-02, N-04, N-06, N-07, and A-01–A-07. Changes must preserve the distinction between a fully accepted feature and optional/future enhancements that remain outside that feature's current acceptance contract.
 
 ## Next required Memory Search work
 
-First validate F-33. If CI fails, fix the failure with a regression test before continuing. If CI passes, merge through the normal safe GitHub boundary and then reconcile F-33 plus the already-validated N-04/N-06/N-07 rows in the root source-of-truth documents.
-
-Continue the broader source-of-truth reconciliation across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, correcting only rows whose acceptance behavior is backed by implementation and tests. Do not infer completion merely from the presence of a service or API.
+1. Finish the root-document reconciliation for already validated closeouts, starting with knowledge-engine and feature-inventory rows.
+2. Audit the remaining graph / connector / platform / trust / export rows individually against their exact documented acceptance criteria, tenant/privacy/provenance requirements, and executable tests.
+3. Where an acceptance criterion is genuinely missing, implement the smallest correct behavior plus regression coverage before changing its status.
+4. Run the final Memory Search acceptance/stability gate only after every planned item is reconciled.
 
 Known documentation drift to resolve during that reconciliation:
 
 - `FEATURE_IDEAS.md` still marks already validated F-12, F-16, F-23, F-30, N-01, N-02, N-04, N-06, N-07, and A-01–A-07 work as Partial/Planned/Missing;
 - `FEATURE_IDEAS.md` uses the old A-06/A-07 Policy/Guardrails and Agent Audit UI labels, while `AGENT_BIBLE.md` and the validated implementation define the active A-06/A-07 closeouts as Gap and Consolidation Agents;
 - `MASTER_SPEC.md` and `KNOWLEDGE_ENGINE.md` still describe consensus/agents/scale-out capabilities as planned even where executable implementation now exists;
-- several connector, graph, Postgres/Redis, export, trust, cross-source-dedup, and other knowledge-intelligence rows appear stale and must be audited individually rather than mass-marked complete.
+- `KNOWLEDGE_ENGINE.md` still describes F-33 temporal facts and entity merge/dedup UI as missing even though PR #94 validated and merged both acceptance paths;
+- several connector, Postgres/Redis, export, trust, cross-source-dedup, and other knowledge-intelligence rows appear stale and must be audited individually rather than mass-marked complete.
 
 Graph / connector / platform / trust / export rows must each be evaluated against their exact documented acceptance criteria and tenant/privacy/provenance requirements. Run the final Memory Search acceptance/stability gate only after every planned item is reconciled.
 
