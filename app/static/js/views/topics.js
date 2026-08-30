@@ -1,4 +1,4 @@
-import { Api } from "../api.js";
+import { Api, apiFetch } from "../api.js";
 import {
   $,
   escapeHtml,
@@ -26,10 +26,18 @@ export function mountTopics(root, initialTopic = "", { signal } = {}) {
       </div>
       <div id="duplicate-cards" aria-live="polite">${skeleton(2)}</div>
     </section>
+    <section class="panel" id="entity-merge-review">
+      <div class="panel-header">
+        <h2>Entity merge review</h2>
+        <span class="panel-caption">Choose the canonical entity and explicitly confirm the merge</span>
+      </div>
+      <div id="entity-merge-controls" aria-live="polite">${skeleton(1)}</div>
+    </section>
     <section class="panel" id="topic-detail" hidden></section>
   `;
   loadTopics(root, initialTopic, signal);
   loadDuplicates(root, signal);
+  loadEntityMerge(root, signal);
 }
 
 async function loadTopics(root, focus = "", signal) {
@@ -177,6 +185,101 @@ async function mergeDuplicate(root, button, signal) {
     button.disabled = false;
     button.textContent = original;
     window.alert(`Merge failed: ${err.message}`);
+  }
+}
+
+async function loadEntityMerge(root, signal) {
+  const controls = $("#entity-merge-controls", root);
+  if (!controls) return;
+  try {
+    const entities = await apiFetch("/knowledge/entities?limit=100", {
+      cache: false,
+      abortTag: "entity-merge-list",
+      signal,
+    });
+    if (signal?.aborted) return;
+    const mergeable = (entities || []).filter((entity) => entity.entity_type !== "memory");
+    if (mergeable.length < 2) {
+      controls.innerHTML = emptyState(
+        "No entity merge candidates",
+        "At least two non-memory entities are required for a reviewed merge."
+      );
+      return;
+    }
+    const options = mergeable
+      .map(
+        (entity) =>
+          `<option value="${escapeHtml(entity.entity_id)}" data-type="${escapeHtml(entity.entity_type)}">${escapeHtml(entity.name)} · ${escapeHtml(entity.entity_type)}</option>`
+      )
+      .join("");
+    controls.innerHTML = `
+      <div class="card-grid">
+        <label>Canonical entity to keep
+          <select id="entity-merge-target">${options}</select>
+        </label>
+        <label>Duplicate / alias entity to merge
+          <select id="entity-merge-source"></select>
+        </label>
+      </div>
+      <p class="muted">Only same-type entities can be merged. Links, relations, aliases, and provenance stay attached to the canonical entity.</p>
+      <div class="button-row">
+        <button type="button" class="secondary" id="entity-merge-submit">Review and merge entity</button>
+      </div>`;
+
+    const target = $("#entity-merge-target", controls);
+    const source = $("#entity-merge-source", controls);
+    const submit = $("#entity-merge-submit", controls);
+    const refreshSources = () => {
+      const targetEntity = mergeable.find((entity) => entity.entity_id === target.value);
+      const candidates = mergeable.filter(
+        (entity) =>
+          entity.entity_id !== target.value && entity.entity_type === targetEntity?.entity_type
+      );
+      source.innerHTML = candidates
+        .map(
+          (entity) =>
+            `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)} · ${escapeHtml(entity.entity_type)}</option>`
+        )
+        .join("");
+      submit.disabled = !candidates.length;
+    };
+    target.addEventListener("change", refreshSources);
+    submit.addEventListener("click", () => mergeEntity(root, target, source, submit, mergeable, signal));
+    refreshSources();
+  } catch (err) {
+    if (signal?.aborted) return;
+    controls.innerHTML = emptyState("Entity merge review unavailable", err.message);
+  }
+}
+
+async function mergeEntity(root, target, source, submit, entities, signal) {
+  const targetEntity = entities.find((entity) => entity.entity_id === target.value);
+  const sourceEntity = entities.find((entity) => entity.entity_id === source.value);
+  if (!targetEntity || !sourceEntity || targetEntity.entity_id === sourceEntity.entity_id) return;
+  if (targetEntity.entity_type !== sourceEntity.entity_type) return;
+
+  const approved = window.confirm(
+    `Merge “${sourceEntity.name}” into canonical entity “${targetEntity.name}”? This rewires saved-memory links and cannot be undone automatically.`
+  );
+  if (!approved) return;
+
+  submit.disabled = true;
+  const original = submit.textContent;
+  submit.textContent = "Merging entity…";
+  try {
+    await apiFetch(`/knowledge/entities/${encodeURIComponent(targetEntity.entity_id)}/merge`, {
+      method: "POST",
+      body: JSON.stringify({ source_entity_id: sourceEntity.entity_id, confirm: true }),
+      cache: false,
+      signal,
+    });
+    if (signal?.aborted) return;
+    await loadEntityMerge(root, signal);
+  } catch (err) {
+    if (signal?.aborted) return;
+    submit.disabled = false;
+    submit.textContent = original;
+    window.alert(`Entity merge failed: ${err.message}`);
   }
 }
 
