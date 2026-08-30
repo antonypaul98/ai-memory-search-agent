@@ -86,7 +86,7 @@ def _latency_summary(samples: list[float]) -> dict[str, object]:
 
 
 def metrics_snapshot() -> dict[str, object]:
-    """Return a thread-safe snapshot suitable for the local metrics endpoint."""
+    """Return a thread-safe snapshot suitable for local metrics consumers."""
     with _lock:
         average = _total_duration_ms / _requests_total if _requests_total else 0.0
         answered = max(0, _chat_total - _chat_clarification)
@@ -109,6 +109,79 @@ def metrics_snapshot() -> dict[str, object]:
                 "grounded_rate": round(grounded_rate, 4),
             },
         }
+
+
+def prometheus_metrics_text() -> str:
+    """Render the bounded process-local snapshot in Prometheus exposition format.
+
+    Labels are restricted to HTTP status codes and a fixed allowlist of route names;
+    user IDs, questions, URLs, titles, and other private memory content are never
+    emitted as metric labels or values.
+    """
+    snapshot = metrics_snapshot()
+    status_codes = snapshot["status_codes"]
+    route_latency = snapshot["route_latency"]
+    chat_quality = snapshot["chat_quality"]
+
+    lines = [
+        "# HELP ai_memory_http_requests_total Completed HTTP requests.",
+        "# TYPE ai_memory_http_requests_total counter",
+        f'ai_memory_http_requests_total {snapshot["requests_total"]}',
+        "# HELP ai_memory_http_in_flight HTTP requests currently in flight.",
+        "# TYPE ai_memory_http_in_flight gauge",
+        f'ai_memory_http_in_flight {snapshot["in_flight"]}',
+        "# HELP ai_memory_http_request_duration_average_ms Average completed-request duration in milliseconds.",
+        "# TYPE ai_memory_http_request_duration_average_ms gauge",
+        f'ai_memory_http_request_duration_average_ms {snapshot["average_duration_ms"]}',
+        "# HELP ai_memory_http_responses_total Completed HTTP responses by status code.",
+        "# TYPE ai_memory_http_responses_total counter",
+    ]
+
+    for status in sorted(status_codes):
+        lines.append(
+            f'ai_memory_http_responses_total{{status="{status}"}} {status_codes[status]}'
+        )
+
+    lines.extend(
+        [
+            "# HELP ai_memory_route_latency_count Bounded latency sample count for tracked routes.",
+            "# TYPE ai_memory_route_latency_count gauge",
+            "# HELP ai_memory_route_latency_average_ms Average latency for tracked routes in milliseconds.",
+            "# TYPE ai_memory_route_latency_average_ms gauge",
+            "# HELP ai_memory_route_latency_p95_ms P95 latency for tracked routes in milliseconds.",
+            "# TYPE ai_memory_route_latency_p95_ms gauge",
+        ]
+    )
+    for route in sorted(route_latency):
+        values = route_latency[route]
+        lines.extend(
+            [
+                f'ai_memory_route_latency_count{{route="{route}"}} {values["count"]}',
+                f'ai_memory_route_latency_average_ms{{route="{route}"}} {values["average_ms"]}',
+                f'ai_memory_route_latency_p95_ms{{route="{route}"}} {values["p95_ms"]}',
+            ]
+        )
+
+    lines.extend(
+        [
+            "# HELP ai_memory_chat_total Chat requests observed by aggregate quality tracking.",
+            "# TYPE ai_memory_chat_total counter",
+            f'ai_memory_chat_total {chat_quality["total"]}',
+            "# HELP ai_memory_chat_answered_total Chat requests answered without clarification.",
+            "# TYPE ai_memory_chat_answered_total counter",
+            f'ai_memory_chat_answered_total {chat_quality["answered_total"]}',
+            "# HELP ai_memory_chat_grounded_total Grounded chat answers.",
+            "# TYPE ai_memory_chat_grounded_total counter",
+            f'ai_memory_chat_grounded_total {chat_quality["grounded_total"]}',
+            "# HELP ai_memory_chat_clarification_total Chat requests requiring clarification.",
+            "# TYPE ai_memory_chat_clarification_total counter",
+            f'ai_memory_chat_clarification_total {chat_quality["clarification_total"]}',
+            "# HELP ai_memory_chat_grounded_rate Grounded fraction among answered chat requests.",
+            "# TYPE ai_memory_chat_grounded_rate gauge",
+            f'ai_memory_chat_grounded_rate {chat_quality["grounded_rate"]}',
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 def reset_observability_metrics() -> None:
