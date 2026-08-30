@@ -2,7 +2,7 @@
 
 **Purpose:** Single backlog of current and future capabilities with prioritization metadata.  
 **Status:** Architecture phase — no implementation until assigned in `MASTER_SPEC.md`.  
-**Last updated:** 2026-07-28  
+**Last updated:** 2026-08-30  
 **ID scheme:** Aligns with `MASTER_SPEC.md` (F-XX) plus future IDs (N-XX, V1-XX).
 
 **Priority:** P0 (now) · P1 (next phase) · P2 (later) · P3 (vision)  
@@ -26,30 +26,30 @@
 | F-09 | AHME | Complete | — | — | H | F-08 | Hierarchical + flat fallback; cache |
 | F-10 | Search API | Complete | — | — | H | F-09/7 | Enriched results; validation |
 | F-11 | Chat API | Complete | — | — | H | F-09–13 | Grounded answer + sources |
-| F-12 | Answer synthesis | Partial | P1 | M | H | F-16 opt | Deterministic OK; LLM tested |
+| F-12 | Answer synthesis | **Complete** | P1 | M | H | F-16 opt | Deterministic grounded synthesis; optional tested LLM path; safe fallback |
 | F-13 | Clarification | Complete | — | — | M | F-11 | Ambiguity options |
 | F-14 | Reflection registry | Complete | — | — | H | SQLite | Persist goal/reason; usage stats |
 | F-15 | Enrichment | Complete | — | — | M | F-14 | why_matched, one_line_memory |
-| F-16 | LLM provider | Partial | P1 | M | H | external | Integration tests; fallback |
+| F-16 | LLM provider | **Complete** | P1 | M | H | external | Optional/on-demand provider integration with deterministic fallback |
 | F-17 | Recommendations | Complete | — | — | M | F-14,10 | Query-based suggestions |
 | F-18 | PWA shell | Complete | — | — | H | API | Manifest, SW, UI panels |
 | F-19 | Auth & sessions | **Complete (V1)** | P0 | M | H | schema v3 | Demo mode; register/login/logout when enabled |
 | F-20 | Jobs & playlists | **Complete** (V1-6 UX) | — | — | H | F-08 | Preview→confirm; pause/resume/retry; PWA progress |
 | F-21 | Capture + SSRF | Complete | — | — | H | F-08 | Block private URLs; status API |
 | F-22 | Chrome extension | **Complete (V1-1)** | **V1 P0** | M | H | F-21 | Agent popup + observer + async save |
-| F-23 | Bookmark import | Partial | **V1 P0** | M | M | F-21, F-22 | Extension folder UI + preview; API totals |
+| F-23 | Bookmark import | **Complete** | **V1 P0** | M | M | F-21, F-22 | Extension folder UI + preview; opt-in re-import; API totals |
 | F-24 | Streamlit UI | Complete | — | — | L | API | HTTP client works |
 | F-25 | Docker | Complete | — | — | M | all | Volume persist; healthcheck |
 | F-26 | Schema migrations | Complete | — | — | H | SQLite | v3 idempotent |
-| F-27 | Benchmark scripts | Partial | P1 | S | L | F-09 | CI smoke benchmark |
-| F-28 | CLI tools | Partial | P0 | S | M | F-08 | reset_db + ingest_item working |
+| F-27 | Benchmark scripts | **Complete** | P1 | S | L | F-09 | Reproducible AHME benchmark + CI smoke gate |
+| F-28 | CLI tools | **Complete** | P0 | S | M | F-08 | reset_db + ingest_item validated |
 | F-29 | Source framework | **Complete** (V1-4) | — | L | H | refactor | YouTube/web/pdf/github/bookmarks connectors registered |
-| F-30 | SQLite registry client | Planned | P2 | M | M | F-14 | List/delete without Chroma scan |
+| F-30 | SQLite registry client | **Complete** | P2 | M | M | F-14 | Tenant-scoped list/delete without Chroma scan |
 | F-31 | User isolation | **Complete (V1)** | P0 | L | H | F-19 | Composite keys; no cross-tenant leak |
-| F-32 | Agent system | Missing | P3 | XL | H | F-34,33 | See AGENT_BIBLE.md |
-| F-33 | Knowledge graph | **Partial** | P2 | L | H | F-36 | Foundation + APIs + tests; UI → V1-7b / later |
-| F-34 | Event bus | Missing | P1 | L | M | — | Domain events + audit |
-| F-35 | Distributed queue | Missing | P2 | XL | M | F-34 | Redis workers |
+| F-32 | Agent system | **Complete for A-01–A-07 acceptance** | P3 | XL | H | F-34,33 | Deterministic tenant-scoped agents with approval-gated writes |
+| F-33 | Knowledge graph | **Complete for current acceptance** | P2 | L | H | F-36 | Temporal facts, entity APIs, merge review UI, explicit confirm gate |
+| F-34 | Event bus | **Complete** | P1 | L | M | — | Durable domain/audit events with correlation + credential redaction |
+| F-35 | Distributed queue | **Complete for current acceptance** | P2 | XL | M | F-34 | Redis wake transport + Postgres authoritative job state |
 
 ---
 
@@ -57,13 +57,13 @@
 
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria |
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
-| N-01 | Consensus Engine | Planned | P2 | L | H | F-09, N-05 | Resolve conflicting claims across sources with cited evidence |
-| N-02 | Verification Engine | Partial concept | P1 | M | H | F-12 | Extend `_validate_grounding`; per-claim checks |
+| N-01 | Consensus Engine | **Complete** | P2 | L | H | F-09, N-05 | Preserve conflicts; cited source-backed agreement weight |
+| N-02 | Verification Engine | **Complete** | P1 | M | H | F-12 | Deterministic per-claim evidence verification |
 | N-03 | Trust Engine | **Partial** (F-38) | P2 | L | H | F-36 | Foundation complete; UI badges → V1-7b / later |
-| N-04 | Gap Engine | Planned | P2 | L | H | F-33, F-14 | Detect “you wanted X but never saved Y” |
+| N-04 | Gap Engine | **Complete** | P2 | L | H | F-33, F-14 | Ground missing-knowledge findings in observable coverage/diversity/review state |
 | N-05 | Knowledge Graph store | Planned | P2 | XL | H | F-29 | Entities + relations queryable |
-| N-06 | Reverse Memory | Planned | P2 | M | H | N-04 | “What should I learn next for goal G?” |
-| N-07 | Learning Evolution | Planned | P3 | XL | H | N-03, F-34 | Re-rank/re-summarize without full re-ingest |
+| N-06 | Reverse Memory | **Complete** | P2 | M | H | N-04 | Grounded next-learning actions from goal gaps |
+| N-07 | Learning Evolution | **Complete** | P3 | XL | H | N-03, F-34 | Bounded tenant-local ranking evolution without evidence mutation/re-ingest |
 | N-08 | Cross-source dedup UI | Planned | P2 | M | M | F-09 dedup | Show duplicate memories; merge action |
 
 ---
@@ -72,13 +72,13 @@
 
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria |
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
-| A-01 | Agent runtime | Planned | P3 | XL | H | F-34, F-32 | Run agent with tool registry |
-| A-02 | Ingest Agent | Planned | P3 | L | H | F-08, F-20 | Monitor URLs; auto-ingest rules |
-| A-03 | Research Agent | Planned | P3 | L | H | F-11, N-05 | Multi-hop retrieval + report |
-| A-04 | Review Agent | Planned | P3 | M | H | N-04 | Spaced repetition from memories |
-| A-05 | Capture Agent | Planned | P2 | M | H | F-21, F-22 | Triage extension queue |
-| A-06 | Policy / guardrails | Planned | P3 | L | H | F-19 | Human approval for writes |
-| A-07 | Agent audit UI | Planned | P3 | M | M | F-34 | Timeline of agent actions |
+| A-01 | Agent runtime | **Complete** | P3 | XL | H | F-34, F-32 | Deterministic tenant-scoped runtime with tool registry + approval gates |
+| A-02 | Ingest Agent | **Complete** | P3 | L | H | F-08, F-20 | Approved deterministic ingest rules + canonical deduplication |
+| A-03 | Research Agent | **Complete** | P3 | L | H | F-11, N-05 | Bounded multi-hop retrieval/report with cited saved-memory sources |
+| A-04 | Review Agent | **Complete** | P3 | M | H | N-04 | Spaced review queue for stale active-goal memories |
+| A-05 | Capture Agent | **Complete** | P2 | M | H | F-21, F-22 | Deterministic queue triage, dedup, tenant checks, unsafe/junk rejection |
+| A-06 | Gap Agent | **Complete** | P3 | L | H | N-04, F-19 | Evidence-backed tenant-scoped gap actions with explicit zero-memory handling |
+| A-07 | Consolidation Agent | **Complete** | P3 | M | M | F-33, F-34 | Read-only analysis; merge writes require authenticated explicit confirm |
 
 ---
 
@@ -87,14 +87,14 @@
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria |
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
 | C-01 | Connector SDK core | **Complete** (V1-4) | — | L | H | F-29 | Registry + ImportManager + ConnectorIngestService |
-| C-02 | OAuth adapter framework | Planned | P2 | L | H | F-19 | Token refresh; scoped secrets |
-| C-03 | Web article connector | Planned | P2 | M | H | F-21 | Normalize HTML → memory |
-| C-04 | Google Drive connector | Planned | P3 | L | M | C-02 | Docs/PDF ingest |
-| C-05 | Notion export connector | Planned | P3 | M | M | C-01 | Import export ZIP |
-| C-06 | Readwise bridge | Planned | P2 | M | H | C-01 | Highlight → evidence chunks |
-| C-07 | Podcast RSS connector | Planned | P3 | L | M | F-08 pattern | Transcript or show notes |
-| C-08 | Export adapter (Markdown) | Planned | P2 | M | M | F-07 | Full memory export |
-| C-09 | Share sheet mobile | Planned | P3 | M | H | F-18 | iOS/Android share target |
+| C-02 | OAuth adapter framework | **Complete** | P2 | L | H | F-19 | Tenant-scoped encrypted tokens; refresh/rotation/revoke; scoped secrets |
+| C-03 | Web article connector | **Complete** | P2 | M | H | F-21 | Safe HTML normalization → canonical memory |
+| C-04 | Google Drive connector | **Complete for Docs/PDF acceptance** | P3 | L | M | C-02 | Tenant-scoped Docs/PDF ingest with provenance + deterministic dedup |
+| C-05 | Notion export connector | **Complete for export-ZIP acceptance** | P3 | M | M | C-01 | Offline ZIP import with path/size safety and deterministic dedup |
+| C-06 | Readwise bridge | **Complete** | P2 | M | H | C-01 | Highlights → deduplicated evidence chunks with merged tags |
+| C-07 | Podcast RSS connector | **Complete for show-notes acceptance** | P3 | L | M | F-08 pattern | Safe RSS ingest with deterministic episode identity + show-note evidence |
+| C-08 | Export adapter (Markdown) | **Complete** | P2 | M | M | F-07 | Full memory export with lossless Markdown round trip |
+| C-09 | Share sheet mobile | Planned / deferred | P3 | M | H | F-18 | Native mobile share target remains outside pre-Jarvis scope |
 
 ---
 
@@ -102,14 +102,14 @@
 
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria |
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
-| P-01 | Readiness vs liveness probes | Planned | P0 | S | M | GAP-08 | K8s-ready health split |
+| P-01 | Readiness vs liveness probes | **Complete** | P0 | S | M | GAP-08 | K8s-ready health split |
 | P-02 | Rate limiting | **Complete (V1)** | P1 | M | M | F-19 | 429 per user/IP |
-| P-03 | Postgres migration | Planned | P2 | XL | M | GAP-02 | Production profile |
-| P-04 | Structured metrics (Prometheus) | Planned | P1 | M | L | F-34 | `/metrics` endpoint |
+| P-03 | Postgres migration | Planned | P2 | XL | M | GAP-02 | Production-wide Postgres profile |
+| P-04 | Structured metrics (Prometheus) | **Complete** | P1 | M | L | F-34 | `/metrics` endpoint |
 | P-05 | CI pipeline | **Complete (V1-9)** | P0 | S | L | tests | pytest -q on every PR (`.github/workflows/ci.yml`) |
 | P-06 | Schema tenant keys | **Complete (v9)** | P0 | L | H | F-31 | Registry composite PK + tests |
 | P-07 | Embedding microservice | Planned | P3 | L | M | GAP-08 | Optional remote embed |
-| P-08 | Multi-worker safe jobs | Planned | P2 | XL | M | F-35 | No duplicate workers |
+| P-08 | Multi-worker safe jobs | **Complete for current acceptance** | P2 | XL | M | F-35 | Atomic claims/leases; no duplicate workers; unsafe SQLite split-worker mode fails closed |
 
 ---
 
