@@ -10,11 +10,13 @@ A row may be promoted only when its documented acceptance behavior is backed by 
 
 ## Validated rows whose root-document status is stale
 
-The following rows already have CI-validated closeouts on `main` and should be reconciled in the root documents without expanding their acceptance scope:
+The following rows already have CI-validated closeouts on `main`, or have exact acceptance behavior exercised by the current full CI gate, and should be reconciled in the root documents without expanding their acceptance scope:
 
 - F-12 Grounded answer synthesis — deterministic grounded synthesis plus optional provider path with fallback.
 - F-16 LLM provider — optional/on-demand provider integration with deterministic fallback; no mandatory AI.
 - F-23 Bookmark import — explicit opt-in import/re-import behavior with preview/confirmation boundaries.
+- F-27 Benchmark & Import Diagnostics — reproducible AHME report generation plus CI benchmark smoke.
+- F-28 CLI Utilities — working reset and single-item ingest operator scripts with destructive confirmation/safety tests.
 - F-29 Source/Connector framework — registry, normalized connector contract, provenance-preserving ingest path.
 - F-30 SQLite registry client — tenant-scoped list/delete behavior without Chroma scan.
 - F-33 Knowledge Graph & Entity Intelligence — tenant-scoped entities/relations, temporal facts, deterministic merge/dedup, visible Entity Merge Review UI, and literal `confirm: true` at the generic merge boundary.
@@ -30,6 +32,8 @@ The following rows already have CI-validated closeouts on `main` and should be r
 - A-05 Capture Triage Agent — deterministic queue deduplication, existing-memory checks, SSRF/junk rejection, tenant isolation.
 - A-06 Gap Agent — read-only deterministic gap analysis with actionable per-goal notification contract.
 - A-07 Consolidation Agent — read-only deterministic proposals; entity merge writes require authenticated explicit confirmation and tenant-safe merge service reuse.
+- P-01 Readiness vs liveness — separate process liveness and dependency readiness with the legacy health alias preserved.
+- P-04 Structured metrics — privacy-safe Prometheus 0.0.4 exposition at `/api/v1/metrics`, with the prior JSON snapshot retained at `/api/v1/metrics.json`.
 
 ## Known naming drift
 
@@ -44,7 +48,7 @@ The old labels must not be treated as separate missing features unless `MASTER_S
 
 ### FEATURE_IDEAS.md
 
-Reconcile the stale Partial/Planned/Missing statuses for the validated rows above. Preserve genuinely future enhancements such as OAuth-dependent connectors, distributed-scale work, optional trust ranking, and Jarvis-only UX.
+Reconcile the stale Partial/Planned/Missing statuses for the validated rows above. Preserve genuinely future enhancements such as OAuth-dependent connectors, the incomplete production-wide Postgres cutover, optional trust ranking, and Jarvis-only UX.
 
 ### KNOWLEDGE_ENGINE.md
 
@@ -56,7 +60,7 @@ Replace the global `no agents implemented` statement with the validated runtime/
 
 ### MASTER_SPEC.md
 
-Reconcile maturity language that still describes agents, consensus/gap engines, Connector SDK, and scale-out foundations as planned where validated implementation now exists. Do not remove historical V1 freeze language; distinguish historical release gating from current implementation state.
+Reconcile maturity language that still describes agents, consensus/gap engines, Connector SDK, ops tooling, and scale-out foundations as planned where validated implementation now exists. Do not remove historical V1 freeze language; distinguish historical release gating from current implementation state.
 
 ### CONNECTOR_SDK.md and README.md
 
@@ -70,8 +74,9 @@ The following areas must be checked separately rather than promoted from file pr
 - N-08 cross-source duplicate review/merge behavior if distinct from F-33 entity merge;
 - C-02 and provider OAuth flows;
 - C-03/C-04/C-05/C-06/C-07/C-08/C-09 connector/export/share-sheet rows against exact acceptance criteria;
-- P-01/P-03/P-04/P-07/P-08 platform rows against current runtime/tests;
-- F-34/F-35 event-bus/distributed-queue inventory wording against the already validated platform foundation;
+- P-03 production Postgres migration: current Postgres job durability is not enough to satisfy GAP-02's users/registry/FTS plus production SQLite-retirement boundary;
+- P-07 embedding microservice;
+- P-08/F-35 and F-34 root-inventory wording against the already validated distributed-job/event foundation;
 - U-01/U-02/U-03/U-04 and any other Memory Search UX rows that are not Jarvis-specific;
 - any remaining version/milestone acceptance criteria referenced by repository roadmaps.
 
