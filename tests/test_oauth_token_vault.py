@@ -59,6 +59,28 @@ def test_tokens_are_encrypted_and_tenant_scoped(tmp_path):
     assert vault.get(user_id="charlie", connector_id="gdrive.v1") is None
 
 
+def test_token_use_is_audited_without_secret_material(tmp_path):
+    vault, _, events = _vault(tmp_path)
+    vault.put(
+        user_id="alice",
+        connector_id="gdrive.v1",
+        access_token="audit-access-secret",
+        refresh_token="audit-refresh-secret",
+        scopes=["drive.readonly"],
+    )
+
+    record = vault.get(user_id="alice", connector_id="gdrive.v1")
+    assert record is not None
+
+    audit, _ = events.list_events(user_id="alice", event_type="connector.oauth.used")
+    assert len(audit) == 1
+    assert audit[0].aggregate_type == "connector"
+    assert audit[0].aggregate_id == "gdrive.v1"
+    serialized = str(audit[0].payload)
+    assert "audit-access-secret" not in serialized
+    assert "audit-refresh-secret" not in serialized
+
+
 def test_expired_token_refreshes_once_and_persists_rotation(tmp_path):
     vault, _, events = _vault(tmp_path)
     vault.put(
