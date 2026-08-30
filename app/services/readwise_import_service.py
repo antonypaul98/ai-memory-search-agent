@@ -39,6 +39,7 @@ class ReadwiseImportService:
             raise AppError("Readwise CSV must include Highlight and Title columns.")
 
         groups: OrderedDict[str, dict] = OrderedDict()
+        seen_evidence: dict[str, set[tuple[str, str, str]]] = {}
         for row in reader:
             clean = {str(k).strip().lower(): (v or "").strip() for k, v in row.items() if k}
             highlight = clean.get("highlight", "")
@@ -62,13 +63,21 @@ class ReadwiseImportService:
                     "tags": [],
                 },
             )
-            group["highlights"].append(highlight)
-            group["notes"].append(clean.get("note", ""))
-            group["locations"].append(clean.get("location", ""))
             for raw_tags in (clean.get("tags", ""), clean.get("document tags", "")):
                 for tag in _split_tags(raw_tags):
                     if tag not in group["tags"]:
                         group["tags"].append(tag)
+
+            note = clean.get("note", "")
+            location = clean.get("location", "")
+            evidence_key = (highlight, note, location)
+            article_seen = seen_evidence.setdefault(external_id, set())
+            if evidence_key in article_seen:
+                continue
+            article_seen.add(evidence_key)
+            group["highlights"].append(highlight)
+            group["notes"].append(note)
+            group["locations"].append(location)
         if not groups:
             raise AppError("Readwise CSV contains no importable highlights.")
         return list(groups.values())

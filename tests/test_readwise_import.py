@@ -52,6 +52,21 @@ def test_readwise_csv_groups_highlights_and_preserves_tags(tmp_path):
     assert "Readwise" in fake.calls[0]["reflection"].reflection_note
 
 
+def test_readwise_csv_deduplicates_identical_evidence_rows_but_keeps_tags(tmp_path):
+    settings = Settings(sqlite_path=str(tmp_path / "db.sqlite"), chroma_persist_dir=str(tmp_path / "chroma"))
+    service = ReadwiseImportService(settings, ingest_service=FakeIngest())
+    duplicate_csv = b'''Highlight,Title,Author,URL,Note,Location,Tags,Document tags\n"Same idea","Article A","Ada","https://example.com/a","note","10","rag",""\n"Same idea","Article A","Ada","https://example.com/a","note","10","ai","research"\n'''
+
+    groups = service.parse_csv(duplicate_csv)
+
+    assert len(groups) == 1
+    assert groups[0]["highlights"] == ["Same idea"]
+    assert groups[0]["notes"] == ["note"]
+    assert groups[0]["locations"] == ["10"]
+    assert groups[0]["tags"] == ["rag", "ai", "research"]
+    assert service.preview_csv(duplicate_csv)["highlight_count"] == 1
+
+
 def test_readwise_connector_turns_each_highlight_into_evidence_segment():
     connector = ReadwiseConnector()
     ref = connector.parse_ref("readwise://article/abc123")
