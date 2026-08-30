@@ -154,13 +154,41 @@ def test_merge_api_uses_authenticated_tenant(client, test_settings) -> None:
     )
     response = client.post(
         f"/api/v1/knowledge/entities/{target.entity_id}/merge",
-        json={"source_entity_id": source.entity_id},
+        json={"source_entity_id": source.entity_id, "confirm": True},
     )
     assert response.status_code == 200
     body = response.json()
     assert body["entity"]["entity_id"] == target.entity_id
     assert body["merged_source_entity_id"] == source.entity_id
     assert "K8s" in body["entity"]["aliases"]
+
+
+def test_merge_api_requires_literal_confirmation_before_write(client, test_settings) -> None:
+    store = KnowledgeGraphStore(test_settings)
+    target = store.upsert_entity(
+        user_id=LOCAL_DEFAULT_USER_ID,
+        entity_type=EntityType.COMPANY,
+        name="OpenAI",
+    )
+    source = store.upsert_entity(
+        user_id=LOCAL_DEFAULT_USER_ID,
+        entity_type=EntityType.COMPANY,
+        name="Open AI",
+    )
+
+    missing = client.post(
+        f"/api/v1/knowledge/entities/{target.entity_id}/merge",
+        json={"source_entity_id": source.entity_id},
+    )
+    assert missing.status_code == 422
+    assert store.get_entity(source.entity_id, user_id=LOCAL_DEFAULT_USER_ID) is not None
+
+    denied = client.post(
+        f"/api/v1/knowledge/entities/{target.entity_id}/merge",
+        json={"source_entity_id": source.entity_id, "confirm": False},
+    )
+    assert denied.status_code == 422
+    assert store.get_entity(source.entity_id, user_id=LOCAL_DEFAULT_USER_ID) is not None
 
 
 def test_merge_api_returns_conflict_for_same_entity(client, test_settings) -> None:
@@ -172,6 +200,6 @@ def test_merge_api_returns_conflict_for_same_entity(client, test_settings) -> No
     )
     response = client.post(
         f"/api/v1/knowledge/entities/{entity.entity_id}/merge",
-        json={"source_entity_id": entity.entity_id},
+        json={"source_entity_id": entity.entity_id, "confirm": True},
     )
     assert response.status_code == 409
