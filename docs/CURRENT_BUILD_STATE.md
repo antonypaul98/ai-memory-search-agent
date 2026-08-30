@@ -56,7 +56,7 @@ Do **not** mark N-07 complete until the full repository CI workflow passes on th
 
 First validate the N-07 Learning Evolution acceptance candidate. If CI fails, fix the failure while preserving deterministic bounded learning, tenant isolation, evidence auditability, and fail-open retrieval. If CI passes, mark N-07 validated, reconcile its stale `KNOWLEDGE_ENGINE.md`/inventory status, and continue to the next remaining Memory Search acceptance item.
 
-Retry the already-green N-06 PR #91 merge only through the normal safe GitHub merge boundary; do not bypass connector safety checks. Once it merges, retarget or reconstruct any stacked N-07 work cleanly if necessary, as done for earlier stacked closeouts.
+Retry the already-green N-06 PR #91 merge only through the normal safe GitHub merge boundary; do not bypass connector safety checks. Because that merge remains blocked, PR #92 is temporarily retargeted to `main` so the repository CI gate can validate the combined, already-green N-06 changes together with the new N-07 acceptance regression. This is a validation path only: do not claim N-06 or N-07 merged unless a normal merge action actually succeeds.
 
 Continue the broader source-of-truth reconciliation across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, correcting only rows whose acceptance behavior is backed by implementation and tests. Do not infer completion merely from the presence of a service or API.
 
