@@ -30,15 +30,18 @@ Recent acceptance closeouts include:
 - A-03 bounded three-hop research with at least three distinct cited saved-memory sources;
 - A-04 spaced Review Agent queue for active-goal memories stale for 14+ days;
 - A-05 deterministic Capture Triage with canonical queue deduplication, tenant-scoped existing-memory checks, explicit junk/unsafe URL rejection, and full CI validation;
-- A-06 deterministic Gap Agent analysis is implemented with evidence-backed actions, tenant isolation, explicit zero-memory goal handling, and a per-goal actionable notification contract (pending full closeout PR CI).
+- A-06 deterministic Gap Agent analysis with evidence-backed actions, tenant isolation, explicit zero-memory goal handling, a per-goal actionable notification contract, and full CI validation;
+- A-07 deterministic Consolidation Agent analysis remains read-only and tenant-scoped, and its entity-merge write boundary now requires authenticated explicit `confirm: true` before reusing the existing tenant-safe merge service (pending full CI validation).
 
-The implementation also already contains Consolidation, Reverse Memory, trust/consensus, learning evolution, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
+The implementation also already contains Reverse Memory, trust/consensus, learning evolution, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
 
 ## Next required Memory Search work
 
-After A-06 validation, audit **A-07 Consolidation Agent** against `AGENT_BIBLE.md`, `KNOWLEDGE_ENGINE.md`, and the existing implementation/tests. In particular, prove that entity or memory merges remain proposals until explicit user approval and that no cross-tenant or automatic merge path exists.
+First validate and land the A-07 closeout regression suite. Then reconcile the stale feature IDs and statuses across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md` before declaring F-32 Agent System complete.
 
-After A-07 is validated, reconcile F-32 Agent System and remaining feature/version rows across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, then run the final Memory Search acceptance/stability gate.
+Known documentation drift to resolve during that reconciliation: `AGENT_BIBLE.md` and the active completion state define A-06/A-07 as Gap/Consolidation Agents, while `FEATURE_IDEAS.md` still labels A-06/A-07 as Policy/Guardrails and Agent Audit UI. The implementation also contains platform capabilities that `FEATURE_IDEAS.md` still labels Missing/Planned. Do not infer completion from stale labels; reconcile each row against executable implementation and tests.
+
+After source-of-truth reconciliation, continue auditing every remaining planned Memory Search feature/version and run the final Memory Search acceptance/stability gate. No Jarvis transition is permitted merely because the agent catalog is complete.
 
 ## Jarvis transition gate
 
