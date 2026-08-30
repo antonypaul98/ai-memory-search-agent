@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/antonypaul98/ai-memory-search-agent/security/policy
+    about: Please use the security policy for vulnerabilities instead of a public issue.
