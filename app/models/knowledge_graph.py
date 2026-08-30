@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -81,6 +82,7 @@ class GraphQueryResponse(BaseModel):
 
 class GraphEntityMergeRequest(BaseModel):
     source_entity_id: str = Field(min_length=1, max_length=200)
+    confirm: Literal[True]
 
 
 class GraphEntityMergeResult(BaseModel):
