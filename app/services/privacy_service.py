@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import logging
 from datetime import datetime, timezone
@@ -317,11 +318,11 @@ def load_export_markdown(markdown: str) -> dict[str, Any]:
     if end < 0:
         raise ValueError("Markdown export payload marker is incomplete")
 
-    encoded = markdown[start:end].strip().encode("ascii")
     try:
+        encoded = markdown[start:end].strip().encode("ascii")
         decoded = base64.b64decode(encoded, altchars=b"-_", validate=True)
         payload = json.loads(decoded.decode("utf-8"))
-    except (UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
+    except (binascii.Error, UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
         raise ValueError("Markdown export payload is invalid") from exc
 
     if not isinstance(payload, dict) or payload.get("export_version") != 1:
