@@ -4,16 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
-from app.services.privacy_service import dump_export_markdown
+from app.services.privacy_service import dump_export_markdown, load_export_markdown
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_markdown_export_preserves_human_summary_and_complete_records() -> None:
-    payload = {
+def _sample_payload() -> dict:
+    return {
         "export_version": 1,
         "exported_at": "2026-08-27T12:00:00+00:00",
         "user": {"user_id": "u1", "display_name": "Demo User"},
@@ -45,6 +46,10 @@ def test_markdown_export_preserves_human_summary_and_complete_records() -> None:
         "video_registry": [],
     }
 
+
+def test_markdown_export_preserves_human_summary_and_complete_records() -> None:
+    payload = _sample_payload()
+
     text = dump_export_markdown(payload)
 
     assert text.startswith("# AI Memory Export\n")
@@ -56,6 +61,26 @@ def test_markdown_export_preserves_human_summary_and_complete_records() -> None:
     assert '"custom_private_field": "preserve-me"' in text
     assert '"capture_id": "c1"' in text
     assert '"topic_id": "rag"' in text
+
+
+def test_markdown_export_round_trips_complete_payload_without_writes() -> None:
+    payload = _sample_payload()
+
+    restored = load_export_markdown(dump_export_markdown(payload))
+
+    assert restored == payload
+    assert restored["memories"][0]["metadata"]["custom_private_field"] == "preserve-me"
+    assert restored["memories"][0]["canonical_url"] == "https://example.com/a"
+
+
+def test_markdown_import_rejects_missing_or_corrupt_machine_payload() -> None:
+    with pytest.raises(ValueError, match="marker is missing"):
+        load_export_markdown("# AI Memory Export\n")
+
+    text = dump_export_markdown(_sample_payload())
+    corrupted = text.replace("<!-- AI_MEMORY_EXPORT_JSON_V1:", "<!-- AI_MEMORY_EXPORT_JSON_V1:!")
+    with pytest.raises(ValueError, match="payload is invalid"):
+        load_export_markdown(corrupted)
 
 
 def test_markdown_export_endpoint_and_download_headers(client: TestClient) -> None:

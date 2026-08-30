@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 from datetime import datetime, timezone
@@ -16,6 +18,10 @@ from app.db.video_registry import get_video_registry
 from app.services.fts_index import FTSIndex
 
 logger = logging.getLogger(__name__)
+
+_EXPORT_PAYLOAD_START = "<!-- AI_MEMORY_EXPORT_JSON_V1:"
+_EXPORT_PAYLOAD_END = ":AI_MEMORY_EXPORT_JSON_V1 -->"
+_MAX_MARKDOWN_IMPORT_BYTES = 50_000_000
 
 
 class PrivacyService:
@@ -208,9 +214,9 @@ def dump_export_json(payload: dict[str, Any]) -> str:
 def dump_export_markdown(payload: dict[str, Any]) -> str:
     """Render the complete tenant export as portable, deterministic Markdown.
 
-    The human-readable memory summaries are followed by indented JSON blocks for
-    every exported collection so the Markdown adapter does not silently discard
-    fields that may be needed for migration or future re-import tooling.
+    Human-readable summaries remain first. A hidden, versioned, base64-encoded JSON
+    payload is appended so the Markdown artifact is losslessly re-importable without
+    parsing presentation text or dropping connector-specific/private fields.
     """
 
     user = payload.get("user") or {}
@@ -285,7 +291,43 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
 
     # Preserve the user record as exported too, not only the display fields above.
     lines.extend(["## User record", "", *_indented_json(user), ""])
+    encoded_payload = base64.urlsafe_b64encode(
+        json.dumps(payload, default=str, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    lines.extend([_EXPORT_PAYLOAD_START + encoded_payload + _EXPORT_PAYLOAD_END, ""])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def load_export_markdown(markdown: str) -> dict[str, Any]:
+    """Recover the lossless export payload embedded by ``dump_export_markdown``.
+
+    This is deliberately a pure import-adapter boundary: it validates and restores
+    portable data but performs no writes. A caller must still apply normal tenant,
+    deduplication, provenance, and confirmation rules before importing records.
+    """
+
+    raw = markdown.encode("utf-8")
+    if len(raw) > _MAX_MARKDOWN_IMPORT_BYTES:
+        raise ValueError("Markdown export exceeds import size limit")
+
+    start = markdown.rfind(_EXPORT_PAYLOAD_START)
+    if start < 0:
+        raise ValueError("Markdown export payload marker is missing")
+    start += len(_EXPORT_PAYLOAD_START)
+    end = markdown.find(_EXPORT_PAYLOAD_END, start)
+    if end < 0:
+        raise ValueError("Markdown export payload marker is incomplete")
+
+    try:
+        encoded = markdown[start:end].strip().encode("ascii")
+        decoded = base64.b64decode(encoded, altchars=b"-_", validate=True)
+        payload = json.loads(decoded.decode("utf-8"))
+    except (binascii.Error, UnicodeEncodeError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Markdown export payload is invalid") from exc
+
+    if not isinstance(payload, dict) or payload.get("export_version") != 1:
+        raise ValueError("Unsupported Markdown export payload")
+    return payload
 
 
 def _md_inline(value: Any) -> str:
