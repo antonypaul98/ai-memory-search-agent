@@ -34,11 +34,25 @@ Recent acceptance closeouts include:
 - A-07 deterministic Consolidation Agent analysis remains read-only and tenant-scoped, and its entity-merge write boundary requires authenticated explicit `confirm: true` before reusing the existing tenant-safe merge service; PR #88 passed full CI and was merged into `main`;
 - N-01 deterministic Consensus Engine preserves explicit cross-source conflicts, computes source-backed agreement weight, avoids false source independence, and exposes consensus status/weight/source count plus both conflict sides in the Ask workspace. Its dedicated acceptance regression passed the full repository CI gate in PR #89 and was merged into `main`.
 
+The N-01 follow-up source-of-truth bookkeeping in PR #90 also passed CI and was merged into `main` before the next acceptance audit began.
+
 The implementation also already contains Reverse Memory, trust, learning evolution, duplicate merge, connectors, exports, and agent activity surfaces. Their canonical acceptance status must continue to be audited against executable tests before broad milestone closure.
+
+## Current validation gate: N-06 Reverse Memory
+
+`KNOWLEDGE_ENGINE.md` defines N-06 Reverse Memory as answering **“what should I learn next?”** from the user's goals and gaps. The existing service already derives deterministic learning actions from tenant-scoped Gap Agent evidence without a mandatory LLM call, network fetch, or autonomous memory write.
+
+A dedicated explicit-goal API acceptance regression is now under validation. It asks for `Distributed systems`, requires the same response on repeated calls, verifies a grounded `start_foundation` recommendation when coverage is zero, requires the requested goal in the action, and requires evidence recording `memory_count: 0`.
+
+Closeout candidate: `docs/closeouts/N06_REVERSE_MEMORY_CLOSEOUT.md`.
+
+Do **not** mark N-06 complete until the full repository CI workflow passes on the PR containing this acceptance regression.
 
 ## Next required Memory Search work
 
-Continue the source-of-truth reconciliation across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, correcting only rows whose acceptance behavior is backed by implementation and tests. Do not infer completion merely from the presence of a service or API.
+First validate the N-06 Reverse Memory acceptance candidate. If CI fails, fix the failure while preserving the canonical acceptance behavior and regression coverage. If CI passes, mark N-06 validated, reconcile its stale `KNOWLEDGE_ENGINE.md`/inventory status, merge the validated work, and continue to the next remaining Memory Search acceptance item.
+
+Continue the broader source-of-truth reconciliation across `MASTER_SPEC.md`, `FEATURE_IDEAS.md`, `CONNECTOR_SDK.md`, `KNOWLEDGE_ENGINE.md`, `AGENT_BIBLE.md`, and `README.md`, correcting only rows whose acceptance behavior is backed by implementation and tests. Do not infer completion merely from the presence of a service or API.
 
 Known documentation drift to resolve during that reconciliation:
 
@@ -47,9 +61,9 @@ Known documentation drift to resolve during that reconciliation:
 - `MASTER_SPEC.md` and `KNOWLEDGE_ENGINE.md` still describe consensus/agents/scale-out capabilities as planned even where executable implementation now exists;
 - several connector, graph, Postgres/Redis, export, Reverse Memory, learning-evolution, and other knowledge-intelligence rows appear stale and must be audited individually rather than mass-marked complete.
 
-After the scoped documentation reconciliation, audit the next remaining Memory Search acceptance item from the canonical inventory. Reverse Memory / learning evolution / graph / connector / platform rows must each be evaluated against their exact documented acceptance criteria and tenant/privacy/provenance requirements. Run the final Memory Search acceptance/stability gate only after every planned item is reconciled.
+Reverse Memory / learning evolution / graph / connector / platform rows must each be evaluated against their exact documented acceptance criteria and tenant/privacy/provenance requirements. Run the final Memory Search acceptance/stability gate only after every planned item is reconciled.
 
-No Jarvis transition is permitted merely because the agent catalog or N-01 consensus work is complete.
+No Jarvis transition is permitted merely because the agent catalog, N-01 consensus work, or N-06 candidate implementation exists.
 
 ## Jarvis transition gate
 
