@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
 from app.config import Settings, get_settings
@@ -10,6 +11,7 @@ from app.core.exceptions import AppError
 from app.models.capture import BookmarkImportRequest
 from app.models.user import UserPublic
 from app.services.connector_ingest_service import ConnectorIngestService
+from app.services.github_starred_import_service import GitHubStarredImportService
 from app.services.import_manager import ImportManager
 from app.services.notion_import_service import NotionImportService
 from app.services.readwise_import_service import ReadwiseImportService
@@ -17,8 +19,21 @@ from app.services.readwise_import_service import ReadwiseImportService
 router = APIRouter(tags=["imports"])
 
 
+class GitHubStarredImportRequest(BaseModel):
+    confirm: bool = False
+    selected_repositories: list[str] = Field(default_factory=list, max_length=1000)
+    force_refresh: bool = False
+
+
 def _manager(settings: Settings = Depends(get_settings)) -> ImportManager:
     return ImportManager(settings)
+
+
+def _github_starred_service(settings: Settings = Depends(get_settings)) -> GitHubStarredImportService:
+    try:
+        return GitHubStarredImportService(settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Connector OAuth storage is not configured.") from exc
 
 
 @router.get("/connectors/health")
@@ -82,6 +97,37 @@ def preview_bookmarks(
     manager: ImportManager = Depends(_manager),
 ) -> dict:
     return manager.preview_bookmarks(body, user_id=user.user_id)
+
+
+@router.get("/imports/github/starred/preview")
+def preview_github_starred(
+    limit: int = Query(default=100, ge=1, le=1000),
+    user: UserPublic = Depends(get_current_user),
+    service: GitHubStarredImportService = Depends(_github_starred_service),
+) -> dict:
+    try:
+        return service.preview(user_id=user.user_id, limit=limit)
+    except AppError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/imports/github/starred")
+def import_github_starred(
+    payload: GitHubStarredImportRequest,
+    limit: int = Query(default=500, ge=1, le=1000),
+    user: UserPublic = Depends(get_current_user),
+    service: GitHubStarredImportService = Depends(_github_starred_service),
+) -> dict:
+    try:
+        return service.import_starred(
+            user_id=user.user_id,
+            confirm=payload.confirm,
+            selected_repositories=payload.selected_repositories or None,
+            force_refresh=payload.force_refresh,
+            limit=limit,
+        )
+    except AppError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/imports/readwise/csv/preview")
