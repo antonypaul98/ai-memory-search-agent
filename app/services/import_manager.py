@@ -229,7 +229,12 @@ class ImportManager:
                 if result.skipped:
                     skipped += 1
                     duplicates += 1
-                    self._set_item(item_id, status="duplicate", detail="Already indexed")
+                    self._set_item(
+                        item_id,
+                        status="duplicate",
+                        detail="Already indexed",
+                        external_id=result.video_id or "",
+                    )
                 elif result.success:
                     completed += 1
                     if result.webpage_url or url:
