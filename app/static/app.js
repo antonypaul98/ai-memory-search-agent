@@ -3,6 +3,7 @@
  * No domain / connector business logic.
  */
 import { abortInflight } from "./js/api.js";
+import { installOfflineCaptureQueue } from "./js/offline_capture.js";
 import { bindNav, currentRoute, navigate } from "./js/router.js";
 import { extractSharedUrl, shareDestination } from "./js/share_target.js";
 import { loadSettings } from "./js/util.js";
@@ -202,6 +203,7 @@ function boot() {
     document.documentElement.dataset.theme = settings.theme;
   }
   onlineBanner();
+  installOfflineCaptureQueue();
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
