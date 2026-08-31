@@ -62,7 +62,7 @@ class GitHubConnector(SourceConnector):
     def fetch_metadata(self, ref: SourceRef) -> NormalizedItem:
         if not ref.external_id:
             ref = self.parse_ref(ref.url)
-        data = ref.extra.get("repo_json") or _github_get(f"/repos/{ref.external_id}")
+        data = ref.extra.get("repo_json") or _github_get(f"/repos/{ref.external_id}", token=ref.extra.get("token"))
         title = data.get("full_name") or ref.external_id
         description = data.get("description") or ""
         topics = data.get("topics") or []
@@ -102,11 +102,16 @@ class GitHubConnector(SourceConnector):
         if not ref.external_id:
             ref = self.parse_ref(ref.url)
         meta = self.fetch_metadata(ref)
-        if meta.raw_metadata.get("private") and not ref.extra.get("token"):
+        token = str(ref.extra.get("token") or "")
+        if meta.raw_metadata.get("private") and not token:
             raise TranscriptUnavailableError("Private repository requires authorization.")
         readme = ref.extra.get("readme_text")
         if readme is None:
-            readme = _fetch_readme(ref.external_id, branch=str(meta.raw_metadata.get("default_branch") or "main"))
+            readme = _fetch_readme(
+                ref.external_id,
+                branch=str(meta.raw_metadata.get("default_branch") or "main"),
+                token=token or None,
+            )
         parts = [meta.description or "", readme or ""]
         text = "\n\n".join(p for p in parts if p).strip()
         if not text:
@@ -152,29 +157,29 @@ def _github_get(path: str, *, token: str | None = None) -> dict:
         return resp.json()
 
 
-def _fetch_readme(full_name: str, *, branch: str = "main") -> str:
+def _fetch_readme(full_name: str, *, branch: str = "main", token: str | None = None) -> str:
     import base64
 
     import httpx
 
-    # Prefer Contents API
+    # Prefer Contents API; authenticated calls support explicitly confirmed private repos.
     try:
-        data = _github_get(f"/repos/{full_name}/readme")
+        data = _github_get(f"/repos/{full_name}/readme", token=token)
         if data.get("encoding") == "base64" and data.get("content"):
             return base64.b64decode(data["content"]).decode("utf-8", errors="ignore")
         if data.get("download_url"):
             with httpx.Client(timeout=20.0, follow_redirects=True) as client:
-                resp = client.get(data["download_url"], headers=_github_headers())
+                resp = client.get(data["download_url"], headers=_github_headers(token))
                 resp.raise_for_status()
                 return resp.text
     except Exception:
         pass
-    # Fallback raw
+    # Fallback raw (public repos; private repos normally resolve through Contents API above).
     for name in ("README.md", "Readme.md", "README.rst", "README"):
         raw_url = f"https://raw.githubusercontent.com/{full_name}/{branch}/{name}"
         try:
             with httpx.Client(timeout=15.0, follow_redirects=True) as client:
-                resp = client.get(raw_url, headers=_github_headers())
+                resp = client.get(raw_url, headers=_github_headers(token))
                 if resp.status_code == 200 and resp.text.strip():
                     return resp.text
         except Exception:
