@@ -35,9 +35,9 @@ class PostgresAuthStore:
 
     def create_user(self, *, email: str, password: str, display_name: str) -> UserPublic:
         secret = _auth_secret(self._settings)
-        normalized_email = email.lower().strip()
-        user_id = normalized_email.replace("@", "_at_")
-        resolved_name = display_name or normalized_email
+        stored_email = email.lower()
+        user_id = email.lower().strip().replace("@", "_at_")
+        resolved_name = display_name or email
         with self._connection_factory() as conn:
             conn.execute(
                 """
@@ -46,20 +46,20 @@ class PostgresAuthStore:
                 """,
                 (
                     user_id,
-                    normalized_email,
+                    stored_email,
                     hash_password(password, secret=secret),
                     resolved_name,
                     _utc_now(),
                 ),
             )
-        return UserPublic(user_id=user_id, email=normalized_email, display_name=resolved_name)
+        return UserPublic(user_id=user_id, email=stored_email, display_name=resolved_name)
 
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
         with self._connection_factory() as conn:
             row = conn.execute(
                 "SELECT user_id, email, password_hash, display_name FROM users WHERE email = %s",
-                (email.lower().strip(),),
+                (email.lower(),),
             ).fetchone()
         if not row or not _value(row, "password_hash"):
             return None
