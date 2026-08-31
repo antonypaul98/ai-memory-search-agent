@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     # Canonical memory/provenance/lifecycle persistence. Postgres selection is
     # explicit and fail-closed; SQLite remains the safe self-host default.
     memory_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    # Capture request/status persistence follows the same explicit production
+    # cutover contract; this does not yet move bookmark/import-run state.
+    capture_store_backend: Literal["sqlite", "postgres"] = "sqlite"
     jobs_enabled: bool = True
     # F-35/GAP-01: keep the historical single-process behavior by default,
     # while allowing API-only processes to avoid spawning duplicate workers.
