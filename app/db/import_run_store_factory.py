@@ -1,4 +1,9 @@
-"""Backend selection for import-run execution/history persistence."""
+"""Backend selection for import-run execution/history persistence.
+
+Import runs intentionally follow the bookmark persistence backend during this
+P-03 slice so the bookmark/import production profile cannot silently split
+writes between Postgres and SQLite.
+"""
 
 from __future__ import annotations
 
@@ -9,8 +14,8 @@ from app.db.postgres_runtime import get_postgres_connection_factory
 
 
 def get_import_run_store(settings: Settings):
-    if settings.import_run_store_backend == "sqlite":
+    if settings.bookmark_store_backend == "sqlite":
         return ImportRunStore(settings)
-    if settings.import_run_store_backend == "postgres":
+    if settings.bookmark_store_backend == "postgres":
         return PostgresImportRunStore(get_postgres_connection_factory(settings))
-    raise ValueError(f"Unsupported import run store backend: {settings.import_run_store_backend}")
+    raise ValueError(f"Unsupported bookmark/import store backend: {settings.bookmark_store_backend}")
