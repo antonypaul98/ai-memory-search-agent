@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     # GAP-02 relational cutover is explicit per store. SQLite remains the safe
     # default until the full production profile and migration path are validated.
     auth_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    # Canonical memory/provenance/lifecycle persistence. Postgres selection is
+    # explicit and fail-closed; SQLite remains the safe self-host default.
+    memory_store_backend: Literal["sqlite", "postgres"] = "sqlite"
     jobs_enabled: bool = True
     # F-35/GAP-01: keep the historical single-process behavior by default,
     # while allowing API-only processes to avoid spawning duplicate workers.
