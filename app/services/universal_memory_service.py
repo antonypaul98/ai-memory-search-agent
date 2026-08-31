@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
-from app.db.memory_store import MemoryStore, get_memory_store
+from app.db.memory_store import MemoryStore
+from app.db.memory_store_factory import get_memory_store
 from app.models.capsule import MemoryCapsule
 from app.models.lifecycle import MemoryLifecycleState
 from app.models.reflection import ReflectionInput
