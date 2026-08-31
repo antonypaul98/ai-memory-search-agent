@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import {
   isRestrictedUrl,
   classifyPlatform,
+  isGitHubRepositoryUrl,
   extractYoutubeVideoId,
   isContextExpired,
   summarizeContext,
@@ -29,6 +30,17 @@ describe("classifyPlatform", () => {
   it("detects youtube", () => {
     assert.equal(classifyPlatform("https://www.youtube.com/watch?v=abc123"), "youtube");
     assert.equal(classifyPlatform("https://youtu.be/abc123"), "youtube");
+  });
+
+  it("detects GitHub repositories without treating GitHub navigation as repos", () => {
+    assert.equal(classifyPlatform("https://github.com/openai/openai-python"), "github");
+    assert.equal(
+      classifyPlatform("https://github.com/openai/openai-python/blob/main/README.md"),
+      "github"
+    );
+    assert.equal(isGitHubRepositoryUrl("https://github.com/openai/openai-python"), true);
+    assert.equal(isGitHubRepositoryUrl("https://github.com/settings/profile"), false);
+    assert.equal(classifyPlatform("https://github.com/settings/profile"), "web");
   });
 
   it("detects web", () => {
@@ -57,6 +69,17 @@ describe("summarizeContext", () => {
     assert.equal(s.platformLabel, "YouTube");
     assert.equal(s.title, "Building AI Agents");
     assert.equal(s.transcriptLabel, "Likely available");
+    assert.equal(s.ready, true);
+  });
+
+  it("recognizes a repository even from a generic-web observer payload", () => {
+    const s = summarizeContext({
+      platform: "web",
+      url: "https://github.com/openai/openai-python/issues/1",
+      title: "openai/openai-python",
+    });
+    assert.equal(s.platformLabel, "GitHub repository");
+    assert.equal(s.transcriptLabel, "README + repository metadata on save");
     assert.equal(s.ready, true);
   });
 });

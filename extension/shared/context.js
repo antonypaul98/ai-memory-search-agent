@@ -24,8 +24,56 @@ export function isRestrictedUrl(url) {
 }
 
 /**
+ * Return true only when the URL has a GitHub owner/repository path.
+ * Deeper paths (issues, blobs, pulls) still identify the containing repo.
  * @param {string} url
- * @returns {"youtube"|"web"|"unsupported"}
+ * @returns {boolean}
+ */
+export function isGitHubRepositoryUrl(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "").toLowerCase();
+    if (host !== "github.com") return false;
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts.length < 2) return false;
+    const reserved = new Set([
+      "about",
+      "account",
+      "apps",
+      "collections",
+      "contact",
+      "customer-stories",
+      "enterprise",
+      "events",
+      "explore",
+      "features",
+      "issues",
+      "login",
+      "marketplace",
+      "new",
+      "notifications",
+      "organizations",
+      "orgs",
+      "pricing",
+      "pulls",
+      "search",
+      "security",
+      "settings",
+      "signup",
+      "site",
+      "sponsors",
+      "topics",
+      "trending",
+    ]);
+    return !reserved.has(parts[0].toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} url
+ * @returns {"youtube"|"github"|"web"|"unsupported"}
  */
 export function classifyPlatform(url) {
   if (isRestrictedUrl(url)) return "unsupported";
@@ -35,6 +83,7 @@ export function classifyPlatform(url) {
     if (host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be") {
       return "youtube";
     }
+    if (isGitHubRepositoryUrl(url)) return "github";
     if (u.protocol === "http:" || u.protocol === "https:") return "web";
   } catch {
     return "unsupported";
@@ -84,19 +133,29 @@ export function summarizeContext(ctx) {
       ready: false,
     };
   }
-  const platform = ctx.platform || "web";
+  // Older/self-contained content scripts may report GitHub as generic web.
+  // Re-classify from the URL so the popup remains correct during extension updates.
+  const classified = classifyPlatform(ctx.url || "");
+  const platform = classified === "github" ? "github" : ctx.platform || classified || "web";
   const platformLabel =
-    platform === "youtube" ? "YouTube" : platform === "web" ? "Web page" : "Unsupported";
+    platform === "youtube"
+      ? "YouTube"
+      : platform === "github"
+        ? "GitHub repository"
+        : platform === "web"
+          ? "Web page"
+          : "Unsupported";
   let transcriptLabel = "Unknown";
   if (ctx.transcriptAvailable === true) transcriptLabel = "Likely available";
   if (ctx.transcriptAvailable === false) transcriptLabel = "Unavailable / unknown";
   if (platform === "web") transcriptLabel = "Page text on save";
+  if (platform === "github") transcriptLabel = "README + repository metadata on save";
   return {
     platformLabel,
     title: ctx.title || "Untitled",
     creator: ctx.creator || "",
     transcriptLabel,
-    ready: Boolean(ctx.url) && !isRestrictedUrl(ctx.url),
+    ready: Boolean(ctx.url) && classified !== "unsupported" && !isRestrictedUrl(ctx.url),
     progressSec: ctx.progressSec ?? null,
     thumbnail: ctx.thumbnail || "",
   };
