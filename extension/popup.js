@@ -9,6 +9,7 @@ import {
 } from "./shared/api.js";
 import { loadSettings, STORAGE_KEYS } from "./shared/storage.js";
 import { summarizeContext } from "./shared/context.js";
+import { trustBadgeHtml } from "./shared/trust.js";
 import {
   getPermissionSnapshot,
   requestBookmarksPermission,
@@ -366,7 +367,8 @@ function renderCommandResults(status, message, result, intent) {
         const snip = escapeHtml(
           (r.snippet || r.matched_text || r.why_matched || "").slice(0, 160)
         );
-        return `<div class="cmd-hit"><strong>${title}</strong><p class="muted">${snip}</p></div>`;
+        const trust = trustBadgeHtml(r);
+        return `<div class="cmd-hit"><strong>${title}</strong>${trust ? `<div>${trust}</div>` : ""}<p class="muted">${snip}</p></div>`;
       })
       .join("");
     return;
