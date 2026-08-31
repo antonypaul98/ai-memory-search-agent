@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
+from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.schema import get_connection, migrate
 from app.models.capture import BookmarkImportRequest
 from app.services.connector_ingest_service import ConnectorIngestService
@@ -24,6 +25,7 @@ class ImportManager:
         self._connector_ingest = ConnectorIngestService(self._settings)
         self._youtube_ingest = IngestService(settings=self._settings)
         self._dupes = CrossConnectorDuplicateDetector(self._settings)
+        self._bookmarks = get_bookmark_store(self._settings)
         migrate(self._settings)
 
     def create_import(
@@ -112,62 +114,23 @@ class ImportManager:
     ) -> dict:
         preview = self.preview_bookmarks(payload, user_id=user_id)
         now = _now()
-        current_ids = {item.browser_bookmark_id for item in payload.items}
-
-        # Reconcile browser state only when the client explicitly guarantees that
-        # this payload is a complete snapshot. This prevents truncated/partial
-        # imports from falsely marking unseen browser bookmarks as deleted.
-        with get_connection(self._settings) as conn:
-            if payload.snapshot_complete:
-                if current_ids:
-                    placeholders = ",".join("?" for _ in current_ids)
-                    conn.execute(
-                        f"""
-                        UPDATE browser_bookmarks
-                        SET removed_in_browser = 1, sync_status = 'removed', last_synced_at = ?
-                        WHERE user_id = ? AND source_browser = ?
-                          AND browser_bookmark_id NOT IN ({placeholders})
-                        """,
-                        (now, user_id, payload.source_browser, *sorted(current_ids)),
-                    )
-                else:
-                    conn.execute(
-                        """
-                        UPDATE browser_bookmarks
-                        SET removed_in_browser = 1, sync_status = 'removed', last_synced_at = ?
-                        WHERE user_id = ? AND source_browser = ?
-                        """,
-                        (now, user_id, payload.source_browser),
-                    )
-
-            for item in payload.items:
-                conn.execute(
-                    """
-                    INSERT INTO browser_bookmarks (
-                        user_id, browser_bookmark_id, folder_path, url, url_hash, title,
-                        sync_status, source_browser, last_synced_at, removed_in_browser
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'synced', ?, ?, 0)
-                    ON CONFLICT(user_id, browser_bookmark_id) DO UPDATE SET
-                        folder_path = excluded.folder_path,
-                        url = excluded.url,
-                        url_hash = excluded.url_hash,
-                        title = excluded.title,
-                        sync_status = 'synced',
-                        source_browser = excluded.source_browser,
-                        last_synced_at = excluded.last_synced_at,
-                        removed_in_browser = 0
-                    """,
-                    (
-                        user_id,
-                        item.browser_bookmark_id,
-                        item.folder_path,
-                        item.url,
-                        hash_text(item.url),
-                        item.title,
-                        payload.source_browser,
-                        now,
-                    ),
-                )
+        bookmark_items = [
+            {
+                "browser_bookmark_id": item.browser_bookmark_id,
+                "folder_path": item.folder_path,
+                "url": item.url,
+                "url_hash": hash_text(item.url),
+                "title": item.title,
+            }
+            for item in payload.items
+        ]
+        self._bookmarks.sync_snapshot(
+            user_id=user_id,
+            source_browser=payload.source_browser,
+            items=bookmark_items,
+            snapshot_complete=payload.snapshot_complete,
+            now=now,
+        )
 
         urls = [i.url for i in payload.items if i.url.startswith("http")]
         titles = [i.title for i in payload.items if i.url.startswith("http")]
@@ -266,12 +229,7 @@ class ImportManager:
                 if result.skipped:
                     skipped += 1
                     duplicates += 1
-                    self._set_item(
-                        item_id,
-                        status="duplicate",
-                        detail="Already indexed",
-                        external_id=result.video_id or "",
-                    )
+                    self._set_item(item_id, status="duplicate", detail="Already indexed")
                 elif result.success:
                     completed += 1
                     if result.webpage_url or url:
