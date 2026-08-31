@@ -6,11 +6,15 @@ from fastapi import Depends, HTTPException, Request
 
 from app.config import Settings, get_settings
 from app.db.auth_store import AuthStore
+from app.db.auth_store_factory import get_auth_store as build_auth_store
+from app.db.postgres_auth_store import PostgresAuthStore
 from app.models.user import LOCAL_DEFAULT_USER_ID, UserPublic
 
+AuthPersistence = AuthStore | PostgresAuthStore
 
-def get_auth_store(settings: Settings = Depends(get_settings)) -> AuthStore:
-    store = AuthStore(settings)
+
+def get_auth_store(settings: Settings = Depends(get_settings)) -> AuthPersistence:
+    store = build_auth_store(settings)
     store.ensure_local_user()
     return store
 
@@ -18,7 +22,7 @@ def get_auth_store(settings: Settings = Depends(get_settings)) -> AuthStore:
 def get_current_user(
     request: Request,
     settings: Settings = Depends(get_settings),
-    store: AuthStore = Depends(get_auth_store),
+    store: AuthPersistence = Depends(get_auth_store),
 ) -> UserPublic:
     if not settings.auth_enabled:
         return UserPublic(user_id=LOCAL_DEFAULT_USER_ID, display_name="Local Demo User")
@@ -40,7 +44,7 @@ def get_current_user(
 def get_optional_user(
     request: Request,
     settings: Settings = Depends(get_settings),
-    store: AuthStore = Depends(get_auth_store),
+    store: AuthPersistence = Depends(get_auth_store),
 ) -> UserPublic:
     try:
         return get_current_user(request, settings, store)
