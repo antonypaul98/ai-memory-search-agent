@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
-from app.db.schema import get_connection, migrate
+from app.db.capture_store_factory import get_capture_store
 from app.models.capture import (
     BookmarkImportRequest,
     CaptureBatchRequest,
@@ -28,10 +28,10 @@ logger = logging.getLogger(__name__)
 class CaptureService:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
+        self._captures = get_capture_store(self._settings)
         self._ingest = IngestService(settings=self._settings)
         self._connector_ingest = ConnectorIngestService(self._settings)
         self._imports = ImportManager(self._settings)
-        migrate(self._settings)
 
     def capture_url(self, payload: CaptureUrlRequest, *, user_id: str) -> CaptureStatusResponse:
         capture_id = str(uuid.uuid4())
@@ -49,31 +49,16 @@ class CaptureService:
             payload = payload.model_copy(update={"title": title})
         title = payload.title
 
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO captures (
-                    capture_id, user_id, url, url_hash, title, source_type, status,
-                    stage, stage_detail, payload_json, error, created_at, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    capture_id,
-                    user_id,
-                    url,
-                    hash_text(url),
-                    title,
-                    payload.source_type,
-                    "queued",
-                    "queued",
-                    "Added to Memory",
-                    payload.model_dump_json(),
-                    None,
-                    now,
-                    now,
-                ),
-            )
+        self._captures.create(
+            capture_id=capture_id,
+            user_id=user_id,
+            url=url,
+            url_hash=hash_text(url),
+            title=title,
+            source_type=payload.source_type,
+            payload_json=payload.model_dump_json(),
+            now=now,
+        )
 
         if payload.async_processing:
             thread = threading.Thread(
@@ -96,11 +81,7 @@ class CaptureService:
         return self._process_capture_sync(capture_id, user_id, payload)
 
     def retry_capture(self, capture_id: str, *, user_id: str) -> CaptureStatusResponse:
-        with get_connection(self._settings) as conn:
-            row = conn.execute(
-                "SELECT payload_json, status FROM captures WHERE capture_id = ? AND user_id = ?",
-                (capture_id, user_id),
-            ).fetchone()
+        row = self._captures.get_retry_payload(capture_id, user_id=user_id)
         if not row:
             raise KeyError("Capture not found")
         payload = CaptureUrlRequest.model_validate_json(row["payload_json"])
@@ -131,14 +112,7 @@ class CaptureService:
         return [self.capture_url(item, user_id=user_id) for item in items]
 
     def get_status(self, capture_id: str, *, user_id: str) -> CaptureStatusResponse:
-        with get_connection(self._settings) as conn:
-            row = conn.execute(
-                """
-                SELECT capture_id, status, stage, stage_detail, url, title, job_id, error
-                FROM captures WHERE capture_id = ? AND user_id = ?
-                """,
-                (capture_id, user_id),
-            ).fetchone()
+        row = self._captures.get_status(capture_id, user_id=user_id)
         if not row:
             raise KeyError("Capture not found")
         stage = row["stage"] or row["status"]
@@ -332,33 +306,24 @@ class CaptureService:
         error: str | None = None,
         title: str | None = None,
     ) -> None:
-        now = _utc_now()
-        with get_connection(self._settings) as conn:
-            if title is not None:
-                conn.execute(
-                    """
-                    UPDATE captures
-                    SET status = ?, stage = ?, stage_detail = ?, error = ?, title = ?, updated_at = ?
-                    WHERE capture_id = ? AND user_id = ?
-                    """,
-                    (status, stage, detail, error, title, now, capture_id, user_id),
-                )
-            else:
-                conn.execute(
-                    """
-                    UPDATE captures
-                    SET status = ?, stage = ?, stage_detail = ?, error = ?, updated_at = ?
-                    WHERE capture_id = ? AND user_id = ?
-                    """,
-                    (status, stage, detail, error, now, capture_id, user_id),
-                )
+        self._captures.update_stage(
+            capture_id,
+            user_id=user_id,
+            status=status,
+            stage=stage,
+            detail=detail,
+            error=error,
+            title=title,
+            now=_utc_now(),
+        )
 
     def _rewrite_payload(self, capture_id: str, user_id: str, payload: CaptureUrlRequest) -> None:
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                "UPDATE captures SET payload_json = ?, updated_at = ? WHERE capture_id = ? AND user_id = ?",
-                (payload.model_dump_json(), _utc_now(), capture_id, user_id),
-            )
+        self._captures.rewrite_payload(
+            capture_id,
+            user_id=user_id,
+            payload_json=payload.model_dump_json(),
+            now=_utc_now(),
+        )
 
 
 def _reflection_from_payload(payload: CaptureUrlRequest) -> ReflectionInput | None:
