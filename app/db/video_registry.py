@@ -20,9 +20,29 @@ from app.models.reflection import ReflectionInput, ReflectionDisplay, UsageStats
 _REGISTRY: dict[str, Any] = {}
 
 
-def get_video_registry(settings: Settings | None = None) -> "VideoRegistry":
+def get_video_registry(settings: Settings | None = None) -> Any:
+    """Return the registry for the configured production persistence profile.
+
+    The canonical-memory Postgres switch is intentionally shared with this
+    legacy registry during P-03 so a production process cannot migrate canonical
+    writes while silently leaving reflection/usage writes on local SQLite.
+    """
     settings = settings or get_settings()
-    key = settings.sqlite_path
+    if settings.memory_store_backend == "postgres":
+        key = f"postgres:{settings.postgres_dsn_env}:{settings.postgres_connect_timeout_sec}"
+        if key not in _REGISTRY:
+            from app.db.postgres_runtime import get_postgres_connection_factory
+            from app.db.postgres_video_registry import (
+                PostgresVideoRegistry,
+                ensure_postgres_video_registry_schema,
+            )
+
+            connection_factory = get_postgres_connection_factory(settings)
+            ensure_postgres_video_registry_schema(connection_factory)
+            _REGISTRY[key] = PostgresVideoRegistry(settings, connection_factory)
+        return _REGISTRY[key]
+
+    key = f"sqlite:{settings.sqlite_path}"
     if key not in _REGISTRY:
         _REGISTRY[key] = VideoRegistry(settings)
     return _REGISTRY[key]
