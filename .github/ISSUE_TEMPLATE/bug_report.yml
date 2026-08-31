@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible problem in AI Memory Agent
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve AI Memory Agent. Please remove private URLs, tokens, and personal content before posting logs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the unexpected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the app with ...
+        2. Save/search ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Capture / extension
+        - Connector / ingest
+        - Search / AHME
+        - Ask / RAG
+        - PWA / UI
+        - Auth / privacy
+        - Jobs / background work
+        - Deployment / operations
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, browser, relevant feature flags, and deployment mode.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Do not include API keys, session tokens, personal saved content, or private URLs.

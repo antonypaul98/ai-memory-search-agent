@@ -1,18 +1,101 @@
 # AI Memory Agent
 
-**Version 1.9.0** — a self-hosted personal memory system that turns saved YouTube videos, web pages, PDFs, GitHub repos, and bookmarks into searchable knowledge with grounded, cited answers.
+> **Search everything you saved — even when you no longer remember the title, source, or exact words.**
 
-Chrome extension (Manifest V3) + FastAPI backend + AI Memory Workspace (PWA).
+[![CI](https://github.com/antonypaul98/ai-memory-search-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/antonypaul98/ai-memory-search-agent/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-yes-success)](#quick-start)
 
-> **Status:** Version 1 track complete (**V1-0 … V1-9**). Phase 1 Production Hardening is now implemented across CLI tooling, CI benchmark smoke, observability, deploy probes, strict tenant retrieval, and legacy tenant backfill. Canonical inventory: [`MASTER_SPEC.md`](MASTER_SPEC.md).
+**AI Memory Agent** is a self-hosted personal memory system for saved **YouTube videos, web pages, PDFs, GitHub repositories, and bookmarks**. It turns fragmented saved content into one searchable knowledge layer with hybrid retrieval, hierarchical memory, grounded answers, citations, privacy controls, and a browser-first capture flow.
+
+**Version 1.9.0** is complete, with production-hardening work implemented. The next product track expands the memory-intelligence layer. See [`MASTER_SPEC.md`](MASTER_SPEC.md) for the canonical inventory.
 
 ---
 
-## Problem
+## Why this exists
 
-Browsing creates useful knowledge that is hard to find later: transcripts, articles, READMEs, and bookmarks live in separate tools and keyword search rarely matches how you remember them.
+People save useful content everywhere and then lose it again.
 
-**AHME (Adaptive Hierarchical Memory Engine)** is the retrieval core of this project. It treats personal saves as a layered memory store — capsules → sections → evidence — and answers questions with hybrid ranking (dense vectors + lexical FTS), diversification, and citation-backed synthesis.
+A title may be forgotten. A bookmark folder may have thousands of items. A video may contain the exact idea you need, but normal search only sees its title and description. AI Memory Agent is built around a different question:
+
+> **“Can I retrieve something the way I remember it, instead of the way it was originally named?”**
+
+Example:
+
+```text
+Saved months ago:
+  YouTube video: "Building Reliable Agent Systems"
+
+What you remember later:
+  "that video where someone explained agent retries and tool failures"
+
+AI Memory Agent:
+  → searches semantic + lexical evidence
+  → narrows through hierarchical memory
+  → returns the relevant source
+  → can answer with citations back to the saved evidence
+```
+
+---
+
+## What makes this different
+
+This is not a thin `embed → vector DB → LLM` wrapper.
+
+| Capability | What the project does |
+| --- | --- |
+| **AHME retrieval** | Adaptive Hierarchical Memory Engine: capsule → section → evidence |
+| **Hybrid search** | Dense embeddings + SQLite FTS5 fused with Reciprocal Rank Fusion |
+| **Diversification** | MMR reduces repetitive search results |
+| **Grounded answers** | Answers are synthesized from retrieved evidence with citations |
+| **LLM optional** | Deterministic synthesis works with `LLM_PROVIDER=none` |
+| **Universal ingest** | Different source types normalize into one memory/index path |
+| **Semantic cache** | Similar questions can reuse prior retrieval work |
+| **Deduplication** | URL/content hashes + near-duplicate handling |
+| **Knowledge layer** | Topics, related-memory signals, timeline, learning edges, graph foundation |
+| **Privacy-first** | Explicit save, self-hosting, export/delete, tenant-scoped retrieval |
+| **Browser workflow** | Chrome extension + PWA workspace instead of CLI-only UX |
+
+---
+
+## Product flow
+
+```mermaid
+flowchart LR
+    A[YouTube / Web / PDF / GitHub / Bookmarks] --> B[Capture + Connectors]
+    B --> C[Normalize]
+    C --> D[Chunk + Memory Capsules]
+    D --> E[Embeddings]
+    E --> F[(ChromaDB)]
+    E --> G[(SQLite + FTS5)]
+    F --> H[AHME Retrieval]
+    G --> H
+    H --> I[RRF + MMR]
+    I --> J[Grounded Answers + Citations]
+    I --> K[Search Results]
+    J --> L[Memory Intelligence / Knowledge Graph]
+```
+
+### Retrieval path
+
+```text
+query
+  ↓
+semantic cache
+  ↓
+coarse memory match
+  ↓
+relevant source / section narrowing
+  ↓
+vector + lexical evidence retrieval
+  ↓
+RRF fusion
+  ↓
+MMR diversification
+  ↓
+grounded result / cited answer
+```
 
 ---
 
@@ -20,170 +103,57 @@ Browsing creates useful knowledge that is hard to find later: transcripts, artic
 
 ### Implemented
 
-| Area | What works |
-|------|------------|
-| **Capture** | Explicit save from the active tab (no URL copy); context menu save; SSRF-safe web fetch |
-| **Connectors** | YouTube (reference), web articles, PDF, GitHub (public README/metadata), bookmark import |
-| **Ingest pipeline** | Metadata/transcript extraction → normalization → chunking → embeddings → Chroma + FTS + universal memory |
-| **AHME retrieval** | Hierarchical coarse-to-fine search with RRF fusion, MMR diversification, semantic cache, deduplication; flat fallback |
-| **Ask / RAG** | Grounded answers with source citations; optional LLM providers; deterministic synthesis when `LLM_PROVIDER=none` |
-| **Memory intelligence** | Topics, learning graph, timeline, roadmaps, duplicates, creators, explainable retrieve (`/intelligence/*`) |
-| **Knowledge graph** | Entity/relation foundation + APIs (`/knowledge/*`) |
-| **Jobs** | Background playlist/import ingest with pause / resume / retry / cancel |
-| **Workspace PWA** | Dashboard, search, Ask Memory, playlists, imports, privacy controls (`app/static`) |
-| **Extension** | Observe + Save, command bar (`search`, `ask`, `import …`, `help`), deep-links into Workspace |
-| **Auth & privacy** | Optional sessions, strict user-scoped retrieval, export/delete, rate limiting, hosted `/privacy` |
-| **Trust / lifecycle** | Memory state machine + trust scoring foundation (API + demo surfaces) |
-| **Production hardening** | Safe operator CLIs, benchmark CI smoke, request IDs/metrics, liveness/readiness probes, legacy tenant metadata migration |
+- **Capture:** active-tab save, context-menu save, SSRF-safe web fetch
+- **Connectors:** YouTube, web articles, PDF, GitHub public README/metadata, bookmark import
+- **Ingest:** extraction → normalization → chunking → embeddings → vector + FTS + universal memory
+- **Retrieval:** AHME hierarchical search, flat fallback, RRF fusion, MMR diversification, semantic cache, deduplication
+- **Ask / RAG:** grounded answers with citations; optional LLM providers; deterministic synthesis without an LLM
+- **Memory intelligence:** topics, learning graph, timeline, roadmaps, duplicates, creators, explainable retrieve
+- **Knowledge graph:** entity/relation foundation and APIs
+- **Jobs:** background playlist/import ingest with pause, resume, retry, cancel
+- **Workspace:** searchable PWA with Ask Memory, imports, playlists, dashboard, privacy controls
+- **Chrome extension:** Observe + Save, command bar, deep links into the Workspace
+- **Auth/privacy:** optional sessions, user-scoped retrieval, export/delete, rate limits, hosted privacy page
+- **Trust/lifecycle:** memory state machine + trust scoring foundation
+- **Operations:** Docker, CI, benchmark smoke, metrics, liveness/readiness probes, migration/backfill tooling
 
-### Not yet implemented
+### Planned
 
-Planned for later roadmap phases:
+- richer ontology engine
+- broader consensus / gap intelligence
+- expanded autonomous orchestration
+- Watch Later import through Google OAuth
+- full connector SDK marketplace
+- enterprise-scale multi-tenant deployment
 
-- Ontology engine
-- Consensus / Gap engines
-- Autonomous multi-agent orchestration / marketplace
-- Watch Later via Google OAuth (use a **public playlist URL** for demos)
-- Full connector SDK marketplace and enterprise multi-tenant scale-out
-
-Also out of scope for V1: covert recording, keylogging, password capture, and Incognito support.
+Out of scope for V1: covert recording, keylogging, password capture, and Incognito support.
 
 ---
 
-## Architecture
+## Benchmark snapshot
 
-End-to-end flow for what exists in the repository today:
+The repository includes a reproducible offline benchmark comparing the flat pipeline with hierarchical AHME. The current checked-in report uses a small seeded test corpus, so these numbers are **engineering smoke measurements, not production-scale claims**.
 
-```
-Capture / import
-  → extraction (transcript, HTML, PDF text, README, …)
-  → normalization (NormalizedItem / Universal Memory)
-  → chunking + optional memory capsule
-  → embeddings (Sentence Transformers)
-  → vector storage (ChromaDB) + FTS5 + SQLite registry
-  → AHME retrieval / ranking (hierarchical → RRF → MMR)
-  → grounded answer synthesis (citations)
-```
+| Metric | Flat | AHME |
+| --- | ---: | ---: |
+| Cross-video search median | 2.02 ms | **1.75 ms** |
+| Repeated search median | 1.87 ms | **1.27 ms** |
+| Chat median | 13.34 ms | **12.70 ms** |
+| Storage | **463,012 B** | 537,868 B |
 
-### Data flow
+Run it yourself:
 
-```mermaid
-flowchart LR
-  subgraph Clients
-    EXT[Chrome extension MV3]
-    PWA[Workspace PWA]
-  end
-
-  subgraph API["FastAPI /api/v1"]
-    CAP[Capture / Imports / Playlists]
-    JOBS[Job worker]
-    SRCH[Search / Chat / Agent]
-    INTEL[Intelligence / Knowledge]
-  end
-
-  subgraph Pipeline["Ingest"]
-    CONN[Connectors]
-    NORM[Normalize]
-    CHUNK[Chunk + capsule]
-    EMB[Embed]
-  end
-
-  subgraph Store["Storage"]
-    CH[(ChromaDB)]
-    SQL[(SQLite + FTS5)]
-  end
-
-  subgraph Retrieve["AHME"]
-    HIER[Capsule → section → evidence]
-    FUSE[RRF + MMR]
-    CACHE[Semantic cache]
-  end
-
-  ANS[Grounded answers + citations]
-
-  EXT --> CAP
-  PWA --> CAP
-  EXT --> SRCH
-  PWA --> SRCH
-  CAP --> JOBS
-  JOBS --> CONN
-  CAP --> CONN
-  CONN --> NORM --> CHUNK --> EMB
-  EMB --> CH
-  EMB --> SQL
-  SRCH --> CACHE
-  SRCH --> HIER
-  HIER --> CH
-  HIER --> SQL
-  HIER --> FUSE --> ANS
-  INTEL --> SQL
+```bash
+python scripts/benchmark_ahme.py
 ```
 
-Primary modules: `app/services/ingest_service.py`, `connector_ingest_service.py`, `ahme_engine.py`, `chat_service.py`, `sources/*`.
-
----
-
-## AI/ML and retrieval
-
-| Capability | Implementation |
-|------------|----------------|
-| Semantic search | Dense embeddings over chunked content; query embedding at retrieve time |
-| Embeddings | Sentence Transformers (`sentence-transformers/all-MiniLM-L6-v2`, lazy singleton) |
-| Vector store | ChromaDB persistent collections (`memory_items`, capsules, sections) |
-| Hybrid retrieval | Vector ranks + SQLite FTS5, fused with **RRF** |
-| Diversification | **MMR** over candidate evidence |
-| Hierarchical retrieval | Capsule → video narrow → section → evidence (`hierarchical_retrieval_enabled`) |
-| Semantic cache | Cosine similarity over question embeddings (TTL + threshold) |
-| Deduplication | Content / chunk hashes, near-duplicate simhash, cross-connector URL/content checks |
-| RAG / grounded answers | Retrieve → optional clarify → synthesize with citations; LLM optional |
-| Model abstraction | `LLM_PROVIDER=none` \| `ollama` \| `openai_compatible` for capsules/synthesis |
-| Memory intelligence | Topic profiles, learning edges, concept capsules, related-memory signals |
-| Knowledge graph | Foundation entity linking and graph APIs (not a full ontology engine) |
-
----
-
-## System engineering
-
-- **API:** FastAPI routers under `/api/v1` (capture, videos, search, chat, jobs, agent, auth, privacy, intelligence, knowledge, …)
-- **Async work:** In-process job worker for playlist/import pipelines (`JOBS_ENABLED`)
-- **Storage:** SQLite (registry, FTS, jobs, auth, intelligence) + ChromaDB on disk
-- **Clients:** Chrome MV3 extension; static PWA with service worker (`app/static`)
-- **Security:** Optional auth sessions, tenant-scoped vector queries, CORS for localhost + extension origins, SSRF-safe fetch, in-process rate limits
-- **Privacy:** Explicit save only; export/delete APIs; privacy policy page; Incognito disabled
-- **Ops:** Dockerfile + `docker-compose.yml` (single uvicorn worker); request IDs + lightweight metrics; separate liveness/readiness probes; GitHub Actions CI runs tests + benchmark smoke
-
----
-
-## Tech stack
-
-| Layer | Technologies |
-|-------|----------------|
-| **Backend** | Python 3.11, FastAPI, Uvicorn, Pydantic Settings |
-| **AI / ML** | Sentence Transformers, optional Ollama / OpenAI-compatible LLM |
-| **Retrieval** | AHME, RRF, MMR, FTS5, semantic cache, grounded synthesis |
-| **Storage** | ChromaDB, SQLite |
-| **Frontend / browser** | Chrome extension (MV3), static PWA (`app/static`) |
-| **Connectors** | youtube-transcript-api, yt-dlp, trafilatura, pypdf, GitHub public API |
-| **Testing** | pytest, pytest-asyncio, httpx |
-| **Infra** | Docker / Compose, GitHub Actions (`.github/workflows/ci.yml`) |
-
----
-
-## Engineering highlights
-
-- End-to-end **RAG pipeline** with a real hierarchical retrieval engine, not a thin wrapper around a single vector query
-- **Hybrid ranking** (dense + lexical) with RRF/MMR and safe flat fallback when hierarchical path fails
-- **Connector abstraction** that normalizes heterogeneous sources into one memory + index path
-- **Grounded answers by default** — deterministic synthesis works without an LLM
-- **Self-hosted, user-owned memory** with export/delete and documented privacy boundaries
-- **Fail-closed tenant isolation** for authenticated users, including migration support for historical local-default data
-- Modular FastAPI services with feature flags (`HIERARCHICAL_RETRIEVAL_ENABLED`, `AUTH_ENABLED`, `JOBS_ENABLED`, …)
+Full methodology and results: [`docs/BENCHMARK_AHME.md`](docs/BENCHMARK_AHME.md)
 
 ---
 
 ## Quick start
 
-Requires **Python 3.11**. A clean virtualenv is recommended.
+Requires **Python 3.11**.
 
 ```bash
 python3.11 -m venv .venv_clean
@@ -195,109 +165,165 @@ JOBS_ENABLED=true AUTH_ENABLED=false PWA_ENABLED=true \
   uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+Open:
+
 | Surface | URL |
-|---------|-----|
-| Workspace PWA | http://localhost:8000/ |
-| API docs (Swagger) | http://localhost:8000/docs |
-| Liveness | http://localhost:8000/api/v1/live |
-| Readiness | http://localhost:8000/api/v1/ready |
-| Metrics | http://localhost:8000/api/v1/metrics |
-| Privacy | http://localhost:8000/privacy |
+| --- | --- |
+| Workspace | `http://localhost:8000/` |
+| Swagger API | `http://localhost:8000/docs` |
+| Liveness | `http://localhost:8000/api/v1/live` |
+| Readiness | `http://localhost:8000/api/v1/ready` |
+| Metrics | `http://localhost:8000/api/v1/metrics` |
+| Privacy | `http://localhost:8000/privacy` |
 
 ### Chrome extension
 
-1. Open `chrome://extensions` → enable **Developer mode** → **Load unpacked** → select `extension/`
-2. In the popup, set API base to `http://127.0.0.1:8000/api/v1`
-3. Open a YouTube video → **Save To Memory**
+1. Open `chrome://extensions`
+2. Enable **Developer mode**
+3. Choose **Load unpacked**
+4. Select `extension/`
+5. Set the API base to `http://127.0.0.1:8000/api/v1`
+6. Open a supported page or YouTube video and save it to memory
 
-Details: [`extension/README.md`](extension/README.md)
+More: [`extension/README.md`](extension/README.md)
 
-### Operator tools
+---
 
-Ingest one YouTube item:
+## Try the core workflow
+
+### Ingest one YouTube item
 
 ```bash
 python scripts/ingest_item.py "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-Preview/reset configured local data:
+### Search / ask through the app
 
-```bash
-python scripts/reset_db.py --dry-run
-python scripts/reset_db.py --yes
+Start the server, open the Workspace, save a few items, and search using concepts rather than exact titles.
+
+A good demo test is:
+
+1. save two or three videos/articles on related topics
+2. search using a phrase that does **not** appear in their titles
+3. open **Ask Memory**
+4. ask a cross-source question
+5. inspect the cited evidence
+
+Recording outline: [`docs/V1_DEMO_SCRIPT.md`](docs/V1_DEMO_SCRIPT.md)
+
+---
+
+## AI / retrieval stack
+
+| Layer | Implementation |
+| --- | --- |
+| Embeddings | Sentence Transformers (`all-MiniLM-L6-v2`) |
+| Vector storage | ChromaDB |
+| Lexical retrieval | SQLite FTS5 |
+| Fusion | Reciprocal Rank Fusion (RRF) |
+| Diversification | Maximal Marginal Relevance (MMR) |
+| Hierarchical retrieval | capsule → source → section → evidence |
+| Cache | cosine-similarity semantic cache |
+| Dedup | hashes + near-duplicate simhash + cross-connector checks |
+| Synthesis | optional Ollama / OpenAI-compatible LLM or deterministic mode |
+| API | FastAPI |
+| Browser | Chrome Manifest V3 extension |
+| App | installable PWA |
+
+---
+
+## Repository map
+
+```text
+app/
+  api/                 FastAPI routes
+  services/            ingest, retrieval, chat, intelligence, connectors
+  db/                  SQLite / Chroma persistence
+  static/              PWA workspace
+extension/              Chrome MV3 extension
+scripts/                ingest, benchmark, migration, operator tools
+docs/                   architecture, release, privacy, operations
+MASTER_SPEC.md          canonical product / feature inventory
 ```
 
-Preview/apply the legacy tenant metadata migration:
+Primary implementation areas:
 
-```bash
-python scripts/backfill_legacy_user_ids.py --dry-run
-python scripts/backfill_legacy_user_ids.py --yes
-```
+- `app/services/ingest_service.py`
+- `app/services/connector_ingest_service.py`
+- `app/services/ahme_engine.py`
+- `app/services/search_service.py`
+- `app/services/chat_service.py`
+- `app/services/sources/*`
 
-Full deployment, backup, restore, health-check, and incident guidance: [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md).
+---
 
-### Optional: demo seed & Docker
+## Privacy and security
 
-```bash
-python scripts/seed_demo.py
-```
+AI Memory Agent is designed around **explicit capture** rather than silent surveillance.
 
-```bash
-docker compose up --build
-```
+- saved content is user-initiated
+- self-hosting is supported
+- authenticated retrieval is tenant scoped
+- export/delete APIs are available
+- SSRF-safe fetching is used for web ingest
+- Incognito support is intentionally disabled
+- secrets belong in environment configuration, not the repository
 
-Demo recording outline: [`docs/V1_DEMO_SCRIPT.md`](docs/V1_DEMO_SCRIPT.md)
+See [`docs/V1_PRIVACY_MODEL.md`](docs/V1_PRIVACY_MODEL.md) and [`SECURITY.md`](SECURITY.md).
 
 ---
 
 ## Testing
-
-Run the current full suite rather than relying on a hard-coded test count:
 
 ```bash
 source .venv_clean/bin/activate
 pytest -q
 ```
 
-AHME benchmark smoke:
+Benchmark smoke:
 
 ```bash
 BENCHMARK_RUNS=1 python scripts/benchmark_ahme.py
 ```
 
-CI (`.github/workflows/ci.yml`) installs dependencies, checks `VERSION` ↔ `extension/manifest.json`, runs the test suite, and executes the benchmark smoke gate on push/PR.
+CI runs the test suite plus benchmark smoke on pushes and pull requests.
 
 ---
 
-## Version status
+## Contributing
+
+Ideas, bug reports, connector proposals, retrieval experiments, benchmark improvements, and focused pull requests are welcome.
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). If you are new to the codebase, connector additions and benchmark/test improvements are especially good entry points.
+
+If this project solves a problem you have too, **consider starring the repository** — it helps other people discover it.
+
+---
+
+## Roadmap
 
 | Track | Status |
-|-------|--------|
-| **V1 / V1.9.0** | Complete (V1-0 … V1-9): ingest, AHME, connectors, Workspace, extension command bar, auth/privacy, demo/store package, CI |
-| **Phase 1 hardening** | Implemented: operator CLI, CI benchmark smoke, observability baseline, deploy probes, strict tenant retrieval, legacy tenant backfill, operations runbook |
-| **Next** | Phase 2 Memory Intelligence per `MASTER_SPEC.md`; later planned phases remain blocked until earlier acceptance criteria are validated |
+| --- | --- |
+| V1 / V1.9.0 | ✅ Complete |
+| Production hardening | ✅ Implemented |
+| Memory intelligence expansion | 🚧 Next |
+| Broader autonomous orchestration | 📋 Planned |
+| Connector ecosystem / marketplace | 📋 Planned |
 
-See [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md), [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md), and [`MASTER_SPEC.md`](MASTER_SPEC.md).
+Canonical execution status: [`MASTER_SPEC.md`](MASTER_SPEC.md)
 
 ---
 
 ## Documentation
 
-| Doc | Purpose |
-|-----|---------|
-| [`MASTER_SPEC.md`](MASTER_SPEC.md) | Canonical feature inventory and execution status |
-| [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) | Single-node deployment, health, backup/restore, migration, incident and release runbook |
-| [`KNOWLEDGE_ENGINE.md`](KNOWLEDGE_ENGINE.md) | AHME + knowledge-engine architecture (implemented vs planned) |
-| [`CONNECTOR_SDK.md`](CONNECTOR_SDK.md) | Connector architecture notes (see also V1-4) |
-| [`docs/V1_PRODUCT_SPEC.md`](docs/V1_PRODUCT_SPEC.md) | V1 product scope |
-| [`docs/V1_PLATFORM_CAPABILITY_MATRIX.md`](docs/V1_PLATFORM_CAPABILITY_MATRIX.md) | Capability audit (historical; prefer MASTER_SPEC for latest status) |
-| [`docs/V1_PRIVACY_MODEL.md`](docs/V1_PRIVACY_MODEL.md) | Privacy model |
-| [`docs/V1_3_MEMORY_INTELLIGENCE.md`](docs/V1_3_MEMORY_INTELLIGENCE.md) | Memory intelligence layer |
-| [`docs/V1_4_UNIVERSAL_CONNECTORS.md`](docs/V1_4_UNIVERSAL_CONNECTORS.md) | Universal connectors |
-| [`docs/V1_5_MEMORY_WORKSPACE.md`](docs/V1_5_MEMORY_WORKSPACE.md) | Workspace PWA |
-| [`docs/V1_8_AUTH_PRIVACY.md`](docs/V1_8_AUTH_PRIVACY.md) | Auth, isolation, rate limits |
-| [`docs/V1_9_DEMO_STORE_LAUNCH.md`](docs/V1_9_DEMO_STORE_LAUNCH.md) | Final V1 milestone |
-| [`SECURITY.md`](SECURITY.md) | Security policy |
+- [`MASTER_SPEC.md`](MASTER_SPEC.md) — canonical feature inventory
+- [`KNOWLEDGE_ENGINE.md`](KNOWLEDGE_ENGINE.md) — AHME + knowledge architecture
+- [`CONNECTOR_SDK.md`](CONNECTOR_SDK.md) — connector architecture
+- [`docs/BENCHMARK_AHME.md`](docs/BENCHMARK_AHME.md) — reproducible benchmark report
+- [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) — deploy, health, backup/restore, incident runbook
+- [`docs/V1_PRIVACY_MODEL.md`](docs/V1_PRIVACY_MODEL.md) — privacy boundaries
+- [`docs/V1_DEMO_SCRIPT.md`](docs/V1_DEMO_SCRIPT.md) — demo recording outline
+- [`docs/V1_RELEASE_PLAN.md`](docs/V1_RELEASE_PLAN.md) — release plan
 
 ---
 

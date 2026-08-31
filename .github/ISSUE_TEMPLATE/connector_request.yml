@@ -1,0 +1,36 @@
+name: Connector request
+description: Suggest a new source that AI Memory Agent should be able to save/search
+title: "[Connector]: "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: source
+    attributes:
+      label: Source / service
+      placeholder: e.g. Pocket, Reddit saved posts, Slack export
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Why this source matters
+      description: What content would people want to retrieve later and why is current export/search insufficient?
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: Available access path
+      description: Public URL, official API, export file, OAuth, browser capture, or unknown.
+  - type: textarea
+    id: metadata
+    attributes:
+      label: Useful fields
+      placeholder: title, author, body/transcript, timestamp, tags, canonical URL, media...
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints checked
+      options:
+        - label: I understand the connector should respect source terms, authentication boundaries, and rate limits.
+        - label: I have not included credentials, private tokens, or personal exported data in this issue.
