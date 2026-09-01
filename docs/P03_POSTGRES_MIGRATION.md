@@ -14,7 +14,8 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Capture request/status state can explicitly use Postgres while preserving tenant-scoped reads, retries and updates.
 - Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
 - Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
-- A tenant-scoped Postgres full-text index primitive now exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering. It is not yet wired into ingestion/retrieval, so the FTS cutover is still incomplete.
+- A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
+- Lexical retrieval now has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -23,10 +24,11 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - `MEMORY_STORE_BACKEND=sqlite|postgres`
 - `CAPTURE_STORE_BACKEND=sqlite|postgres`
 - `BOOKMARK_STORE_BACKEND=sqlite|postgres`
+- `FTS_STORE_BACKEND=sqlite|postgres`
 - `JOB_STORE_BACKEND=sqlite|postgres`
 - `POSTGRES_DSN_ENV=DATABASE_URL`
 
-Selecting Postgres is fail-closed. The application must not silently fall back to SQLite when a production store was explicitly requested.
+Selecting Postgres is fail-closed. The application must not silently fall back to SQLite when a production store was explicitly requested. Authenticated lexical search additionally requires the tenant-scoped Postgres FTS backend because the historical SQLite FTS5 schema has no tenant column.
 
 ### Video/reflection migration
 
@@ -52,7 +54,7 @@ The command returns counts only; it does not print reflection text, URLs, creden
 
 ## Remaining before P-03 can be marked Complete
 
-- Complete the FTS/search-support cutover: add explicit backend selection, wire tenant identity through ingestion and retrieval, migrate/backfill existing lexical documents safely, remove the current unscoped SQLite FTS behavior from authenticated production paths, and validate deterministic retrieval parity.
+- Finish the FTS/search-support cutover: route ingestion mutations through the selected tenant-aware lexical backend, migrate/backfill existing lexical documents safely, and validate deterministic retrieval parity before enabling Postgres FTS for a migrated deployment.
 - Move semantic/query caches and any remaining production relational stores that still require SQLite.
 - Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run and lexical state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
