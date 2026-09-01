@@ -1,4 +1,4 @@
-"""SQLite FTS5 lexical search for hybrid retrieval."""
+"""SQLite FTS5 lexical search for the local single-user profile."""
 
 from __future__ import annotations
 
@@ -7,11 +7,29 @@ from app.db.schema import get_connection, migrate
 
 
 class FTSIndex:
+    """Legacy local FTS5 index.
+
+    ``user_id`` is accepted to keep the lexical-index contract compatible with
+    the tenant-scoped Postgres implementation, but the historical SQLite table
+    does not persist it. The configured factory therefore refuses to use this
+    backend when authentication is enabled.
+    """
+
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         migrate(self._settings)
 
-    def upsert(self, *, video_id: str, level: str, doc_id: str, title: str, body: str) -> None:
+    def upsert(
+        self,
+        *,
+        video_id: str,
+        level: str,
+        doc_id: str,
+        title: str,
+        body: str,
+        user_id: str | None = None,
+    ) -> None:
+        del user_id
         with get_connection(self._settings) as conn:
             conn.execute(
                 "DELETE FROM memory_fts WHERE doc_id = ?",
@@ -22,7 +40,15 @@ class FTSIndex:
                 (video_id, level, doc_id, title, body),
             )
 
-    def search(self, query: str, *, limit: int = 20, video_ids: list[str] | None = None) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        video_ids: list[str] | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        del user_id
         if not query.strip():
             return []
         try:
@@ -58,6 +84,7 @@ class FTSIndex:
         except Exception:
             return []
 
-    def delete_video(self, video_id: str) -> None:
+    def delete_video(self, video_id: str, *, user_id: str | None = None) -> None:
+        del user_id
         with get_connection(self._settings) as conn:
             conn.execute("DELETE FROM memory_fts WHERE video_id = ?", (video_id,))

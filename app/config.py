@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     # Browser bookmark synchronization state. Import-run execution/history is a
     # separate P-03 slice and remains SQLite until its store is migrated.
     bookmark_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    # Lexical search/index persistence. SQLite is only supported for the local
+    # unauthenticated profile because its historical FTS5 schema lacks user_id.
+    fts_store_backend: Literal["sqlite", "postgres"] = "sqlite"
     jobs_enabled: bool = True
     # F-35/GAP-01: keep the historical single-process behavior by default,
     # while allowing API-only processes to avoid spawning duplicate workers.
