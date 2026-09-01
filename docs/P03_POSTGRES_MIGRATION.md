@@ -14,6 +14,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Capture request/status state can explicitly use Postgres while preserving tenant-scoped reads, retries and updates.
 - Safe capture-state migration tooling previews by default, requires explicit `--apply`, opens SQLite read-only, preserves the exact tenant and full request/status state, migrates in deterministic tenant/capture order, and never overwrites an existing Postgres capture row on retry.
 - Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
+- Safe bookmark-state migration previews by default, requires explicit `--apply`, opens SQLite read-only, optionally scopes to one exact tenant, copies rows in deterministic tenant/browser/bookmark order, preserves sync/removal state, and never overwrites an existing `(user_id, browser_bookmark_id)` target row on retry.
 - Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
 - A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
 - Lexical retrieval has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
@@ -82,6 +83,28 @@ python scripts/migrate_captures_to_postgres.py --apply
 
 The SQLite source is opened read-only. Capture rows are copied in deterministic tenant/capture order and existing `capture_id` rows are skipped rather than overwritten, so stale local state cannot replace target-side status, payload, or timestamps. Reports contain counts only; URLs, titles, payloads, errors, DSNs, and credentials are not printed.
 
+### Bookmark migration
+
+Preview bookmark counts without contacting Postgres:
+
+```bash
+python scripts/migrate_bookmarks_to_postgres.py
+```
+
+Optionally scope the preview or migration to one exact tenant:
+
+```bash
+python scripts/migrate_bookmarks_to_postgres.py --user-id <tenant-id>
+```
+
+Apply only after reviewing the count-only preview and provisioning the environment-owned Postgres DSN:
+
+```bash
+python scripts/migrate_bookmarks_to_postgres.py --apply
+```
+
+The source is opened read-only. Bookmark rows are copied in deterministic tenant/browser/bookmark order. Existing `(user_id, browser_bookmark_id)` rows are skipped rather than overwritten, preserving newer target-side state. Reports contain counts only; URLs, titles, DSNs, and credentials are not printed.
+
 ### Lexical migration
 
 The legacy SQLite FTS5 table has no tenant identity, so ownership must never be guessed. Preview one local source only after supplying the exact tenant that owns it:
@@ -137,7 +160,7 @@ The source is opened read-only. Only rows whose index/preference versions match 
 
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
 - Move any other remaining production relational stores that still require SQLite.
-- Extend migration/export/import tooling to the remaining SQLite-backed production state, including bookmark/import-run state, with safe and idempotent transfer semantics.
+- Extend migration/export/import tooling to the remaining SQLite-backed production state, including import-run history/items, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
 
