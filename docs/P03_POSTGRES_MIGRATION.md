@@ -12,6 +12,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - The tenant-scoped video/reflection/usage registry follows the Postgres production profile while preserving composite `(user_id, video_id)` identity.
 - A first SQLite -> Postgres migration tool covers the video/reflection registry. It previews by default, requires explicit `--apply` for target writes, opens SQLite read-only, migrates in deterministic tenant/video order, and never overwrites an existing Postgres row on retry.
 - Capture request/status state can explicitly use Postgres while preserving tenant-scoped reads, retries and updates.
+- Safe capture-state migration tooling previews by default, requires explicit `--apply`, opens SQLite read-only, preserves the exact tenant and full request/status state, migrates in deterministic tenant/capture order, and never overwrites an existing Postgres capture row on retry.
 - Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
 - Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
 - A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
@@ -58,6 +59,28 @@ python scripts/migrate_video_registry_to_postgres.py --apply
 ```
 
 The command returns counts only; it does not print reflection text, URLs, credentials, or DSNs. Existing target rows are skipped rather than overwritten so a stale SQLite snapshot cannot clobber newer Postgres state.
+
+### Capture migration
+
+Preview capture counts without contacting Postgres:
+
+```bash
+python scripts/migrate_captures_to_postgres.py
+```
+
+Optionally scope the preview or migration to one exact tenant:
+
+```bash
+python scripts/migrate_captures_to_postgres.py --user-id <tenant-id>
+```
+
+Apply only after reviewing the count-only preview and provisioning the environment-owned Postgres DSN:
+
+```bash
+python scripts/migrate_captures_to_postgres.py --apply
+```
+
+The SQLite source is opened read-only. Capture rows are copied in deterministic tenant/capture order and existing `capture_id` rows are skipped rather than overwritten, so stale local state cannot replace target-side status, payload, or timestamps. Reports contain counts only; URLs, titles, payloads, errors, DSNs, and credentials are not printed.
 
 ### Lexical migration
 
@@ -114,7 +137,7 @@ The source is opened read-only. Only rows whose index/preference versions match 
 
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
 - Move any other remaining production relational stores that still require SQLite.
-- Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run state, with safe and idempotent transfer semantics.
+- Extend migration/export/import tooling to the remaining SQLite-backed production state, including bookmark/import-run state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
 
