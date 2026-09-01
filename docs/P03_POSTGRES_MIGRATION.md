@@ -18,6 +18,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Lexical retrieval has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
 - Ingestion resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
 - Safe lexical backfill tooling previews by default, requires explicit `--apply`, opens the SQLite source read-only, requires the operator to supply the exact tenant because the legacy FTS table has no tenant column, copies documents in deterministic order, and never overwrites an existing `(user_id, doc_id)` target row on retry.
+- A read-only lexical retrieval-parity gate compares exact ordered document identities between the legacy SQLite source and tenant-scoped Postgres for an explicit operator-supplied query suite. It requires the exact tenant, returns a non-zero exit status on any identity/order mismatch, and never echoes query text or indexed content in its report.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -70,9 +71,22 @@ python scripts/migrate_fts_to_postgres.py --user-id <tenant-id> --apply
 
 The source is read-only. Existing Postgres rows are skipped with `ON CONFLICT(user_id, doc_id) DO NOTHING`, so retries cannot overwrite target-side documents produced after cutover.
 
+### Lexical retrieval parity
+
+After migration, validate a representative acceptance query suite before enabling Postgres lexical search for that deployment:
+
+```bash
+python scripts/validate_fts_retrieval_parity.py \
+  --user-id <tenant-id> \
+  --query "first representative query" \
+  --query "second representative query"
+```
+
+The validator is read-only. It compares exact ordered `doc_id` results and exits with status `2` when any query differs. Its JSON report contains only counts, tenant identity, query indexes, and document identities; it never echoes query text, snippets, titles, indexed bodies, DSNs, or credentials.
+
 ## Remaining before P-03 can be marked Complete
 
-- Finish the FTS/search-support cutover by validating deterministic retrieval parity for migrated lexical state before enabling Postgres FTS for a migrated deployment.
+- Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
 - Move semantic/query caches and any remaining production relational stores that still require SQLite.
 - Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
