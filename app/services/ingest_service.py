@@ -20,12 +20,13 @@ from app.db.video_registry import VideoRegistry, get_video_registry
 from app.models.reflection import ReflectionInput
 from app.models.video import IngestResponse, IngestResultItem, IngestStageRecord, SourceType
 from app.db.hierarchical_store import HierarchicalStore, store_capsule_json
-from app.db.schema import bump_index_version, get_connection, migrate
+from app.db.schema import get_connection, migrate
 from app.services.capsule_service import build_capsule_with_optional_llm
 from app.services.deduplication_service import dedupe_chunk_texts, hash_text
 from app.services.enrichment_service import enrich_video
 from app.services.fts_index_factory import get_fts_index
 from app.services.metadata_service import MetadataService
+from app.services.semantic_cache import SemanticCache
 from app.services.transcript_service import TranscriptService
 from app.utils.chunking import chunk_transcript
 from app.utils.url_parser import parse_youtube_url
@@ -121,7 +122,6 @@ class IngestService:
             elapsed_ms=elapsed_ms,
             results=results,
         )
-
 
     def ingest_single_url(
         self,
@@ -435,9 +435,7 @@ class IngestService:
                     )
 
             _store_transcript_hash(self._settings, metadata.video_id, transcript_hash)
-            bump_index_version(self._settings)
-            from app.db.schema import invalidate_semantic_cache
-            invalidate_semantic_cache(self._settings)
+            SemanticCache(self._settings).bump_index_version_and_invalidate()
 
             self._registry.upsert_video(
                 video_id=metadata.video_id, user_id=owner_id, url=metadata.webpage_url,
@@ -535,10 +533,8 @@ class IngestService:
         )
 
 
-
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 
 def _dedupe_urls(urls: list[str]) -> list[str]:
