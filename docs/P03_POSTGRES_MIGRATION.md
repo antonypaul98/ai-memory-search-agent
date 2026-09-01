@@ -15,7 +15,8 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
 - Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
 - A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
-- Lexical retrieval now has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
+- Lexical retrieval has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
+- Ingestion now resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -54,7 +55,7 @@ The command returns counts only; it does not print reflection text, URLs, creden
 
 ## Remaining before P-03 can be marked Complete
 
-- Finish the FTS/search-support cutover: route ingestion mutations through the selected tenant-aware lexical backend, migrate/backfill existing lexical documents safely, and validate deterministic retrieval parity before enabling Postgres FTS for a migrated deployment.
+- Finish the FTS/search-support cutover: migrate/backfill existing lexical documents safely and validate deterministic retrieval parity before enabling Postgres FTS for a migrated deployment.
 - Move semantic/query caches and any remaining production relational stores that still require SQLite.
 - Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run and lexical state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
