@@ -16,7 +16,8 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
 - A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
 - Lexical retrieval has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
-- Ingestion now resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
+- Ingestion resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
+- Safe lexical backfill tooling previews by default, requires explicit `--apply`, opens the SQLite source read-only, requires the operator to supply the exact tenant because the legacy FTS table has no tenant column, copies documents in deterministic order, and never overwrites an existing `(user_id, doc_id)` target row on retry.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -53,11 +54,27 @@ python scripts/migrate_video_registry_to_postgres.py --apply
 
 The command returns counts only; it does not print reflection text, URLs, credentials, or DSNs. Existing target rows are skipped rather than overwritten so a stale SQLite snapshot cannot clobber newer Postgres state.
 
+### Lexical migration
+
+The legacy SQLite FTS5 table has no tenant identity, so ownership must never be guessed. Preview one local source only after supplying the exact tenant that owns it:
+
+```bash
+python scripts/migrate_fts_to_postgres.py --user-id <tenant-id>
+```
+
+After reviewing the count-only preview and provisioning the environment-owned Postgres DSN, explicitly apply:
+
+```bash
+python scripts/migrate_fts_to_postgres.py --user-id <tenant-id> --apply
+```
+
+The source is read-only. Existing Postgres rows are skipped with `ON CONFLICT(user_id, doc_id) DO NOTHING`, so retries cannot overwrite target-side documents produced after cutover.
+
 ## Remaining before P-03 can be marked Complete
 
-- Finish the FTS/search-support cutover: migrate/backfill existing lexical documents safely and validate deterministic retrieval parity before enabling Postgres FTS for a migrated deployment.
+- Finish the FTS/search-support cutover by validating deterministic retrieval parity for migrated lexical state before enabling Postgres FTS for a migrated deployment.
 - Move semantic/query caches and any remaining production relational stores that still require SQLite.
-- Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run and lexical state, with safe and idempotent transfer semantics.
+- Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
 
