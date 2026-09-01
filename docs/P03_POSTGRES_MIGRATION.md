@@ -12,7 +12,9 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - The tenant-scoped video/reflection/usage registry follows the Postgres production profile while preserving composite `(user_id, video_id)` identity.
 - A first SQLite -> Postgres migration tool covers the video/reflection registry. It previews by default, requires explicit `--apply` for target writes, opens SQLite read-only, migrates in deterministic tenant/video order, and never overwrites an existing Postgres row on retry.
 - Capture request/status state can explicitly use Postgres while preserving tenant-scoped reads, retries and updates.
-- Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety. Import-run execution/history remains separate unfinished P-03 work.
+- Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
+- Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
+- A tenant-scoped Postgres full-text index primitive now exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering. It is not yet wired into ingestion/retrieval, so the FTS cutover is still incomplete.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -50,10 +52,9 @@ The command returns counts only; it does not print reflection text, URLs, creden
 
 ## Remaining before P-03 can be marked Complete
 
-- Move import-run execution/history relational state to the production Postgres profile.
-- Move SQLite FTS/search-support state or replace it with the approved Postgres search equivalent while preserving deterministic retrieval behavior and tenant isolation.
+- Complete the FTS/search-support cutover: add explicit backend selection, wire tenant identity through ingestion and retrieval, migrate/backfill existing lexical documents safely, remove the current unscoped SQLite FTS behavior from authenticated production paths, and validate deterministic retrieval parity.
 - Move semantic/query caches and any remaining production relational stores that still require SQLite.
-- Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark state, with safe and idempotent transfer semantics.
+- Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run and lexical state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
 
