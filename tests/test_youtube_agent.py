@@ -306,12 +306,13 @@ class TestIngestUsesConnector:
             patch.object(service._fts, "upsert"),
             patch.object(service._hstore, "upsert_capsule"),
             patch.object(service._hstore, "upsert_sections"),
-            patch("app.services.ingest_service.store_capsule_json"),
+            patch.object(service._artifact_store, "store_capsule_json"),
+            patch.object(service._artifact_store, "store_transcript_hash"),
             patch.object(service._registry, "upsert_video"),
             patch.object(service._registry, "is_indexed", return_value=False),
             patch.object(service._repository, "video_exists", return_value=False),
             patch.object(service._memory_os, "finalize_ingest"),
-            patch("app.services.ingest_service._transcript_unchanged", return_value=False),
+            patch.object(service._artifact_store, "transcript_unchanged", return_value=False),
         ):
             emb.side_effect = lambda texts, settings=None: [[0.01] * 16 for _ in texts]
             result = service.ingest_single_url(meta.webpage_url, user_id=LOCAL_DEFAULT_USER_ID)
