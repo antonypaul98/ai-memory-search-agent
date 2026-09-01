@@ -21,6 +21,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - A read-only lexical retrieval-parity gate compares exact ordered document identities between the legacy SQLite source and tenant-scoped Postgres for an explicit operator-supplied query suite. It requires the exact tenant, returns a non-zero exit status on any identity/order mismatch, and never echoes query text or indexed content in its report.
 - A tenant-scoped Postgres semantic-cache persistence primitive exists with composite `(user_id, cache_key)` identity, tenant-filtered exact/candidate reads and invalidation, deterministic candidate ordering, and Postgres-owned cache version metadata.
 - Semantic-cache routing has explicit `SEMANTIC_CACHE_STORE_BACKEND=sqlite|postgres` selection. Reads, writes, tenant-scoped invalidation, aggregate stats, and memory-index version invalidation all use the selected backend together. Ingestion advances/invalidate the selected cache backend rather than calling SQLite cache metadata directly, preventing a Postgres cache profile from retaining hidden SQLite cache/version writes.
+- Optional retained semantic-cache migration is preview-first and source-read-only. It preserves tenant identity, copies only rows compatible with the target cache versions, inserts in deterministic tenant/cache-key order, and uses `ON CONFLICT(user_id, cache_key) DO NOTHING` so retries never replace target-side cache state. Deployments may instead deliberately start with an empty Postgres cache because cache rows are disposable derived state.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -87,10 +88,31 @@ python scripts/validate_fts_retrieval_parity.py \
 
 The validator is read-only. It compares exact ordered `doc_id` results and exits with status `2` when any query differs. Its JSON report contains only counts, tenant identity, query indexes, and document identities; it never echoes query text, snippets, titles, indexed bodies, DSNs, or credentials.
 
+### Optional semantic-cache migration
+
+Because semantic-cache rows are derived and disposable, the safest cutover is normally to start with an empty Postgres cache. If retained transfer is desired, preview source counts without contacting Postgres:
+
+```bash
+python scripts/migrate_semantic_cache_to_postgres.py
+```
+
+Optionally scope the preview or migration to one exact tenant:
+
+```bash
+python scripts/migrate_semantic_cache_to_postgres.py --user-id <tenant-id>
+```
+
+Apply only after reviewing the count-only preview and provisioning the environment-owned Postgres DSN:
+
+```bash
+python scripts/migrate_semantic_cache_to_postgres.py --apply
+```
+
+The source is opened read-only. Only rows whose index/preference versions match the target cache versions are eligible. Existing `(user_id, cache_key)` rows are skipped rather than overwritten, so stale derived state cannot replace target-side cache entries. Reports contain counts only; cached questions, answers, embeddings, DSNs, and credentials are not printed.
+
 ## Remaining before P-03 can be marked Complete
 
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
-- Add safe SQLite -> Postgres semantic-cache migration where retained cache transfer is desired; deployments may also deliberately start with an empty Postgres cache because cached answers are disposable derived state.
 - Move any other remaining production relational stores that still require SQLite.
 - Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
