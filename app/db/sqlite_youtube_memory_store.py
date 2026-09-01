@@ -11,21 +11,21 @@ from app.db.youtube_memory_store import YouTubeMemoryStore
 
 
 class SQLiteYouTubeMemoryStore(YouTubeMemoryStore):
-    """Legacy SQLite store with the tenant-explicit selected-store metric contract."""
+    """Legacy SQLite store accepting tenant-explicit selected-store metric calls."""
 
     def bump_metric(
         self,
         key: str,
         amount: float = 1.0,
         *,
-        user_id: str,
+        user_id: str | None = None,
         as_average: bool = False,
     ) -> None:
         # The legacy SQLite metrics table is intentionally local/global and does not
-        # persist tenant identity. Accepting the explicit tenant keeps callers honest
-        # while Postgres remains the required tenant-isolated production backend.
+        # persist tenant identity. Runtime callers pass user_id explicitly; None stays
+        # supported only for inherited legacy internals such as enqueue_retry().
         del user_id
         super().bump_metric(key, amount, as_average=as_average)
 
-    def record_search_latency(self, ms: float, *, user_id: str) -> None:
+    def record_search_latency(self, ms: float, *, user_id: str | None = None) -> None:
         self.bump_metric("average_search_latency_ms", ms, user_id=user_id, as_average=True)
