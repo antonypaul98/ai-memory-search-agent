@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # Lexical search/index persistence. SQLite is only supported for the local
     # unauthenticated profile because its historical FTS5 schema lacks user_id.
     fts_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    # Semantic/query response cache persistence and its version counters move as
+    # one unit so Postgres selection cannot retain hidden SQLite cache writes.
+    semantic_cache_store_backend: Literal["sqlite", "postgres"] = "sqlite"
     jobs_enabled: bool = True
     # F-35/GAP-01: keep the historical single-process behavior by default,
     # while allowing API-only processes to avoid spawning duplicate workers.
@@ -151,7 +154,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Return a cached Settings instance (singleton).
-
     @lru_cache ensures we only parse .env once per process.
     Tests can clear this cache and inject alternate settings.
     """
