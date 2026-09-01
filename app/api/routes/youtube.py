@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.auth import get_current_user
 from app.config import Settings, get_settings
-from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.user import UserPublic
 from app.models.youtube_memory import (
     RelatedMemoriesResponse,
     YouTubeDiagnostics,
-    YouTubeMemory,
     YouTubeMemoryDetail,
 )
 from app.services.ingest_service import IngestService
@@ -21,15 +22,15 @@ from app.services.youtube_related_service import YouTubeRelatedService
 router = APIRouter(prefix="/youtube", tags=["youtube"])
 
 
-def _store(settings: Settings = Depends(get_settings)) -> YouTubeMemoryStore:
-    return YouTubeMemoryStore(settings)
+def _store(settings: Settings = Depends(get_settings)) -> Any:
+    return get_youtube_memory_store(settings)
 
 
 @router.get("/memories/{video_id}", response_model=YouTubeMemoryDetail)
 def get_youtube_memory(
     video_id: str,
     user: UserPublic = Depends(get_current_user),
-    store: YouTubeMemoryStore = Depends(_store),
+    store: Any = Depends(_store),
 ) -> YouTubeMemoryDetail:
     memory = store.get(video_id, user_id=user.user_id)
     if not memory:
@@ -48,10 +49,9 @@ def related_youtube_memories(
 @router.get("/diagnostics", response_model=YouTubeDiagnostics)
 def youtube_diagnostics(
     user: UserPublic = Depends(get_current_user),
-    store: YouTubeMemoryStore = Depends(_store),
+    store: Any = Depends(_store),
 ) -> YouTubeDiagnostics:
-    _ = user
-    diag = store.diagnostics()
+    diag = store.diagnostics(user_id=user.user_id)
     health = get_youtube_connector().health()
     diag.healthy = health.healthy
     return diag
@@ -60,11 +60,11 @@ def youtube_diagnostics(
 @router.post("/retry-queue/process")
 def process_retry_queue(
     user: UserPublic = Depends(get_current_user),
-    store: YouTubeMemoryStore = Depends(_store),
+    store: Any = Depends(_store),
     settings: Settings = Depends(get_settings),
 ) -> dict:
     """Process due connector retries for the current user (idempotent re-ingest)."""
-    due = [r for r in store.claim_due_retries(limit=10) if r["user_id"] == user.user_id]
+    due = store.claim_due_retries(user_id=user.user_id, limit=10)
     ingest = IngestService(settings=settings)
     processed = 0
     succeeded = 0
@@ -77,12 +77,7 @@ def process_retry_queue(
         )
         if result.success:
             succeeded += 1
-            # Mark dead_lettered=0 attempt complete by bumping attempts out via dead letter clear
-            with __import__("app.db.schema", fromlist=["get_connection"]).get_connection(settings) as conn:
-                conn.execute(
-                    "DELETE FROM connector_retry_queue WHERE id = ?",
-                    (row["id"],),
-                )
+            store.complete_retry(user_id=user.user_id, retry_id=int(row["id"]))
         else:
             store.enqueue_retry(
                 user_id=user.user_id,
