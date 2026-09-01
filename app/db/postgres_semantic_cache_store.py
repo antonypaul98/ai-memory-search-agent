@@ -1,8 +1,8 @@
-"""Tenant-scoped Postgres persistence primitive for semantic/query cache state.
+"""Tenant-scoped Postgres persistence for semantic/query cache state.
 
-This module is deliberately storage-only. Production routing remains on the historical
-SQLite cache until backend selection, version-counter wiring, and migration are validated.
 Credentials are resolved by the shared Postgres runtime and are never persisted here.
+Cache rows and the version metadata that invalidate them live in the same backend so a
+Postgres production profile cannot silently retain SQLite cache writes.
 """
 
 from __future__ import annotations
@@ -172,6 +172,38 @@ class PostgresSemanticCacheStore:
                 (user_id, query_type, memory_index_version, preference_version, current),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def stats(self, *, user_id: str, now: datetime | None = None) -> dict[str, Any]:
+        """Return tenant-only aggregate counts without cached question/answer content."""
+        self._require_user(user_id)
+        current = now or datetime.now(timezone.utc)
+        with self._connection_factory() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE expires_at > %s) AS active,
+                       COUNT(*) FILTER (WHERE expires_at <= %s) AS expired
+                FROM semantic_cache
+                WHERE user_id = %s
+                """,
+                (current, current, user_id),
+            ).fetchone()
+            by_type_rows = conn.execute(
+                """
+                SELECT query_type, COUNT(*) AS count
+                FROM semantic_cache
+                WHERE user_id = %s AND expires_at > %s
+                GROUP BY query_type
+                ORDER BY query_type
+                """,
+                (user_id, current),
+            ).fetchall()
+        return {
+            "total": int(row["total"] or 0),
+            "active": int(row["active"] or 0),
+            "expired": int(row["expired"] or 0),
+            "active_by_query_type": {str(item["query_type"]): int(item["count"]) for item in by_type_rows},
+        }
 
     def invalidate(self, *, user_id: str, query_type: str | None = None) -> int:
         self._require_user(user_id)

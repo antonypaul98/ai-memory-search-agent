@@ -19,7 +19,8 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Ingestion resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
 - Safe lexical backfill tooling previews by default, requires explicit `--apply`, opens the SQLite source read-only, requires the operator to supply the exact tenant because the legacy FTS table has no tenant column, copies documents in deterministic order, and never overwrites an existing `(user_id, doc_id)` target row on retry.
 - A read-only lexical retrieval-parity gate compares exact ordered document identities between the legacy SQLite source and tenant-scoped Postgres for an explicit operator-supplied query suite. It requires the exact tenant, returns a non-zero exit status on any identity/order mismatch, and never echoes query text or indexed content in its report.
-- A tenant-scoped Postgres semantic-cache persistence primitive exists with composite `(user_id, cache_key)` identity, tenant-filtered exact/candidate reads and invalidation, deterministic candidate ordering, and Postgres-owned cache version metadata. Its index-version bump invalidates cached answers transactionally. Production cache routing remains on SQLite until backend selection, invalidation wiring, and migration are separately validated.
+- A tenant-scoped Postgres semantic-cache persistence primitive exists with composite `(user_id, cache_key)` identity, tenant-filtered exact/candidate reads and invalidation, deterministic candidate ordering, and Postgres-owned cache version metadata.
+- Semantic-cache routing has explicit `SEMANTIC_CACHE_STORE_BACKEND=sqlite|postgres` selection. Reads, writes, tenant-scoped invalidation, aggregate stats, and memory-index version invalidation all use the selected backend together. Ingestion advances/invalidate the selected cache backend rather than calling SQLite cache metadata directly, preventing a Postgres cache profile from retaining hidden SQLite cache/version writes.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -29,6 +30,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - `CAPTURE_STORE_BACKEND=sqlite|postgres`
 - `BOOKMARK_STORE_BACKEND=sqlite|postgres`
 - `FTS_STORE_BACKEND=sqlite|postgres`
+- `SEMANTIC_CACHE_STORE_BACKEND=sqlite|postgres`
 - `JOB_STORE_BACKEND=sqlite|postgres`
 - `POSTGRES_DSN_ENV=DATABASE_URL`
 
@@ -88,7 +90,7 @@ The validator is read-only. It compares exact ordered `doc_id` results and exits
 ## Remaining before P-03 can be marked Complete
 
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
-- Add explicit semantic-cache backend selection and route reads/writes/invalidation/version bumps to the Postgres primitive without any hidden SQLite dependency; then add safe SQLite -> Postgres cache migration where retained cache transfer is desired.
+- Add safe SQLite -> Postgres semantic-cache migration where retained cache transfer is desired; deployments may also deliberately start with an empty Postgres cache because cached answers are disposable derived state.
 - Move any other remaining production relational stores that still require SQLite.
 - Extend migration/export/import tooling to the remaining SQLite-backed production state, including capture/bookmark/import-run state, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
