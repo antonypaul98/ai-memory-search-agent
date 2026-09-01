@@ -53,7 +53,7 @@ def test_youtube_store_selects_postgres_as_one_boundary(monkeypatch, tmp_path) -
         lambda selected: sentinel_factory,
     )
     monkeypatch.setattr(
-        "app.db.youtube_memory_store_factory.PostgresYouTubeMemoryStore",
+        "app.db.youtube_memory_store_factory.SelectedPostgresYouTubeMemoryStore",
         SentinelPostgresStore,
     )
 
