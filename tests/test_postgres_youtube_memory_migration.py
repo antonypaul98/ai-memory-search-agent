@@ -10,6 +10,7 @@ from app.db.postgres_youtube_memory_migration import (
     migrate_youtube_state_to_postgres,
     preview_youtube_state_migration,
 )
+from app.services.sources.youtube_connector import CONNECTOR_ID
 
 
 class _Cursor:
@@ -113,7 +114,7 @@ def _source_db(tmp_path, *, second_tenant: bool = False, metrics: bool = True) -
         conn.execute(
             "INSERT INTO connector_retry_queue (user_id,connector_id,external_id,url,payload_json,attempt_count,max_attempts,next_attempt_at,last_error,dead_lettered,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                "alice", "youtube", "v2", "https://youtu.be/v2", "{}", 3, 5,
+                "alice", CONNECTOR_ID, "v2", "https://youtu.be/v2", "{}", 3, 5,
                 "2026-01-02T00:00:00+00:00", "temporary failure", 1,
                 "2026-01-01T00:00:00+00:00", "2026-01-01T01:00:00+00:00",
             ),
@@ -121,7 +122,7 @@ def _source_db(tmp_path, *, second_tenant: bool = False, metrics: bool = True) -
         if metrics:
             conn.execute(
                 "INSERT INTO connector_metrics VALUES (?,?,?,?,?)",
-                ("transcript_success", "youtube", 4.0, 4, "2026-01-01T01:00:00+00:00"),
+                ("transcript_success", CONNECTOR_ID, 4.0, 4, "2026-01-01T01:00:00+00:00"),
             )
         if second_tenant:
             conn.execute(
@@ -211,7 +212,7 @@ def test_tenant_filter_is_safe_when_no_legacy_global_metrics_exist(tmp_path):
 
     assert report.memories_seen == 1
     assert target.memories == {("alice", "v1")}
-    assert target.retries == {("alice", "youtube", "v2")}
+    assert target.retries == {("alice", CONNECTOR_ID, "v2")}
     assert target.metrics == set()
 
 
