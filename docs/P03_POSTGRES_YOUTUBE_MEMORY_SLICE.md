@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **Persistence primitive and runtime routing complete; migration tooling in validation**
+Status: **YouTube persistence/routing/migration complete; remaining ingest-artifact Postgres primitive in validation**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persisted connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
@@ -21,10 +21,11 @@ The production-wide Postgres audit found that `YouTubeMemoryStore` still persist
 - The runtime constructor audit found no additional YouTube connector store construction in the source connector; network retrieval remains persistence-neutral.
 - SQLite remains the local/self-host default. Selecting Postgres requires environment-owned Postgres configuration and cannot silently fall back to SQLite when the DSN is missing.
 - Postgres credentials remain environment-owned through the shared Postgres connection factory; no DSN or secret is persisted.
+- Preview-first, source-read-only SQLite → Postgres migration is merged for YouTube memories, pipeline history, retry/dead-letter state, and connector metrics.
 
-## Migration tooling under validation
+## YouTube state migration
 
-The current acceptance slice adds `scripts/migrate_youtube_state_to_postgres.py` and a source-read-only migration primitive for the complete YouTube persistence boundary:
+`scripts/migrate_youtube_state_to_postgres.py` and its migration primitive cover the complete YouTube persistence boundary:
 
 - preview is the default; target writes require explicit `--apply`;
 - the SQLite source is opened read-only and all source state is captured from one snapshot before target writes;
@@ -56,14 +57,22 @@ Apply only after reviewing the preview and provisioning the environment-owned Po
 python scripts/migrate_youtube_state_to_postgres.py --apply
 ```
 
-## Remaining YouTube P-03 work
+## Remaining ingest-artifact relational state
 
-The migration slice must pass exact-head CI before it can be merged or treated as complete. After that, the audit continues with the separate direct SQLite ingestion helpers for transcript hashes and serialized capsule JSON. Those helpers must not be treated as migrated by this slice.
+The separate direct SQLite ingestion helpers are now isolated as the next P-03 boundary. The current slice adds a tenant-scoped Postgres primitive for both artifacts without prematurely changing runtime routing:
+
+- `ingest_artifacts` uses `(user_id, video_id)` as its primary identity;
+- transcript unchanged checks require tenant + video identity;
+- transcript-hash upserts update only the hash and never erase an existing capsule;
+- capsule-JSON upserts update only the capsule and never erase an existing transcript hash;
+- blank tenant/video identity or blank persisted payloads fail closed before writes.
+
+The existing SQLite call sites in `IngestService` / `store_capsule_json` remain active until the primitive passes exact-head CI. The next slice must route those calls through an explicit backend selector and then provide preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because the legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
 
 Production acceptance also still requires real-Postgres integration/rollback/tenant-isolation validation and proof that the supported multi-worker production profile performs no SQLite writes.
 
 ## Next acceptance slice
 
-After this migration tooling validates, move the remaining transcript-hash/capsule-JSON relational state off SQLite, then continue through the real-Postgres and zero-SQLite-write acceptance gates.
+After the ingest-artifact primitive validates, add fail-closed runtime selection/routing for transcript hashes and capsule JSON, followed by safe legacy migration. Then continue through the real-Postgres and zero-SQLite-write acceptance gates.
 
 This work does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis-specific voice/vision/gesture/spatial/holographic work.
