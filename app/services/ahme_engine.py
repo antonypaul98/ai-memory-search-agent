@@ -16,7 +16,7 @@ from app.core.embeddings import embed_query
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.repositories.memory_repository import MemoryRepository
 from app.models.metrics import SearchMetrics
-from app.services.fts_index import FTSIndex
+from app.services.fts_index_factory import get_fts_index
 from app.services.mmr import mmr_select
 from app.services.query_router import QueryType, route_query
 from app.services.rrf import reciprocal_rank_fusion
@@ -31,13 +31,13 @@ class AdaptiveHierarchicalMemoryEngine:
         settings: Settings | None = None,
         repository: MemoryRepository | None = None,
         store: HierarchicalStore | None = None,
-        fts: FTSIndex | None = None,
+        fts: Any | None = None,
         cache: SemanticCache | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._repository = repository or MemoryRepository(self._settings)
         self._store = store or HierarchicalStore(self._settings)
-        self._fts = fts or FTSIndex(self._settings)
+        self._fts = fts or get_fts_index(self._settings)
         self._cache = cache or SemanticCache(self._settings)
 
     def retrieve(
@@ -135,7 +135,12 @@ class AdaptiveHierarchicalMemoryEngine:
         metrics.evidence_chunks_searched = len(evidence_hits)
 
         tl0 = time.perf_counter()
-        lexical = self._fts.search(query, limit=20, video_ids=selected_videos or None)
+        lexical = self._fts.search(
+            query,
+            limit=20,
+            video_ids=selected_videos or None,
+            user_id=user_id,
+        )
         metrics.lexical_ms = (time.perf_counter() - tl0) * 1000
 
         tf0 = time.perf_counter()
