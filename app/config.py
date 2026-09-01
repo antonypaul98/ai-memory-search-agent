@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     # Semantic/query response cache persistence and its version counters move as
     # one unit so Postgres selection cannot retain hidden SQLite cache writes.
     semantic_cache_store_backend: Literal["sqlite", "postgres"] = "sqlite"
+    # YouTube memory, pipeline, retry/dead-letter and connector metrics are one
+    # persistence boundary. Selection is explicit so production cannot silently
+    # split operational state between Postgres and SQLite.
+    youtube_store_backend: Literal["sqlite", "postgres"] = "sqlite"
     jobs_enabled: bool = True
     # F-35/GAP-01: keep the historical single-process behavior by default,
     # while allowing API-only processes to avoid spawning duplicate workers.
