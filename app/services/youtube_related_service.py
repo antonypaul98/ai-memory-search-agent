@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.config import Settings, get_settings
 from app.core.embeddings import embed_query
 from app.db.repositories.memory_repository import MemoryRepository
-from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.youtube_memory import RelatedMemoriesResponse, RelatedMemoryItem
 from app.services.knowledge_graph_service import KnowledgeGraphService
 
@@ -14,12 +16,12 @@ class YouTubeRelatedService:
     def __init__(
         self,
         settings: Settings | None = None,
-        store: YouTubeMemoryStore | None = None,
+        store: Any | None = None,
         repository: MemoryRepository | None = None,
         graph: KnowledgeGraphService | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._store = store or YouTubeMemoryStore(self._settings)
+        self._store = store or get_youtube_memory_store(self._settings)
         self._repository = repository or MemoryRepository(self._settings)
         self._graph = graph or KnowledgeGraphService(settings=self._settings)
 
