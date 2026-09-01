@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.config import Settings, get_settings
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.youtube_memory import YouTubeMemory
 from app.services.deduplication_service import hash_text, hamming_distance, simhash64
 from app.utils.url_parser import parse_youtube_url
@@ -20,8 +21,8 @@ class DuplicateReport:
 
 
 class YouTubeDuplicateDetector:
-    def __init__(self, store: YouTubeMemoryStore | None = None) -> None:
-        self._store = store or YouTubeMemoryStore()
+    def __init__(self, store=None, settings: Settings | None = None) -> None:
+        self._store = store if store is not None else get_youtube_memory_store(settings or get_settings())
 
     def check_url(self, url: str, *, user_id: str) -> DuplicateReport:
         try:
