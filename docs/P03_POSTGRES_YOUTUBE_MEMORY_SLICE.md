@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **YouTube persistence/routing/migration complete; ingest-artifact primitive and selector implemented, runtime routing pending validation**
+Status: **YouTube persistence/routing/migration complete; ingest-artifact runtime routing implemented, legacy artifact migration and production acceptance pending**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persisted connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
@@ -59,7 +59,7 @@ python scripts/migrate_youtube_state_to_postgres.py --apply
 
 ## Remaining ingest-artifact relational state
 
-The remaining direct relational SQLite ingestion helpers are transcript hashes and serialized capsule JSON. The tenant-scoped Postgres primitive is merged and the selector slice now establishes one backend boundary for both artifacts:
+Transcript hashes and serialized capsule JSON now share the selected YouTube persistence boundary:
 
 - `ingest_artifacts` uses `(user_id, video_id)` as its primary identity;
 - transcript unchanged checks require tenant + video identity;
@@ -68,14 +68,16 @@ The remaining direct relational SQLite ingestion helpers are transcript hashes a
 - blank tenant/video identity or blank persisted payloads fail closed before writes;
 - `get_ingest_artifact_store()` deliberately reuses `youtube_store_backend` instead of introducing an independent switch, so production cannot select Postgres for YouTube memory while silently retaining SQLite artifact writes;
 - Postgres selection resolves the environment-owned DSN through the shared fail-closed runtime and never falls back to SQLite;
-- the SQLite adapter preserves the historical local/self-host tables behind the same tenant-explicit method signatures while Postgres remains the tenant-isolated production target.
+- the SQLite adapter preserves the historical local/self-host tables behind the same tenant-explicit method signatures while Postgres remains the tenant-isolated production target;
+- `IngestService` obtains the artifact store once through that selector and routes transcript unchanged checks, transcript hash writes, and serialized capsule JSON writes through tenant-explicit calls using the resolved owner identity;
+- the direct `content_hashes` / `memory_capsules_json` write helpers are no longer used by the ingestion runtime.
 
-Runtime call sites in `IngestService` / `store_capsule_json` are intentionally not changed in this selector prerequisite. After exact-head validation, the next slice routes transcript unchanged checks, transcript hash writes, and capsule JSON writes through the selector with explicit `user_id`, then provides preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because the legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
+The next slice is preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because those legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
 
-Production acceptance also still requires real-Postgres integration/rollback/tenant-isolation validation and proof that the supported multi-worker production profile performs no SQLite writes.
+Production acceptance also still requires real-Postgres integration/rollback/tenant-isolation validation and proof that the supported multi-worker production profile performs no SQLite writes. `IngestService` still invokes the general legacy SQLite schema migration during construction, so zero-SQLite-write production acceptance is **not** yet claimed by this runtime-routing slice.
 
 ## Next acceptance slice
 
-After the selector validates, route every ingest-artifact call site through it with tenant identity. Then add safe legacy artifact migration and continue through the real-Postgres and zero-SQLite-write acceptance gates.
+Add safe, idempotent legacy artifact migration with preview-first behavior and proven tenant attribution. Then continue through the real-Postgres and zero-SQLite-write acceptance gates.
 
 This work does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis-specific voice/vision/gesture/spatial/holographic work.
