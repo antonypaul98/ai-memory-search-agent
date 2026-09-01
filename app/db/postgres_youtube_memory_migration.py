@@ -102,9 +102,8 @@ def migrate_youtube_state_to_postgres(
     settings = settings or get_settings()
     user_id = _normalize_user_id(user_id)
 
-    # Read and validate the complete source snapshot before opening the target.
-    # This prevents an ambiguous global-metric source from producing a partial
-    # migration of memories/retries/pipeline history.
+    # Validate and read the complete source snapshot before opening the target.
+    # This prevents ambiguous global metrics from creating a partial migration.
     with _open_source_read_only(settings) as source:
         source.execute("BEGIN")
         tenant_ids = _source_tenants(source)
@@ -161,6 +160,7 @@ def migrate_youtube_state_to_postgres(
 
     with factory() as target:
         for row in memories:
+            values = tuple(row)
             cur = target.execute(
                 """
                 INSERT INTO youtube_memories (
@@ -175,7 +175,7 @@ def migrate_youtube_state_to_postgres(
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) ON CONFLICT(user_id, video_id) DO NOTHING
                 """,
-                (*tuple(row)[:28], bool(row[28]), *tuple(row)[29:]),
+                (*values[:28], bool(values[28]), *values[29:]),
             )
             memory_inserted += max(int(cur.rowcount or 0), 0)
 
@@ -202,6 +202,7 @@ def migrate_youtube_state_to_postgres(
             pipeline_inserted += 1
 
         for row in retries:
+            values = tuple(row)
             cur = target.execute(
                 """
                 INSERT INTO youtube_retry_queue (
@@ -210,7 +211,7 @@ def migrate_youtube_state_to_postgres(
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT(user_id, connector_id, external_id) DO NOTHING
                 """,
-                (*tuple(row)[1:9], bool(row[9]), *tuple(row)[10:]),
+                (*values[1:10], bool(values[10]), *values[11:]),
             )
             retry_inserted += max(int(cur.rowcount or 0), 0)
 
