@@ -31,7 +31,8 @@ from app.services.transcript_service import TranscriptService
 from app.utils.chunking import chunk_transcript
 from app.utils.url_parser import parse_youtube_url
 from app.services.universal_memory_service import UniversalMemoryService
-from app.db.youtube_memory_store import YouTubeMemoryStore, new_memory_id
+from app.db.youtube_memory_store import new_memory_id
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.youtube_memory import YouTubeMemory
 from app.services.sources.base_source import (
     ProcessingStatus,
@@ -84,7 +85,7 @@ class IngestService:
         self._hstore = HierarchicalStore(self._settings)
         self._fts = get_fts_index(self._settings)
         self._memory_os = UniversalMemoryService(self._settings)
-        self._yt_store = YouTubeMemoryStore(self._settings)
+        self._yt_store = get_youtube_memory_store(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt_store)
         migrate(self._settings)
 
@@ -285,7 +286,7 @@ class IngestService:
                 if isinstance(availability, TranscriptAvailability):
                     yt_memory.transcript_availability = availability
                 transcript = _fetch_transcript_cached(url, self._transcript)
-                self._yt_store.bump_metric("transcript_success", 1)
+                self._yt_store.bump_metric("transcript_success", 1, user_id=owner_id)
                 yt_memory.transcript_status = "retrieved"
                 yt_memory.transcript_availability = TranscriptAvailability.AVAILABLE
                 yt_memory.transcript_kind = (
@@ -293,7 +294,7 @@ class IngestService:
                 )
                 yt_memory.language = transcript.language or metadata.language
             except AppError as exc:
-                self._yt_store.bump_metric("transcript_failure", 1)
+                self._yt_store.bump_metric("transcript_failure", 1, user_id=owner_id)
                 yt_memory.transcript_status = "failed"
                 yt_memory.transcript_availability = TranscriptAvailability.UNAVAILABLE
                 yt_memory.processing_status = ProcessingStatus.FAILED
@@ -381,7 +382,7 @@ class IngestService:
                 section_texts = [f"{s.title}. {s.summary}" for s in capsule.sections] or [capsule.short_summary]
                 section_embs = embed_texts(section_texts, settings=self._settings)
             except Exception as exc:
-                self._yt_store.bump_metric("embedding_failures", 1)
+                self._yt_store.bump_metric("embedding_failures", 1, user_id=owner_id)
                 yt_memory.embedding_status = "failed"
                 yt_memory.processing_status = ProcessingStatus.FAILED
                 self._yt_store.upsert(yt_memory)
@@ -459,8 +460,11 @@ class IngestService:
             yt_memory.processing_status = ProcessingStatus.COMPLETED
             yt_memory.updated_at = _iso_now()
             self._yt_store.upsert(yt_memory)
-            self._yt_store.bump_metric("videos_saved", 1)
-            self._yt_store.bump_metric("average_indexing_ms", _elapsed(started) or 0.0, as_average=True)
+            self._yt_store.bump_metric("videos_saved", 1, user_id=owner_id)
+            self._yt_store.bump_metric(
+                "average_indexing_ms", _elapsed(started) or 0.0,
+                user_id=owner_id, as_average=True,
+            )
             try:
                 from app.services.cross_duplicate_service import CrossConnectorDuplicateDetector
 
