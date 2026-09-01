@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **YouTube persistence/routing/migration complete; remaining ingest-artifact Postgres primitive in validation**
+Status: **YouTube persistence/routing/migration complete; ingest-artifact primitive and selector implemented, runtime routing pending validation**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persisted connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
@@ -59,20 +59,23 @@ python scripts/migrate_youtube_state_to_postgres.py --apply
 
 ## Remaining ingest-artifact relational state
 
-The separate direct SQLite ingestion helpers are now isolated as the next P-03 boundary. The current slice adds a tenant-scoped Postgres primitive for both artifacts without prematurely changing runtime routing:
+The remaining direct relational SQLite ingestion helpers are transcript hashes and serialized capsule JSON. The tenant-scoped Postgres primitive is merged and the selector slice now establishes one backend boundary for both artifacts:
 
 - `ingest_artifacts` uses `(user_id, video_id)` as its primary identity;
 - transcript unchanged checks require tenant + video identity;
 - transcript-hash upserts update only the hash and never erase an existing capsule;
 - capsule-JSON upserts update only the capsule and never erase an existing transcript hash;
-- blank tenant/video identity or blank persisted payloads fail closed before writes.
+- blank tenant/video identity or blank persisted payloads fail closed before writes;
+- `get_ingest_artifact_store()` deliberately reuses `youtube_store_backend` instead of introducing an independent switch, so production cannot select Postgres for YouTube memory while silently retaining SQLite artifact writes;
+- Postgres selection resolves the environment-owned DSN through the shared fail-closed runtime and never falls back to SQLite;
+- the SQLite adapter preserves the historical local/self-host tables behind the same tenant-explicit method signatures while Postgres remains the tenant-isolated production target.
 
-The existing SQLite call sites in `IngestService` / `store_capsule_json` remain active until the primitive passes exact-head CI. The next slice must route those calls through an explicit backend selector and then provide preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because the legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
+Runtime call sites in `IngestService` / `store_capsule_json` are intentionally not changed in this selector prerequisite. After exact-head validation, the next slice routes transcript unchanged checks, transcript hash writes, and capsule JSON writes through the selector with explicit `user_id`, then provides preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because the legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
 
 Production acceptance also still requires real-Postgres integration/rollback/tenant-isolation validation and proof that the supported multi-worker production profile performs no SQLite writes.
 
 ## Next acceptance slice
 
-After the ingest-artifact primitive validates, add fail-closed runtime selection/routing for transcript hashes and capsule JSON, followed by safe legacy migration. Then continue through the real-Postgres and zero-SQLite-write acceptance gates.
+After the selector validates, route every ingest-artifact call site through it with tenant identity. Then add safe legacy artifact migration and continue through the real-Postgres and zero-SQLite-write acceptance gates.
 
 This work does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis-specific voice/vision/gesture/spatial/holographic work.
