@@ -7,11 +7,15 @@ shape so runtime services can preserve tenant identity without backend condition
 
 from __future__ import annotations
 
+from typing import Any
+
+from app.db.schema import get_connection
 from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.services.sources.youtube_connector import CONNECTOR_ID
 
 
 class SQLiteYouTubeMemoryStore(YouTubeMemoryStore):
-    """Legacy SQLite store accepting tenant-explicit selected-store metric calls."""
+    """Legacy SQLite store accepting tenant-explicit selected-store calls."""
 
     def bump_metric(
         self,
@@ -29,3 +33,38 @@ class SQLiteYouTubeMemoryStore(YouTubeMemoryStore):
 
     def record_search_latency(self, ms: float, *, user_id: str | None = None) -> None:
         self.bump_metric("average_search_latency_ms", ms, user_id=user_id, as_average=True)
+
+    def claim_due_retries(self, *, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Claim only retries owned by the requested tenant."""
+        from app.db.youtube_memory_store import _utc_now
+
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM connector_retry_queue
+                WHERE user_id = ? AND connector_id = ? AND dead_lettered = 0
+                  AND next_attempt_at <= ?
+                ORDER BY next_attempt_at ASC, id ASC LIMIT ?
+                """,
+                (user_id, CONNECTOR_ID, _utc_now(), limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def complete_retry(self, *, user_id: str, retry_id: int) -> bool:
+        """Delete a successful retry only when it belongs to the exact tenant."""
+        with get_connection(self._settings) as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM connector_retry_queue
+                WHERE id = ? AND user_id = ? AND connector_id = ?
+                """,
+                (retry_id, user_id, CONNECTOR_ID),
+            )
+            return bool(cursor.rowcount)
+
+    def diagnostics(self, *, user_id: str):
+        # SQLite is the legacy local/self-host backend and its metric table is global.
+        # Accept the selected-store tenant-explicit signature without pretending those
+        # historical counters are tenant-isolated. Postgres is the production target.
+        del user_id
+        return super().diagnostics()
