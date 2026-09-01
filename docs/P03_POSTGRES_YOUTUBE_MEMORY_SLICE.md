@@ -14,6 +14,7 @@ The production-wide Postgres audit found that `YouTubeMemoryStore` still persist
 - Per-tenant connector metrics and diagnostics; metrics cannot aggregate one user's state into another user's counters.
 - Every Postgres operational read and mutation includes tenant identity rather than copying the legacy unscoped SQLite diagnostic/retry behavior forward.
 - Explicit `youtube_store_backend=sqlite|postgres` configuration and one fail-closed selector for the complete YouTube memory/operational store boundary.
+- The selector's SQLite implementation accepts tenant-explicit metric calls, allowing runtime services to preserve tenant identity without backend-specific branching; legacy SQLite metrics remain local/global and Postgres remains the tenant-isolated production target.
 - `YouTubeRelatedService` now obtains its YouTube memory store through the explicit selector while preserving explicit store injection for tests/callers.
 - SQLite remains the local/self-host default. Selecting Postgres requires environment-owned Postgres configuration and cannot silently fall back to SQLite when the DSN is missing.
 - Postgres credentials remain environment-owned through the shared Postgres connection factory; no DSN or secret is persisted.
@@ -28,6 +29,6 @@ The audit also identified separate direct SQLite ingestion helpers for transcrip
 
 ## Next acceptance slice
 
-Route `IngestService` through the selector and pass tenant identity to every operational metric call. Then add the backend-neutral tenant-scoped retry completion needed to route the YouTube API dependency safely, finish remaining direct constructors, and add safe idempotent SQLite-to-Postgres migration tooling before enabling the Postgres profile for existing deployments. After that, continue the audit for transcript-hash/capsule-JSON state and the remaining real-Postgres/zero-SQLite-write acceptance gates.
+Route `IngestService` through the selector and pass tenant identity to every operational metric call, now that both selected backends accept that caller contract. Then add the backend-neutral tenant-scoped retry completion needed to route the YouTube API dependency safely, finish remaining direct constructors, and add safe idempotent SQLite-to-Postgres migration tooling before enabling the Postgres profile for existing deployments. After that, continue the audit for transcript-hash/capsule-JSON state and the remaining real-Postgres/zero-SQLite-write acceptance gates.
 
 This work does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis-specific voice/vision/gesture/spatial/holographic work.
