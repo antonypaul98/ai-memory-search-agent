@@ -125,3 +125,93 @@ def test_blank_content_hash_never_queries_target():
 
     assert store.get_by_content_hash("", user_id="tenant-a") is None
     assert len(statements) == schema_statement_count
+
+
+def test_operational_schema_makes_retry_metrics_and_pipeline_tenant_scoped():
+    statements = []
+    PostgresYouTubeMemoryStore(lambda: FakeConnection(statements))
+
+    sql = "\n".join(statement for statement, _ in statements)
+    assert "idx_youtube_pipeline_tenant_run" in sql
+    assert "ON youtube_pipeline_runs(user_id, run_id, id)" in sql
+    assert "UNIQUE(user_id, connector_id, external_id)" in sql
+    assert "idx_youtube_retry_tenant_due" in sql
+    assert "PRIMARY KEY (user_id, metric_key, connector_id)" in sql
+
+
+def test_pipeline_stage_read_requires_exact_tenant():
+    statements = []
+    connections = iter(
+        [
+            FakeConnection(statements),
+            FakeConnection(statements, [FakeResult(many=[])]),
+        ]
+    )
+    store = PostgresYouTubeMemoryStore(lambda: next(connections))
+
+    assert store.list_pipeline_stages("run-1", user_id="tenant-b") == []
+    statement, params = statements[-1]
+    assert "WHERE user_id = %s AND run_id = %s ORDER BY id" in statement
+    assert params == ("tenant-b", "run-1")
+
+
+def test_retry_claim_is_tenant_and_connector_scoped_and_deterministic():
+    statements = []
+    connections = iter(
+        [
+            FakeConnection(statements),
+            FakeConnection(statements, [FakeResult(many=[])]),
+        ]
+    )
+    store = PostgresYouTubeMemoryStore(lambda: next(connections))
+
+    assert store.claim_due_retries(user_id="tenant-a", limit=7) == []
+    statement, params = statements[-1]
+    assert "WHERE user_id = %s AND connector_id = %s AND dead_lettered = FALSE" in statement
+    assert "ORDER BY next_attempt_at ASC, id ASC LIMIT %s" in statement
+    assert params[0] == "tenant-a"
+    assert params[-1] == 7
+
+
+def test_metric_read_and_write_identity_include_tenant():
+    statements = []
+    connections = iter(
+        [
+            FakeConnection(statements),
+            FakeConnection(statements, [FakeResult(one=None)]),
+        ]
+    )
+    store = PostgresYouTubeMemoryStore(lambda: next(connections))
+
+    store.bump_metric("retry_count", 1, user_id="tenant-b")
+    select_sql, select_params = statements[-2]
+    insert_sql, insert_params = statements[-1]
+    assert "WHERE user_id = %s AND metric_key = %s AND connector_id = %s" in select_sql
+    assert select_params[0:2] == ("tenant-b", "retry_count")
+    assert "INSERT INTO youtube_connector_metrics" in insert_sql
+    assert insert_params[0:2] == ("tenant-b", "retry_count")
+
+
+def test_diagnostics_counts_are_tenant_scoped():
+    statements = []
+    connections = iter(
+        [
+            FakeConnection(statements),
+            FakeConnection(
+                statements,
+                [
+                    FakeResult(one={"c": 2}),
+                    FakeResult(one={"c": 1}),
+                    FakeResult(one={"c": 0}),
+                    FakeResult(many=[]),
+                ],
+            ),
+        ]
+    )
+    store = PostgresYouTubeMemoryStore(lambda: next(connections))
+
+    diagnostics = store.diagnostics(user_id="tenant-a")
+    assert diagnostics.videos_saved == 2
+    diagnostic_sql = "\n".join(statement for statement, _ in statements[-4:])
+    assert "youtube_memories WHERE user_id = %s" in diagnostic_sql
+    assert diagnostic_sql.count("user_id = %s") >= 4
