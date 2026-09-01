@@ -24,7 +24,7 @@ from app.db.schema import bump_index_version, get_connection, migrate
 from app.services.capsule_service import build_capsule_with_optional_llm
 from app.services.deduplication_service import dedupe_chunk_texts, hash_text
 from app.services.enrichment_service import enrich_video
-from app.services.fts_index import FTSIndex
+from app.services.fts_index_factory import get_fts_index
 from app.services.metadata_service import MetadataService
 from app.services.transcript_service import TranscriptService
 from app.utils.chunking import chunk_transcript
@@ -81,7 +81,7 @@ class IngestService:
         self._repository = repository or MemoryRepository(self._settings)
         self._registry = registry or get_video_registry(self._settings)
         self._hstore = HierarchicalStore(self._settings)
-        self._fts = FTSIndex(self._settings)
+        self._fts = get_fts_index(self._settings)
         self._memory_os = UniversalMemoryService(self._settings)
         self._yt_store = YouTubeMemoryStore(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt_store)
@@ -395,7 +395,7 @@ class IngestService:
 
             record(IngestStage.STORING)
             self._hstore.delete_video(metadata.video_id)
-            self._fts.delete_video(metadata.video_id)
+            self._fts.delete_video(metadata.video_id, user_id=owner_id)
             chunk_count = self._repository.upsert_chunks(
                 video_id=metadata.video_id, user_id=owner_id, url=metadata.webpage_url,
                 title=metadata.title, channel=metadata.channel, thumbnail=metadata.thumbnail,
@@ -417,18 +417,21 @@ class IngestService:
                     video_id=metadata.video_id, level="capsule",
                     doc_id=f"capsule_{metadata.video_id}", title=capsule.title,
                     body=f"{capsule.short_summary} {' '.join(capsule.topics)}",
+                    user_id=owner_id,
                 )
                 for idx, section in enumerate(capsule.sections):
                     self._fts.upsert(
                         video_id=metadata.video_id, level="section",
                         doc_id=f"section_{metadata.video_id}_{idx}",
                         title=section.title, body=section.summary,
+                        user_id=owner_id,
                     )
                 for chunk in chunks:
                     self._fts.upsert(
                         video_id=metadata.video_id, level="evidence",
                         doc_id=f"youtube_{metadata.video_id}_{chunk.chunk_index}",
                         title=metadata.title, body=chunk.text,
+                        user_id=owner_id,
                     )
 
             _store_transcript_hash(self._settings, metadata.video_id, transcript_hash)
