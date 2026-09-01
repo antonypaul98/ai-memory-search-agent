@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **Persistence primitive complete; runtime routing not yet enabled**
+Status: **Persistence primitive complete; explicit selector added; runtime call-site routing remains**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persists connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
@@ -12,18 +12,21 @@ The production-wide Postgres audit found that `YouTubeMemoryStore` still persist
 - Tenant-scoped pipeline-stage history using `(user_id, run_id)` read identity.
 - Tenant-scoped retry/dead-letter state with deterministic `(next_attempt_at, id)` due ordering and `(user_id, connector_id, external_id)` uniqueness.
 - Per-tenant connector metrics and diagnostics; metrics cannot aggregate one user's state into another user's counters.
-- Every operational read and mutation includes tenant identity rather than copying the legacy unscoped SQLite diagnostic/retry behavior forward.
-- Existing SQLite behavior remains the local/self-host default; no runtime routing changes occur in this slice.
+- Every Postgres operational read and mutation includes tenant identity rather than copying the legacy unscoped SQLite diagnostic/retry behavior forward.
+- Explicit `youtube_store_backend=sqlite|postgres` configuration and one fail-closed selector for the complete YouTube memory/operational store boundary.
+- SQLite remains the local/self-host default. Selecting Postgres requires environment-owned Postgres configuration and cannot silently fall back to SQLite when the DSN is missing.
 - Postgres credentials remain environment-owned through the shared Postgres connection factory; no DSN or secret is persisted.
 
-## Deliberately not yet routed
+## Runtime routing still required
 
-The runtime must not switch only part of `YouTubeMemoryStore`. Core memory rows, pipeline telemetry, retry/dead-letter state, and metrics/diagnostics need one fail-closed backend selection so a claimed Postgres production profile cannot silently continue writing SQLite.
+The selector is intentionally isolated before changing existing runtime construction sites. `IngestService` and any remaining direct `YouTubeMemoryStore` constructors still need to be routed through `get_youtube_memory_store()` as one reviewed change. That routing must not switch only part of the store: core memory rows, pipeline telemetry, retry/dead-letter state, and metrics/diagnostics must move together so a claimed Postgres profile cannot silently continue writing SQLite.
+
+The legacy SQLite operational schema also predates the tenant-scoped Postgres contract: pipeline reads, due-retry claiming, and connector metrics/diagnostics contain unscoped behavior. Runtime routing must preserve the stricter tenant-explicit contract rather than weakening Postgres to match those legacy signatures.
 
 The audit also identified separate direct SQLite ingestion helpers for transcript hashes and serialized capsule JSON. Those remain P-03 work and must not be treated as migrated by this slice.
 
 ## Next acceptance slice
 
-Add explicit fail-closed YouTube-store backend selection and route the complete YouTube memory/operational boundary together. Then add safe, idempotent SQLite-to-Postgres migration tooling before enabling the Postgres profile for existing deployments. After that, continue the audit for transcript-hash/capsule-JSON state and the remaining real-Postgres/zero-SQLite-write acceptance gates.
+Route all runtime YouTube-store construction through the explicit selector and update operational call sites to preserve tenant identity. Then add safe, idempotent SQLite-to-Postgres migration tooling before enabling the Postgres profile for existing deployments. After that, continue the audit for transcript-hash/capsule-JSON state and the remaining real-Postgres/zero-SQLite-write acceptance gates.
 
 This work does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis-specific voice/vision/gesture/spatial/holographic work.
