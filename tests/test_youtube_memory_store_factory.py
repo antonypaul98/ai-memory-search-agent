@@ -4,7 +4,6 @@ import pytest
 
 from app.config import Settings
 from app.db.postgres_runtime import PostgresConfigurationError
-from app.db.postgres_youtube_memory_store import PostgresYouTubeMemoryStore
 from app.db.youtube_memory_store import YouTubeMemoryStore
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
 
@@ -24,15 +23,23 @@ def test_youtube_store_selects_postgres_as_one_boundary(monkeypatch, tmp_path) -
     )
     sentinel_factory = lambda: None
 
+    class SentinelPostgresStore:
+        def __init__(self, connection_factory) -> None:
+            self.connection_factory = connection_factory
+
     monkeypatch.setattr(
         "app.db.youtube_memory_store_factory.get_postgres_connection_factory",
         lambda selected: sentinel_factory,
     )
+    monkeypatch.setattr(
+        "app.db.youtube_memory_store_factory.PostgresYouTubeMemoryStore",
+        SentinelPostgresStore,
+    )
 
     store = get_youtube_memory_store(settings)
 
-    assert isinstance(store, PostgresYouTubeMemoryStore)
-    assert store._connection_factory is sentinel_factory
+    assert isinstance(store, SentinelPostgresStore)
+    assert store.connection_factory is sentinel_factory
     assert not (tmp_path / "memory.db").exists()
 
 
