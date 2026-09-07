@@ -78,7 +78,7 @@ def test_ingest_routes_all_fts_mutations_with_resolved_tenant(tmp_path) -> None:
         )
 
     # Keep this regression focused on lexical routing rather than hierarchical
-    # persistence or canonical-memory side effects.
+    # persistence, ingest-artifact persistence, or canonical-memory side effects.
     service._hstore = MagicMock()
     service._memory_os = MagicMock()
 
@@ -87,7 +87,8 @@ def test_ingest_routes_all_fts_mutations_with_resolved_tenant(tmp_path) -> None:
 
     with (
         patch("app.services.ingest_service.embed_texts", side_effect=fake_embed),
-        patch("app.services.ingest_service.store_capsule_json"),
+        patch.object(service._artifact_store, "store_capsule_json"),
+        patch.object(service._artifact_store, "store_transcript_hash"),
     ):
         response = service.ingest_batch(
             ["https://www.youtube.com/watch?v=abc12345678"],

@@ -15,31 +15,32 @@ from enum import Enum
 from app.config import Settings, get_settings
 from app.core.embeddings import embed_texts
 from app.core.exceptions import AppError, InvalidYouTubeURLError
+from app.db.hierarchical_store import HierarchicalStore
+from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.repositories.memory_repository import MemoryRepository
+from app.db.schema import migrate
 from app.db.video_registry import VideoRegistry, get_video_registry
+from app.db.youtube_memory_store import new_memory_id
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.reflection import ReflectionInput
 from app.models.video import IngestResponse, IngestResultItem, IngestStageRecord, SourceType
-from app.db.hierarchical_store import HierarchicalStore, store_capsule_json
-from app.db.schema import get_connection, migrate
+from app.models.youtube_memory import YouTubeMemory
 from app.services.capsule_service import build_capsule_with_optional_llm
 from app.services.deduplication_service import dedupe_chunk_texts, hash_text
 from app.services.enrichment_service import enrich_video
 from app.services.fts_index_factory import get_fts_index
 from app.services.metadata_service import MetadataService
 from app.services.semantic_cache import SemanticCache
-from app.services.transcript_service import TranscriptService
-from app.utils.chunking import chunk_transcript
-from app.utils.url_parser import parse_youtube_url
-from app.services.universal_memory_service import UniversalMemoryService
-from app.db.youtube_memory_store import new_memory_id
-from app.db.youtube_memory_store_factory import get_youtube_memory_store
-from app.models.youtube_memory import YouTubeMemory
 from app.services.sources.base_source import (
     ProcessingStatus,
     TranscriptAvailability,
     TranscriptKind,
 )
+from app.services.transcript_service import TranscriptService
+from app.services.universal_memory_service import UniversalMemoryService
 from app.services.youtube_duplicate_service import YouTubeDuplicateDetector
+from app.utils.chunking import chunk_transcript
+from app.utils.url_parser import parse_youtube_url
 
 MAX_BATCH_SIZE = 20
 
@@ -86,6 +87,7 @@ class IngestService:
         self._fts = get_fts_index(self._settings)
         self._memory_os = UniversalMemoryService(self._settings)
         self._yt_store = get_youtube_memory_store(self._settings)
+        self._artifact_store = get_ingest_artifact_store(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt_store)
         migrate(self._settings)
 
@@ -315,7 +317,11 @@ class IngestService:
                 )
 
             transcript_hash = hash_text(transcript.full_text)
-            if not force_refresh and _transcript_unchanged(self._settings, video_id, transcript_hash):
+            if not force_refresh and self._artifact_store.transcript_unchanged(
+                user_id=owner_id,
+                video_id=video_id,
+                transcript_hash=transcript_hash,
+            ):
                 record(IngestStage.SKIPPED, "Transcript unchanged")
                 video = self._registry.get_video(video_id) or {}
                 self._memory_os.mark_existing_indexed(
@@ -413,7 +419,11 @@ class IngestService:
                 self._hstore.upsert_capsule(capsule, capsule_emb)
                 if capsule.sections:
                     self._hstore.upsert_sections(metadata.video_id, capsule.sections, section_embs)
-                store_capsule_json(self._settings, metadata.video_id, capsule)
+                self._artifact_store.store_capsule_json(
+                    user_id=owner_id,
+                    video_id=metadata.video_id,
+                    capsule_json=capsule.model_dump_json(),
+                )
                 self._fts.upsert(
                     video_id=metadata.video_id, level="capsule",
                     doc_id=f"capsule_{metadata.video_id}", title=capsule.title,
@@ -435,7 +445,11 @@ class IngestService:
                         user_id=owner_id,
                     )
 
-            _store_transcript_hash(self._settings, metadata.video_id, transcript_hash)
+            self._artifact_store.store_transcript_hash(
+                user_id=owner_id,
+                video_id=metadata.video_id,
+                transcript_hash=transcript_hash,
+            )
             SemanticCache(self._settings).bump_index_version_and_invalidate()
 
             self._registry.upsert_video(
@@ -589,27 +603,3 @@ def _merge_why_saved(existing: list[str], reflection: ReflectionInput | None) ->
 
 def _elapsed(started: float) -> float:
     return round((time.perf_counter() - started) * 1000, 1)
-
-
-def _transcript_unchanged(settings: Settings, video_id: str, transcript_hash: str) -> bool:
-    migrate(settings)
-    with get_connection(settings) as conn:
-        row = conn.execute(
-            "SELECT transcript_hash FROM content_hashes WHERE video_id = ?",
-            (video_id,),
-        ).fetchone()
-        return bool(row and row["transcript_hash"] == transcript_hash)
-
-
-def _store_transcript_hash(settings: Settings, video_id: str, transcript_hash: str) -> None:
-    from datetime import datetime, timezone
-
-    migrate(settings)
-    with get_connection(settings) as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO content_hashes (video_id, transcript_hash, normalized_path, updated_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (video_id, transcript_hash, "", datetime.now(timezone.utc).isoformat()),
-        )
