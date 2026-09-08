@@ -15,7 +15,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Safe capture-state migration tooling previews by default, requires explicit `--apply`, opens SQLite read-only, preserves the exact tenant and full request/status state, migrates in deterministic tenant/capture order, and never overwrites an existing Postgres capture row on retry.
 - Browser bookmark synchronization state can explicitly use Postgres, preserving tenant/browser identity, complete-snapshot removal semantics, and partial-snapshot safety.
 - Safe bookmark-state migration previews by default, requires explicit `--apply`, opens SQLite read-only, optionally scopes to one exact tenant, copies rows in deterministic tenant/browser/bookmark order, preserves sync/removal state, and never overwrites an existing `(user_id, browser_bookmark_id)` target row on retry.
-- Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped.
+- Import-run execution/history follows the Postgres bookmark production profile and keeps run/item reads, cancellation, updates, and history tenant-scoped. Safe import-run migration tooling is preview-first, source-read-only, deterministic, tenant-preserving, idempotent, and lets Postgres allocate target item IDs rather than copying SQLite autoincrement identities.
 - A tenant-scoped Postgres full-text index primitive exists with composite `(user_id, doc_id)` identity, explicit tenant filters on every query/mutation, GIN-backed search documents, and deterministic score/doc-id ordering.
 - Lexical retrieval has explicit `FTS_STORE_BACKEND=sqlite|postgres` selection and AHME forwards the resolved tenant identity to the selected index. The legacy SQLite FTS index remains available only for the unauthenticated local profile; authenticated SQLite lexical selection fails closed instead of risking an unscoped read.
 - Ingestion resolves the lexical index through the same configured backend and forwards the resolved tenant identity on delete and every capsule/section/evidence upsert, so Postgres production ingestion cannot silently mutate the legacy unscoped SQLite FTS table.
@@ -24,6 +24,9 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - A tenant-scoped Postgres semantic-cache persistence primitive exists with composite `(user_id, cache_key)` identity, tenant-filtered exact/candidate reads and invalidation, deterministic candidate ordering, and Postgres-owned cache version metadata.
 - Semantic-cache routing has explicit `SEMANTIC_CACHE_STORE_BACKEND=sqlite|postgres` selection. Reads, writes, tenant-scoped invalidation, aggregate stats, and memory-index version invalidation all use the selected backend together. Ingestion advances/invalidate the selected cache backend rather than calling SQLite cache metadata directly, preventing a Postgres cache profile from retaining hidden SQLite cache/version writes.
 - Optional retained semantic-cache migration is preview-first and source-read-only. It preserves tenant identity, copies only rows compatible with the target cache versions, inserts in deterministic tenant/cache-key order, and uses `ON CONFLICT(user_id, cache_key) DO NOTHING` so retries never replace target-side cache state. Deployments may instead deliberately start with an empty Postgres cache because cache rows are disposable derived state.
+- YouTube memories, pipeline/retry operational state, connector metrics, related reads, duplicate detection, retry completion, and ingestion can route through one fail-closed selected YouTube store. Safe legacy YouTube migration is preview-first, source-read-only, deterministic, tenant-aware, and refuses ambiguous attribution of legacy global connector metrics.
+- Transcript hashes and serialized hierarchical capsule JSON now route through the same fail-closed YouTube backend selection. Postgres uses deterministic `(user_id, video_id)` identity and tenant-scoped unchanged checks; transcript and capsule fields update independently so one artifact write cannot erase the other.
+- Safe ingest-artifact migration tooling is implemented in the current acceptance slice. It requires explicit tenant selection because the legacy artifact tables have no tenant column, checks any tenant-bearing YouTube/canonical source evidence for contradictions or multi-tenant ambiguity before contacting Postgres, opens SQLite read-only, processes rows deterministically, previews by default, and only fills target fields that are still null so stale SQLite data cannot replace existing Postgres artifact values.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -35,6 +38,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - `FTS_STORE_BACKEND=sqlite|postgres`
 - `SEMANTIC_CACHE_STORE_BACKEND=sqlite|postgres`
 - `JOB_STORE_BACKEND=sqlite|postgres`
+- `YOUTUBE_STORE_BACKEND=sqlite|postgres`
 - `POSTGRES_DSN_ENV=DATABASE_URL`
 
 Selecting Postgres is fail-closed. The application must not silently fall back to SQLite when a production store was explicitly requested. Authenticated lexical search additionally requires the tenant-scoped Postgres FTS backend because the historical SQLite FTS5 schema has no tenant column.
@@ -121,6 +125,22 @@ python scripts/migrate_fts_to_postgres.py --user-id <tenant-id> --apply
 
 The source is read-only. Existing Postgres rows are skipped with `ON CONFLICT(user_id, doc_id) DO NOTHING`, so retries cannot overwrite target-side documents produced after cutover.
 
+### Ingest-artifact migration
+
+Legacy transcript-hash and capsule tables have no tenant column. Preview only after selecting the exact tenant that owns the legacy source:
+
+```bash
+python scripts/migrate_ingest_artifacts_to_postgres.py --user-id <tenant-id>
+```
+
+After reviewing the count-only preview and provisioning the environment-owned Postgres DSN, explicitly apply:
+
+```bash
+python scripts/migrate_ingest_artifacts_to_postgres.py --user-id <tenant-id> --apply
+```
+
+Before any Postgres connection is opened, tenant-bearing `youtube_memories` and canonical YouTube `memory_records` evidence is checked. Evidence for multiple tenants, or evidence contradicting the selected tenant, aborts the migration. Rows with no tenant-bearing evidence rely on the operator's explicit tenant selection rather than an inferred default. Existing non-null target artifact fields remain authoritative; migration only fills missing fields. Reports contain counts and tenant identity only, never hashes, capsule JSON, URLs, DSNs, or credentials.
+
 ### Lexical retrieval parity
 
 After migration, validate a representative acceptance query suite before enabling Postgres lexical search for that deployment:
@@ -158,9 +178,8 @@ The source is opened read-only. Only rows whose index/preference versions match 
 
 ## Remaining before P-03 can be marked Complete
 
+- Validate and merge the ingest-artifact migration acceptance slice, then re-audit production code for any remaining relational SQLite writes.
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
-- Move any other remaining production relational stores that still require SQLite.
-- Extend migration/export/import tooling to the remaining SQLite-backed production state, including import-run history/items, with safe and idempotent transfer semantics.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
 
