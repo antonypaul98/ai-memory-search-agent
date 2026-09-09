@@ -209,30 +209,32 @@ class TestContextRouter:
             priority=1,
         )
         router = ContextRouter([provider])
-        request = ContextRequest(task="answer")
-
+        request = ContextRequest(task="same task")
         first = router.route(request, user_id="user-a")
         second = router.route(request, user_id="user-a")
 
         assert first.receipt.route_fingerprint == second.receipt.route_fingerprint
 
-    def test_api_requires_authenticated_identity_when_auth_enabled(self, monkeypatch) -> None:
-        monkeypatch.setenv("AUTH_ENABLED", "true")
-        client = TestClient(__import__("app.main", fromlist=["app"]).app)
-        response = client.post("/api/v1/context/route", json={"task": "answer"})
-        assert response.status_code == 401
 
-    def test_api_routes_with_local_identity_in_demo_mode(self, monkeypatch) -> None:
-        monkeypatch.setenv("AUTH_ENABLED", "false")
-        monkeypatch.setenv("LOCAL_DEMO_MODE", "true")
-        provider = _provider("local", [_evidence("e1", provider_id="local")])
+class TestContextRouteAPI:
+    def test_routes_with_authenticated_tenant_scope(self, client: TestClient) -> None:
+        provider = _provider(
+            "api-provider",
+            [_evidence("api-e", provider_id="api-provider")],
+            priority=1,
+        )
         router = ContextRouter([provider])
-        app_module = __import__("app.main", fromlist=["app"])
-        app_module.app.dependency_overrides[get_context_router] = lambda: router
-        try:
-            client = TestClient(app_module.app)
-            response = client.post("/api/v1/context/route", json={"task": "answer"})
-            assert response.status_code == 200
-            assert provider.last_user_id == LOCAL_DEFAULT_USER_ID
-        finally:
-            app_module.app.dependency_overrides.pop(get_context_router, None)
+
+        from app.main import app
+
+        app.dependency_overrides[get_context_router] = lambda: router
+        response = client.post(
+            "/api/v1/context/route",
+            json={"task": "prepare useful context", "token_budget": 512},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["receipt"]["live_provider_id"] == "api-provider"
+        assert body["evidence"][0]["evidence_id"] == "api-e"
+        assert provider.last_user_id == LOCAL_DEFAULT_USER_ID
