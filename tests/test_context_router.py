@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
@@ -160,7 +161,14 @@ class TestContextRouter:
         )
         trusted = _provider(
             "trusted",
-            [_evidence("fresh", provider_id="trusted", confidence=0.95)],
+            [
+                _evidence(
+                    "fresh",
+                    provider_id="trusted",
+                    confidence=0.95,
+                    observed_at=datetime.now(timezone.utc).isoformat(),
+                )
+            ],
             priority=2,
         )
         packet = ContextRouter([weak, trusted]).route(
