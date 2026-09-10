@@ -78,7 +78,9 @@ def validate_lexical_retrieval_parity(
     bounded_limit = max(1, min(int(limit), 100))
     settings = settings or get_settings()
     factory = connection_factory or get_postgres_connection_factory(settings)
-    postgres = PostgresFTSIndex(factory)
+    # The target schema must already exist after migration. Parity validation is
+    # deliberately read-only and must never create or alter Postgres objects.
+    postgres = PostgresFTSIndex(factory, ensure_schema=False)
 
     mismatches: list[LexicalParityMismatch] = []
     with _open_source_read_only(settings) as sqlite_conn:
