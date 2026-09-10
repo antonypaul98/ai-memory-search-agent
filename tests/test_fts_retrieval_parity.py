@@ -27,9 +27,11 @@ def _source_db(path) -> None:
 class _FakePostgresFTS:
     results: list[dict] = []
     seen_user_ids: list[str] = []
+    ensure_schema_values: list[bool] = []
 
-    def __init__(self, connection_factory) -> None:
+    def __init__(self, connection_factory, *, ensure_schema: bool = True) -> None:
         del connection_factory
+        self.ensure_schema_values.append(ensure_schema)
 
     def search(self, query: str, *, user_id: str, limit: int = 20, video_ids=None):
         del query, limit, video_ids
@@ -43,6 +45,7 @@ def test_parity_passes_for_exact_ordered_identity_match(tmp_path, monkeypatch):
     settings = Settings(sqlite_path=str(source))
     _FakePostgresFTS.results = [{"doc_id": "doc-a"}, {"doc_id": "doc-b"}]
     _FakePostgresFTS.seen_user_ids = []
+    _FakePostgresFTS.ensure_schema_values = []
     monkeypatch.setattr(parity, "PostgresFTSIndex", _FakePostgresFTS)
 
     report = parity.validate_lexical_retrieval_parity(
@@ -57,6 +60,7 @@ def test_parity_passes_for_exact_ordered_identity_match(tmp_path, monkeypatch):
     assert report.queries_matched == 1
     assert report.mismatches == ()
     assert _FakePostgresFTS.seen_user_ids == ["tenant-a"]
+    assert _FakePostgresFTS.ensure_schema_values == [False]
 
 
 def test_parity_fails_closed_on_order_or_identity_mismatch(tmp_path, monkeypatch):

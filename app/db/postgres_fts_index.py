@@ -15,9 +15,15 @@ from typing import Any
 class PostgresFTSIndex:
     """Postgres full-text index with deterministic, tenant-scoped retrieval."""
 
-    def __init__(self, connection_factory: Callable[[], Any]) -> None:
+    def __init__(
+        self,
+        connection_factory: Callable[[], Any],
+        *,
+        ensure_schema: bool = True,
+    ) -> None:
         self._connection_factory = connection_factory
-        self._ensure_schema()
+        if ensure_schema:
+            self._ensure_schema()
 
     def _ensure_schema(self) -> None:
         with self._connection_factory() as conn:
