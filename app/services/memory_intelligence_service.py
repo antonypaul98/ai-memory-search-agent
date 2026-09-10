@@ -16,7 +16,6 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
-from app.db.schema import get_connection, migrate
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store import YouTubeMemoryStore
 from app.models.capsule import MemoryCapsule
@@ -179,18 +178,15 @@ class MemoryIntelligenceService:
         )
 
         if metadata.channel:
-            # Recompute creator profile from all saved videos for this channel (idempotent).
             channel_videos = [
                 m
                 for m in self._yt.list_for_user(user_id, limit=500)
                 if m.channel == metadata.channel
             ]
             if not any(m.video_id == metadata.video_id for m in channel_videos):
-                # Current video may not be flushed yet — include metadata snapshot.
                 pass
             topics_set: list[str] = list(dict.fromkeys(topic_names))[:20]
             total_dur = sum(float(m.duration_sec or 0) for m in channel_videos)
-            # Ensure current video duration counted once
             if not any(m.video_id == metadata.video_id for m in channel_videos):
                 total_dur += float(metadata.duration or 0)
                 video_n = len(channel_videos) + 1
@@ -460,7 +456,6 @@ class MemoryIntelligenceService:
                     *(f"entity:{e}" for e in entities[:5]),
                 ],
             )
-            # Ensure every hit carries explanation on the nested result too
             enriched = item.model_copy(
                 update={
                     "related_video_ids": related_ids or item.related_video_ids,
@@ -589,7 +584,6 @@ class MemoryIntelligenceService:
                 edges=self._annotate_edges(edges, user_id),
                 node_count=len(vids),
             )
-        # Global: top edges across recent memories
         all_edges: list[LearningEdge] = []
         for mem in self._yt.list_for_user(user_id, limit=40):
             all_edges.extend(self._store.edges_for_video(mem.video_id, user_id=user_id, limit=10))
@@ -663,7 +657,6 @@ class MemoryIntelligenceService:
         beginner = [s for s in steps if s.level == RoadmapLevel.BEGINNER]
         intermediate = [s for s in steps if s.level == RoadmapLevel.INTERMEDIATE]
         advanced = [s for s in steps if s.level == RoadmapLevel.ADVANCED]
-        # Stable watch order: beginner → intermediate → advanced, then duration asc
         ordered = sorted(
             steps,
             key=lambda s: (
@@ -673,7 +666,6 @@ class MemoryIntelligenceService:
         )
         order_ids = [s.video_id for s in ordered]
 
-        # Missing prerequisites: assumes edges pointing into topic videos from outside
         missing: list[str] = []
         edges = self._store.edges_for_topic_videos(profile.video_ids, user_id=user_id, limit=100)
         assumed_topics: set[str] = set()
@@ -706,7 +698,6 @@ class MemoryIntelligenceService:
     # ── Feature 7: Concept capsules ─────────────────────────────────────
 
     def list_capsules(self, *, user_id: str, limit: int = 50) -> ConceptCapsuleListResponse:
-        # Ensure capsules exist for top topics
         for topic in self._store.list_topics(user_id, limit=20):
             self._refresh_concept_capsule(user_id=user_id, topic_name=topic.name)
         capsules = self._store.list_concept_capsules(user_id, limit=limit)
@@ -723,7 +714,6 @@ class MemoryIntelligenceService:
         seen_pairs: set[tuple[str, str]] = set()
 
         for mem in memories:
-            # Exact / near video duplicates
             report = self._dupes.check_memory(mem, user_id=user_id)
             if report.is_duplicate and report.duplicate_of:
                 pair = tuple(sorted([mem.video_id, report.duplicate_of]))
@@ -755,7 +745,6 @@ class MemoryIntelligenceService:
                 shared = sorted(topics & other_topics)
                 if len(shared) < 1:
                     continue
-                # Diversity from title similarity + shared topic ratio
                 title_sim = _token_jaccard(mem.title, other.title)
                 topic_overlap = len(shared) / max(len(topics | other_topics), 1)
                 if title_sim < 0.25 and topic_overlap < 0.4:
@@ -792,7 +781,6 @@ class MemoryIntelligenceService:
     # ── Feature 9: Creator intelligence ─────────────────────────────────
 
     def list_creators(self, *, user_id: str, limit: int = 50) -> CreatorListResponse:
-        # Refresh most-watched / most-useful from registry usage
         creators = self._store.list_creators(user_id, limit=limit)
         enriched: list[CreatorProfile] = []
         for c in creators:
@@ -814,7 +802,6 @@ class MemoryIntelligenceService:
                     most_useful = m.video_id
                 for t in self._store.topics_for_video(m.video_id, user_id=user_id):
                     overlap.add(t.name)
-            # Related creators: share topics
             related: list[str] = list(c.related_creators)
             for other in creators:
                 if other.creator_id == c.creator_id:
@@ -846,10 +833,12 @@ class MemoryIntelligenceService:
         topics = self._store.list_topics(user_id, limit=100)
         top_topics = topics[:10]
 
-        # Most saved concepts = topic names by memory_count
         most_saved = [t.name for t in topics[:15]]
 
-        # Most searched: agent_search_events + intelligence search events
+        # Canonical tenant-scoped intelligence search events are the sole
+        # search-history source. Agent/extension searches are mirrored into
+        # this stream at write time, so consulting the legacy SQLite table
+        # here would double-count those queries and bypass backend routing.
         search_counts: dict[str, int] = {}
         for ev in self._store.recent_events(user_id, event_type="search", limit=300):
             q = (ev.get("query") or "").strip().lower()
@@ -858,26 +847,10 @@ class MemoryIntelligenceService:
             for t in topics:
                 if t.normalized_name and t.normalized_name in q:
                     search_counts[t.name] = search_counts.get(t.name, 0) + 1
-        # Also agent_search_events
-        migrate(self._settings)
-        with get_connection(self._settings) as conn:
-            rows = conn.execute(
-                """
-                SELECT query FROM agent_search_events
-                WHERE user_id = ? ORDER BY created_at DESC LIMIT 300
-                """,
-                (user_id,),
-            ).fetchall()
-        for row in rows:
-            q = (row["query"] or "").lower()
-            for t in topics:
-                if t.normalized_name and t.normalized_name in q:
-                    search_counts[t.name] = search_counts.get(t.name, 0) + 1
         most_searched = [
             name for name, _ in sorted(search_counts.items(), key=lambda kv: kv[1], reverse=True)[:15]
         ]
 
-        # Forgotten: topics with last_seen older than 30 days and low search
         cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         forgotten = [
             t
@@ -885,11 +858,9 @@ class MemoryIntelligenceService:
             if t.last_seen_at < cutoff and t.name not in most_searched[:5]
         ][:10]
 
-        # Learning streak: consecutive calendar days with saves
         dates = self._store.save_dates(user_id)
         streak = _streak_days(dates)
 
-        # Growth series
         memory_growth = _growth_series(
             [m.saved_at for m in self._yt.list_for_user(user_id, limit=500) if m.saved_at]
         )
