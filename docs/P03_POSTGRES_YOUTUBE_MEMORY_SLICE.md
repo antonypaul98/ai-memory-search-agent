@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **YouTube persistence/routing/migration complete; ingest-artifact runtime routing implemented, legacy artifact migration and production acceptance pending**
+Status: **YouTube persistence/routing/migration complete; ingest-artifact runtime routing implemented, legacy artifact migration acceptance CI-validated; production-wide acceptance pending**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persisted connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
@@ -72,7 +72,7 @@ Transcript hashes and serialized capsule JSON now share the selected YouTube per
 - `IngestService` obtains the artifact store once through that selector and routes transcript unchanged checks, transcript hash writes, and serialized capsule JSON writes through tenant-explicit calls using the resolved owner identity;
 - the direct `content_hashes` / `memory_capsules_json` write helpers are no longer used by the ingestion runtime.
 
-The next slice is preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows. Because those legacy tables are keyed only by `video_id`, tenant ownership must be proven from canonical tenant-bearing records rather than guessed.
+Preview-first migration for legacy `content_hashes` and `memory_capsules_json` rows was merged in #163. The follow-up requires exact, exclusive tenant-bearing ownership proof for every artifact, rejects missing or malformed evidence, and reads artifacts plus proof from one SQLite snapshot. See `P03_POSTGRES_MIGRATION.md` for the operator contract. Production-wide P-03 acceptance remains open.
 
 Production acceptance also still requires real-Postgres integration/rollback/tenant-isolation validation and proof that the supported multi-worker production profile performs no SQLite writes. `IngestService` still invokes the general legacy SQLite schema migration during construction, so zero-SQLite-write production acceptance is **not** yet claimed by this runtime-routing slice.
 

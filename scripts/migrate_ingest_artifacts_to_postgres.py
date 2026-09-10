@@ -22,7 +22,7 @@ def _parser() -> argparse.ArgumentParser:
         description=(
             "Preview legacy transcript-hash/capsule rows or explicitly fill missing "
             "fields in the configured Postgres target. Legacy artifact rows have no "
-            "tenant column, so an exact tenant selection is required; contradictory "
+            "tenant column, so an exact tenant selection and ownership proof are required; missing or conflicting "
             "tenant-bearing source evidence fails closed."
         )
     )

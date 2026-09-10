@@ -193,3 +193,128 @@ def test_missing_source_fails_without_creating_database(tmp_path):
     with pytest.raises(FileNotFoundError, match="migration source does not exist"):
         preview_ingest_artifact_migration(Settings(sqlite_path=str(path)), user_id="tenant-a")
     assert not path.exists()
+
+
+@pytest.mark.parametrize("operation", ["preview", "apply"])
+@pytest.mark.parametrize("missing", ["tables", "hash", "capsule", "wrong-source"])
+def test_unproven_ownership_fails_closed(tmp_path, operation, missing):
+    path = _source(tmp_path)
+    with sqlite3.connect(path) as conn:
+        if missing == "tables":
+            conn.executescript("DROP TABLE youtube_memories; DROP TABLE memory_records;")
+        elif missing == "hash":
+            conn.execute("DELETE FROM youtube_memories WHERE video_id = 'video-b'")
+        elif missing == "capsule":
+            conn.execute("DELETE FROM memory_records")
+        else:
+            conn.execute("UPDATE memory_records SET source_type = 'web'")
+    factory = _Factory()
+    with pytest.raises(ValueError, match="no tenant-bearing proof"):
+        if operation == "preview":
+            preview_ingest_artifact_migration(Settings(sqlite_path=str(path)), user_id="tenant-a")
+        else:
+            migrate_ingest_artifacts_to_postgres(
+                Settings(sqlite_path=str(path)), user_id="tenant-a", connection_factory=factory
+            )
+    assert factory.connections == []
+
+
+@pytest.mark.parametrize("owner", [None, "", "  ", " tenant-a "])
+def test_invalid_evidence_cannot_be_ignored_or_normalized(tmp_path, owner):
+    path = _source(tmp_path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("ALTER TABLE youtube_memories RENAME TO old_memories")
+        conn.execute("CREATE TABLE youtube_memories (user_id, video_id TEXT)")
+        conn.execute("INSERT INTO youtube_memories SELECT user_id, video_id FROM old_memories")
+        conn.execute("INSERT INTO youtube_memories VALUES (?, 'video-a')", (owner,))
+    factory = _Factory()
+    with pytest.raises(ValueError, match="ownership evidence is invalid"):
+        migrate_ingest_artifacts_to_postgres(
+            Settings(sqlite_path=str(path)), user_id="tenant-a", connection_factory=factory
+        )
+    assert factory.connections == []
+
+
+@pytest.mark.parametrize("source_type", ["youtube", "youtube.v1"])
+def test_canonical_only_proof_and_conflicting_cross_table_proof(tmp_path, source_type):
+    path = _source(tmp_path)
+    with sqlite3.connect(path) as conn:
+        conn.execute(
+            "INSERT INTO memory_records SELECT memory_id, user_id, ?, video_id FROM youtube_memories",
+            (source_type,),
+        )
+        conn.execute("DELETE FROM youtube_memories")
+    assert preview_ingest_artifact_migration(
+        Settings(sqlite_path=str(path)), user_id="tenant-a"
+    ).distinct_videos == 3
+    with sqlite3.connect(path) as conn:
+        conn.execute("INSERT INTO youtube_memories VALUES ('conflict', 'tenant-b', 'video-a')")
+    factory = _Factory()
+    with pytest.raises(ValueError, match="ambiguous across multiple tenants"):
+        migrate_ingest_artifacts_to_postgres(
+            Settings(sqlite_path=str(path)), user_id="tenant-a", connection_factory=factory
+        )
+    assert factory.connections == []
+
+
+def test_artifacts_and_ownership_share_snapshot_and_connection_closes(tmp_path, monkeypatch):
+    import app.db.postgres_ingest_artifact_migration as migration
+
+    path = _source(tmp_path, owner="tenant-b")
+    with sqlite3.connect(path) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
+    original_read = migration._read_source_rows
+    opened = []
+
+    def concurrent_change(source):
+        rows = original_read(source)
+        opened.append(source)
+        # A writer commits after artifact reads but before ownership validation.
+        with sqlite3.connect(path) as writer:
+            writer.execute("UPDATE youtube_memories SET user_id = 'tenant-a'")
+            writer.execute("UPDATE memory_records SET user_id = 'tenant-a'")
+        return rows
+
+    monkeypatch.setattr(migration, "_read_source_rows", concurrent_change)
+    factory = _Factory()
+    with pytest.raises(ValueError, match="contradicts tenant-bearing"):
+        migrate_ingest_artifacts_to_postgres(
+            Settings(sqlite_path=str(path)), user_id="tenant-a", connection_factory=factory
+        )
+    assert factory.connections == []
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        opened[0].execute("SELECT 1")
+    monkeypatch.setattr(migration, "_read_source_rows", original_read)
+    assert preview_ingest_artifact_migration(
+        Settings(sqlite_path=str(path)), user_id="tenant-a"
+    ).distinct_videos == 3
+
+
+def test_cli_defaults_to_preview_and_apply_revalidates(tmp_path, monkeypatch, capsys):
+    import json
+    import sys
+    from scripts import migrate_ingest_artifacts_to_postgres as cli
+
+    path = _source(tmp_path)
+    monkeypatch.setattr(cli, "get_settings", lambda: Settings(sqlite_path=str(path)))
+    monkeypatch.setattr(sys, "argv", ["migration", "--user-id", "tenant-a"])
+    def unexpected_apply(*args, **kwargs):
+        pytest.fail("preview must not apply")
+    monkeypatch.setattr(cli, "migrate_ingest_artifacts_to_postgres", unexpected_apply)
+    assert cli.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "mode": "preview", "tenant": "tenant-a", "transcript_hashes": 2,
+        "capsules": 2, "distinct_videos": 3,
+    }
+    factory = _Factory()
+    def apply_after_change(settings, *, user_id):
+        with sqlite3.connect(path) as writer:
+            writer.execute("DELETE FROM memory_records")
+        return migrate_ingest_artifacts_to_postgres(
+            settings, user_id=user_id, connection_factory=factory
+        )
+    monkeypatch.setattr(cli, "migrate_ingest_artifacts_to_postgres", apply_after_change)
+    monkeypatch.setattr(sys, "argv", ["migration", "--user-id", "tenant-a", "--apply"])
+    with pytest.raises(ValueError, match="no tenant-bearing proof"):
+        cli.main()
+    assert factory.connections == []

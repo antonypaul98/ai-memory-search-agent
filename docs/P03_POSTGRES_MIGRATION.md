@@ -26,7 +26,7 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Optional retained semantic-cache migration is preview-first and source-read-only. It preserves tenant identity, copies only rows compatible with the target cache versions, inserts in deterministic tenant/cache-key order, and uses `ON CONFLICT(user_id, cache_key) DO NOTHING` so retries never replace target-side cache state. Deployments may instead deliberately start with an empty Postgres cache because cache rows are disposable derived state.
 - YouTube memories, pipeline/retry operational state, connector metrics, related reads, duplicate detection, retry completion, and ingestion can route through one fail-closed selected YouTube store. Safe legacy YouTube migration is preview-first, source-read-only, deterministic, tenant-aware, and refuses ambiguous attribution of legacy global connector metrics.
 - Transcript hashes and serialized hierarchical capsule JSON now route through the same fail-closed YouTube backend selection. Postgres uses deterministic `(user_id, video_id)` identity and tenant-scoped unchanged checks; transcript and capsule fields update independently so one artifact write cannot erase the other.
-- Safe ingest-artifact migration tooling is implemented in the current acceptance slice. It requires explicit tenant selection because the legacy artifact tables have no tenant column, checks any tenant-bearing YouTube/canonical source evidence for contradictions or multi-tenant ambiguity before contacting Postgres, opens SQLite read-only, processes rows deterministically, previews by default, and only fills target fields that are still null so stale SQLite data cannot replace existing Postgres artifact values.
+- Safe ingest-artifact migration tooling and its ownership-proof hardening are CI-validated in PR #166. It requires explicit tenant selection because the legacy artifact tables have no tenant column, requires matching tenant-bearing YouTube/canonical source evidence for every artifact and rejects missing, invalid, contradictory or multi-tenant ownership before contacting Postgres, opens SQLite read-only, processes rows deterministically, previews by default, and only fills target fields that are still null so stale SQLite data cannot replace existing Postgres artifact values.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
 ## Current configuration
@@ -139,7 +139,7 @@ After reviewing the count-only preview and provisioning the environment-owned Po
 python scripts/migrate_ingest_artifacts_to_postgres.py --user-id <tenant-id> --apply
 ```
 
-Before any Postgres connection is opened, tenant-bearing `youtube_memories` and canonical YouTube `memory_records` evidence is checked. Evidence for multiple tenants, or evidence contradicting the selected tenant, aborts the migration. Rows with no tenant-bearing evidence rely on the operator's explicit tenant selection rather than an inferred default. Existing non-null target artifact fields remain authoritative; migration only fills missing fields. Reports contain counts and tenant identity only, never hashes, capsule JSON, URLs, DSNs, or credentials.
+Before any Postgres connection is opened, tenant-bearing `youtube_memories` and canonical YouTube `memory_records` evidence is checked. Every artifact must have exact, exclusive ownership proof from these records. Missing evidence (including absent ownership tables), null/blank/malformed tenant IDs, evidence for multiple tenants, or evidence contradicting the selected tenant aborts the whole migration. Operator selection alone is never ownership proof. Both artifact tables and ownership records are read within one read-only SQLite transaction; apply revalidates its own snapshot even after a preview. Source connections close on success and failure. Existing non-null target artifact fields remain authoritative; migration only fills missing fields. Reports contain counts and tenant identity only, never hashes, capsule JSON, URLs, DSNs, or credentials.
 
 ### Lexical retrieval parity
 
@@ -176,9 +176,15 @@ python scripts/migrate_semantic_cache_to_postgres.py --apply
 
 The source is opened read-only. Only rows whose index/preference versions match the target cache versions are eligible. Existing `(user_id, cache_key)` rows are skipped rather than overwritten, so stale derived state cannot replace target-side cache entries. Reports contain counts only; cached questions, answers, embeddings, DSNs, and credentials are not printed.
 
+## Ingest-artifact acceptance evidence
+
+PR #166, commit `99519a12af0af8d935c5336ca045ea5789754912`, passed [CI run 34494127491](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34494127491): 791 Python tests with no skips, 27 extension tests, version consistency, and AHME benchmark smoke. `tests/test_postgres_ingest_artifact_migration_e2e.py` used the configured disposable Postgres service to prove whole-data-transaction rollback after hash writes, safe retries, preservation of existing target fields/timestamps, and isolation from another tenant with the same video ID. Schema provisioning remains a separate idempotent transaction.
+
+`tests/test_postgres_ingest_artifact_migration.py` covers source ownership rejection before any target connection, one SQLite snapshot under concurrent writes, closed source handles on rejection, and CLI preview/apply revalidation. No live production data was migrated.
+
 ## Remaining before P-03 can be marked Complete
 
-- Validate and merge the ingest-artifact migration acceptance slice, then re-audit production code for any remaining relational SQLite writes.
+- Re-audit production code for remaining relational SQLite writes. Ingest-artifact migration ownership, retry, rollback and tenant-isolation acceptance passed real-Postgres CI in PR #166; this does not establish production-wide SQLite retirement.
 - Run the lexical retrieval-parity gate against representative migrated state on a real Postgres service before enabling Postgres FTS for that migrated deployment.
 - Add production-profile integration validation against a real Postgres service, including rollback/failure behavior and tenant-isolation checks.
 - Prove the supported multi-worker production profile no longer depends on SQLite writes before SQLite can be retired from that profile.
