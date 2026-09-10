@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.db.intelligence_store import IntelligenceStore
 from app.db.schema import SCHEMA_VERSION, migrate
 from app.models.user import LOCAL_DEFAULT_USER_ID, UserPublic
 from app.services.agent_status_service import AgentStatusService
@@ -52,6 +53,22 @@ class TestAgentStatusAPI:
         service.record_search(user_id=user.user_id, query="MCP servers")
         status = service.get_status(user)
         assert any(s.query == "MCP servers" for s in status.recent_searches)
+
+    def test_record_search_mirrors_tenant_scoped_intelligence_event(
+        self, test_settings: Settings
+    ) -> None:
+        service = AgentStatusService(test_settings)
+        service.record_search(user_id="tenant-a", query="  Postgres memory  ")
+
+        tenant_a = IntelligenceStore(test_settings).recent_events(
+            "tenant-a", event_type="search", limit=10
+        )
+        tenant_b = IntelligenceStore(test_settings).recent_events(
+            "tenant-b", event_type="search", limit=10
+        )
+
+        assert any(event.get("query") == "Postgres memory" for event in tenant_a)
+        assert not any(event.get("query") == "Postgres memory" for event in tenant_b)
 
 
 class TestCaptureAsyncAPI:
