@@ -29,6 +29,10 @@ P-03 is intentionally being completed in small, test-gated slices. SQLite remain
 - Safe ingest-artifact migration tooling and its ownership-proof hardening are CI-validated in PR #166. It requires explicit tenant selection because the legacy artifact tables have no tenant column, requires matching tenant-bearing YouTube/canonical source evidence for every artifact and rejects missing, invalid, contradictory or multi-tenant ownership before contacting Postgres, opens SQLite read-only, processes rows deterministically, previews by default, and only fills target fields that are still null so stale SQLite data cannot replace existing Postgres artifact values.
 - Postgres credentials remain environment-owned via `POSTGRES_DSN_ENV`; no DSN or secret is persisted in application metadata or cache keys.
 
+## Remaining-path audit and generic connector routing
+
+See `P03_SQLITE_RUNTIME_AUDIT.md` for the remaining production read/write inventory. Generic connector ingestion now resolves FTS, capsule artifacts and semantic-cache invalidation through the existing selected stores. Lexical and capsule mutations carry the exact supplied tenant. This closes a bypass of the production selectors, but dedup, intelligence, privacy, agents and global startup still retain SQLite paths. Full P-03 completion is not claimed.
+
 ## Current configuration
 
 - `AUTH_STORE_BACKEND=sqlite|postgres`

@@ -13,9 +13,9 @@ from datetime import datetime, timezone
 from app.config import Settings, get_settings
 from app.core.embeddings import embed_texts
 from app.core.exceptions import AppError
-from app.db.hierarchical_store import HierarchicalStore, store_capsule_json
+from app.db.hierarchical_store import HierarchicalStore
+from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.repositories.memory_repository import MemoryRepository
-from app.db.schema import bump_index_version, invalidate_semantic_cache, migrate
 from app.db.video_registry import get_video_registry
 from app.models.reflection import ReflectionInput
 from app.models.transcript import TranscriptResult, TranscriptSegment
@@ -24,7 +24,8 @@ from app.services.capsule_service import build_capsule_with_optional_llm
 from app.services.cross_duplicate_service import CrossConnectorDuplicateDetector
 from app.services.deduplication_service import dedupe_chunk_texts
 from app.services.enrichment_service import enrich_video
-from app.services.fts_index import FTSIndex
+from app.services.fts_index_factory import get_fts_index
+from app.services.semantic_cache import SemanticCache
 from app.services.sources import get_connector_registry
 from app.services.sources.base_source import ProcessingStatus, SourceRef, TranscriptKind
 from app.services.universal_memory_service import UniversalMemoryService
@@ -37,10 +38,10 @@ class ConnectorIngestService:
         self._repository = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._hstore = HierarchicalStore(self._settings)
-        self._fts = FTSIndex(self._settings)
+        self._fts = get_fts_index(self._settings)
+        self._artifact_store = get_ingest_artifact_store(self._settings)
         self._memory_os = UniversalMemoryService(self._settings)
         self._dupes = CrossConnectorDuplicateDetector(self._settings)
-        migrate(self._settings)
 
     def ingest_url(
         self,
@@ -198,7 +199,7 @@ class ConnectorIngestService:
 
             record(ProcessingStatus.INDEXED.value)
             self._hstore.delete_video(metadata.video_id)
-            self._fts.delete_video(metadata.video_id)
+            self._fts.delete_video(metadata.video_id, user_id=user_id)
             chunk_count = self._repository.upsert_chunks(
                 video_id=metadata.video_id,
                 user_id=user_id,
@@ -226,8 +227,11 @@ class ConnectorIngestService:
                 self._hstore.upsert_capsule(capsule, capsule_emb)
                 if capsule.sections:
                     self._hstore.upsert_sections(metadata.video_id, capsule.sections, section_embs)
-                store_capsule_json(self._settings, metadata.video_id, capsule)
+                self._artifact_store.store_capsule_json(
+                    user_id=user_id, video_id=metadata.video_id, capsule_json=capsule.model_dump_json()
+                )
                 self._fts.upsert(
+                    user_id=user_id,
                     video_id=metadata.video_id,
                     level="capsule",
                     doc_id=f"capsule_{metadata.video_id}",
@@ -236,6 +240,7 @@ class ConnectorIngestService:
                 )
                 for idx, section in enumerate(capsule.sections):
                     self._fts.upsert(
+                        user_id=user_id,
                         video_id=metadata.video_id,
                         level="section",
                         doc_id=f"section_{metadata.video_id}_{idx}",
@@ -244,6 +249,7 @@ class ConnectorIngestService:
                     )
                 for chunk in chunks:
                     self._fts.upsert(
+                        user_id=user_id,
                         video_id=metadata.video_id,
                         level="evidence",
                         doc_id=f"{metadata.source_type.value}_{metadata.video_id}_{chunk.chunk_index}",
@@ -251,8 +257,7 @@ class ConnectorIngestService:
                         body=chunk.text,
                     )
 
-            bump_index_version(self._settings)
-            invalidate_semantic_cache(self._settings)
+            SemanticCache(self._settings).bump_index_version_and_invalidate()
             self._registry.upsert_video(
                 video_id=metadata.video_id,
                 user_id=user_id,
