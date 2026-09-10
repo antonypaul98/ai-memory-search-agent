@@ -1,9 +1,9 @@
 """Safe, tenant-explicit SQLite -> Postgres ingest-artifact migration for P-03.
 
 Legacy ``content_hashes`` and ``memory_capsules_json`` rows do not carry tenant
-identity. A caller must therefore select the tenant explicitly. When the source
-also contains tenant-bearing YouTube or canonical memory rows, that evidence is
-used as a guardrail: contradictory or multi-tenant ownership fails closed.
+identity. A caller must select the tenant explicitly, and tenant-bearing YouTube
+or canonical memory rows must prove exclusive ownership for every artifact.
+Missing, invalid, contradictory or multi-tenant ownership fails closed.
 
 The SQLite source is opened read-only. Existing non-null Postgres artifact
 fields are authoritative, so reruns only fill missing target fields and never
@@ -13,8 +13,10 @@ replace values already written after cutover.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Iterator
 
 from app.config import Settings, get_settings
 from app.db.postgres_ingest_artifact_store import ensure_postgres_ingest_artifact_schema
@@ -152,20 +154,17 @@ def _validate_tenant_evidence(
         for row in source.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     }
     for video_id in video_ids:
-        owners: set[str] = set()
+        evidence: list[sqlite3.Row] = []
         if "youtube_memories" in tables:
-            owners.update(
-                str(row["user_id"]).strip()
-                for row in source.execute(
+            evidence.extend(
+                source.execute(
                     "SELECT DISTINCT user_id FROM youtube_memories WHERE video_id = ?",
                     (video_id,),
                 ).fetchall()
-                if str(row["user_id"]).strip()
             )
         if "memory_records" in tables:
-            owners.update(
-                str(row["user_id"]).strip()
-                for row in source.execute(
+            evidence.extend(
+                source.execute(
                     """
                     SELECT DISTINCT user_id
                     FROM memory_records
@@ -173,8 +172,17 @@ def _validate_tenant_evidence(
                     """,
                     (video_id,),
                 ).fetchall()
-                if str(row["user_id"]).strip()
             )
+        if not evidence:
+            raise ValueError("legacy ingest artifact ownership has no tenant-bearing proof")
+        # Tenant IDs are identities, not display strings. Never coerce NULL or
+        # normalize malformed evidence into a different tenant's identity.
+        owners: set[str] = set()
+        for row in evidence:
+            owner = row["user_id"]
+            if not isinstance(owner, str) or not owner or owner != owner.strip():
+                raise ValueError("legacy ingest artifact ownership evidence is invalid")
+            owners.add(owner)
         if len(owners) > 1:
             raise ValueError(
                 "legacy ingest artifact ownership is ambiguous across multiple tenants"
@@ -194,11 +202,17 @@ def _require_tenant(user_id: str) -> str:
     return tenant
 
 
-def _open_source_read_only(settings: Settings) -> sqlite3.Connection:
+@contextmanager
+def _open_source_read_only(settings: Settings) -> Iterator[sqlite3.Connection]:
     source_path = Path(settings.sqlite_path).expanduser().resolve()
     if not source_path.is_file():
         raise FileNotFoundError(f"SQLite migration source does not exist: {source_path}")
-    conn = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA query_only = ON")
-    return conn
+    conn = sqlite3.connect(f"{source_path.as_uri()}?mode=ro", uri=True)
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA query_only = ON")
+        # All artifact and ownership SELECTs must observe the same snapshot.
+        conn.execute("BEGIN")
+        yield conn
+    finally:
+        conn.close()
