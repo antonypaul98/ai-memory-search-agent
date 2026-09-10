@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
 from app.db.schema import get_connection, migrate
 from app.db.video_registry import get_video_registry
@@ -79,21 +80,6 @@ _CONTRADICT_RE = re.compile(r"\b(vs\.?|versus|myth|wrong|don't|do not|instead of
 _EXPAND_RE = re.compile(r"\b(advanced|deep|part\s*[2-9]|continued|beyond|next level)\b", re.I)
 
 
-def load_capsule_json(settings: Settings, video_id: str) -> MemoryCapsule | None:
-    migrate(settings)
-    with get_connection(settings) as conn:
-        row = conn.execute(
-            "SELECT capsule_json FROM memory_capsules_json WHERE video_id = ?",
-            (video_id,),
-        ).fetchone()
-    if not row:
-        return None
-    try:
-        return MemoryCapsule.model_validate_json(row["capsule_json"])
-    except Exception:
-        return None
-
-
 class MemoryIntelligenceService:
     """Facade over intelligence aggregates + AHME search."""
 
@@ -102,13 +88,24 @@ class MemoryIntelligenceService:
         settings: Settings | None = None,
         store: IntelligenceStore | None = None,
         search: SearchService | None = None,
+        artifact_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
         self._search = search or SearchService(settings=self._settings)
+        self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
         self._yt = YouTubeMemoryStore(self._settings)
         self._registry = get_video_registry(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt)
+
+    def _load_capsule_json(self, *, user_id: str, video_id: str) -> MemoryCapsule | None:
+        raw = self._artifacts.load_capsule_json(user_id=user_id, video_id=video_id)
+        if not raw:
+            return None
+        try:
+            return MemoryCapsule.model_validate_json(raw)
+        except Exception:
+            return None
 
     # ── Incremental ingest hook ─────────────────────────────────────────
 
@@ -265,7 +262,7 @@ class MemoryIntelligenceService:
 
         for peer_id in list(peer_ids)[:30]:
             peer = self._yt.get(peer_id, user_id=user_id)
-            peer_capsule = load_capsule_json(self._settings, peer_id)
+            peer_capsule = self._load_capsule_json(user_id=user_id, video_id=peer_id)
             peer_topic_names = (
                 list(peer_capsule.topics)
                 if peer_capsule and peer_capsule.topics
@@ -377,7 +374,7 @@ class MemoryIntelligenceService:
             mem = self._yt.get(vid, user_id=user_id)
             if mem and mem.channel:
                 creators.append(mem.channel)
-            cap = load_capsule_json(self._settings, vid)
+            cap = self._load_capsule_json(user_id=user_id, video_id=vid)
             if cap and (cap.short_summary or cap.one_line_memory):
                 summaries.append(cap.short_summary or cap.one_line_memory)
             elif mem:
@@ -637,7 +634,7 @@ class MemoryIntelligenceService:
             if not mem:
                 continue
             blob = f"{mem.title} {mem.description}".lower()
-            cap = load_capsule_json(self._settings, vid)
+            cap = self._load_capsule_json(user_id=user_id, video_id=vid)
             if cap:
                 blob += f" {cap.short_summary}".lower()
             if _BEGINNER_RE.search(blob) or (mem.duration_sec or 0) < 600:
