@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
+from app.db.intelligence_store import IntelligenceStore
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import get_connection, migrate
 from app.models.agent import AgentLatestMemory, AgentSearchEvent, AgentStatusResponse
@@ -150,14 +151,24 @@ class AgentStatusService:
         q = query.strip()
         if not q:
             return
+        bounded_query = q[:500]
         with get_connection(self._settings) as conn:
             conn.execute(
                 """
                 INSERT INTO agent_search_events (user_id, query, created_at)
                 VALUES (?, ?, ?)
                 """,
-                (user_id, q[:500], datetime.now(timezone.utc).isoformat()),
+                (user_id, bounded_query, datetime.now(timezone.utc).isoformat()),
             )
+        # Mirror extension/agent searches into the canonical Memory Intelligence
+        # event stream. This makes the legacy agent_search_events read path
+        # removable without losing future search evidence while that table is
+        # retained temporarily for the extension status compatibility surface.
+        IntelligenceStore(self._settings).record_event(
+            user_id=user_id,
+            event_type="search",
+            query=bounded_query,
+        )
 
 
 def _scalar(conn, sql: str, params: tuple) -> int:
