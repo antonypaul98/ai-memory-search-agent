@@ -1,8 +1,25 @@
 # Current Memory Search Build State
 
-Updated: 2026-08-30
+Updated: 2026-09-10
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
+
+## Active continuation: P-03 artifact migration
+
+This dated section supersedes the historical next-work ordering below for the current session. P-03 production-wide Postgres migration remains **Partial** and is the active priority. The root inventory and historical reconciliation lists still require conservative audit; they are not a basis for declaring all versions complete.
+
+**Jarvis Gate: 2/29 cleared — 27 remaining**
+
+This carries forward the explicitly established 1/29 session baseline from PR #163, rather than inventing an older project-wide tally. The repository does not yet define the full 29-checkpoint inventory; this running count must not replace the complete Memory Search acceptance/stability gate.
+
+| Counted checkpoint | Evidence and boundary |
+| --- | --- |
+| 1. Preview-first legacy ingest-artifact migration | PR #163 established the migration. PR #166 repairs its missing-ownership-proof gap and ensures a consistent SQLite snapshot. These repairs are not counted as extra checkpoints. |
+| 2. Real-Postgres ingest-artifact migration acceptance | PR #166 / commit `99519a12af0af8d935c5336ca045ea5789754912` / [CI run 34494127491](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34494127491): 791 Python tests, no skips; real-Postgres retry, rollback, target preservation and tenant isolation; 27 extension tests and benchmark passed. |
+
+The next P-03 work is the remaining relational SQLite-write audit, representative lexical parity on migrated state, broader production-profile failure/isolation integration, and zero-SQLite-write proof for the supported multi-worker profile. `IngestService.__init__` still invokes SQLite schema migration; production SQLite retirement is not claimed. See `P03_POSTGRES_MIGRATION.md` for exact boundaries and operator instructions.
+
+No live production database migration was executed. All planned Memory Search versions and acceptance criteria must be complete before Jarvis-specific work. After that explicit completion gate, the first major Jarvis module is the Career/Job Agent.
 
 ## Validated platform foundation
 

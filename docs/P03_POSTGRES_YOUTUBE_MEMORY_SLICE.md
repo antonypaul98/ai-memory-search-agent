@@ -1,6 +1,6 @@
 # P-03 — Postgres YouTube memory and operational state
 
-Status: **YouTube persistence/routing/migration complete; ingest-artifact runtime routing implemented, legacy artifact ownership hardening and production acceptance in progress**
+Status: **YouTube persistence/routing/migration complete; ingest-artifact runtime routing implemented, legacy artifact migration acceptance CI-validated; production-wide acceptance pending**
 
 The production-wide Postgres audit found that `YouTubeMemoryStore` still persisted connector-specific memory and ingest state through the legacy SQLite schema. The Postgres primitive now covers both core durable YouTube memory records and the operational state that must move with them before any runtime cutover.
 
