@@ -59,6 +59,23 @@ def test_transcript_unchanged_requires_exact_tenant_and_video():
     assert params == ("tenant-a", "video-1")
 
 
+def test_capsule_read_requires_exact_tenant_and_video():
+    statements = []
+    connections = iter(
+        [
+            FakeConnection(statements),
+            FakeConnection(statements, [FakeResult(one={"capsule_json": '{"title":"x"}'})]),
+        ]
+    )
+    store = PostgresIngestArtifactStore(lambda: next(connections))
+
+    assert store.load_capsule_json(user_id="tenant-b", video_id="video-2") == '{"title":"x"}'
+    statement, params = statements[-1]
+    assert "SELECT capsule_json FROM ingest_artifacts" in statement
+    assert "WHERE user_id = %s AND video_id = %s" in statement
+    assert params == ("tenant-b", "video-2")
+
+
 def test_transcript_hash_upsert_does_not_clear_existing_capsule():
     statements = []
     connections = iter([FakeConnection(statements), FakeConnection(statements)])
@@ -87,6 +104,8 @@ def test_capsule_upsert_does_not_clear_existing_transcript_hash():
     ("method", "kwargs"),
     [
         ("transcript_unchanged", {"user_id": "", "video_id": "video-1", "transcript_hash": "h"}),
+        ("load_capsule_json", {"user_id": "", "video_id": "video-1"}),
+        ("load_capsule_json", {"user_id": "tenant-a", "video_id": ""}),
         ("store_transcript_hash", {"user_id": "tenant-a", "video_id": "", "transcript_hash": "h"}),
         ("store_capsule_json", {"user_id": "tenant-a", "video_id": "video-1", "capsule_json": ""}),
     ],
