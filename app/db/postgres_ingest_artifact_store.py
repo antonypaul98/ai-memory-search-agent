@@ -59,6 +59,23 @@ class PostgresIngestArtifactStore:
             ).fetchone()
         return bool(row and row["transcript_hash"] == transcript_hash)
 
+    def load_capsule_json(self, *, user_id: str, video_id: str) -> str | None:
+        """Return one serialized capsule only within the requested tenant boundary."""
+        user_id = _required("user_id", user_id)
+        video_id = _required("video_id", video_id)
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT capsule_json
+                FROM ingest_artifacts
+                WHERE user_id = %s AND video_id = %s
+                """,
+                (user_id, video_id),
+            ).fetchone()
+        if not row:
+            return None
+        return row["capsule_json"]
+
     def store_transcript_hash(self, *, user_id: str, video_id: str, transcript_hash: str) -> None:
         user_id = _required("user_id", user_id)
         video_id = _required("video_id", video_id)

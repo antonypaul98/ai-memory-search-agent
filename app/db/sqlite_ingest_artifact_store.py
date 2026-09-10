@@ -33,6 +33,19 @@ class SQLiteIngestArtifactStore:
             ).fetchone()
         return bool(row and row["transcript_hash"] == transcript_hash)
 
+    def load_capsule_json(self, *, user_id: str, video_id: str) -> str | None:
+        """Read legacy capsule JSON while keeping tenant identity explicit at the boundary."""
+        _required("user_id", user_id)
+        video_id = _required("video_id", video_id)
+        with get_connection(self._settings) as conn:
+            row = conn.execute(
+                "SELECT capsule_json FROM memory_capsules_json WHERE video_id = ?",
+                (video_id,),
+            ).fetchone()
+        if not row:
+            return None
+        return row["capsule_json"]
+
     def store_transcript_hash(self, *, user_id: str, video_id: str, transcript_hash: str) -> None:
         _required("user_id", user_id)
         video_id = _required("video_id", video_id)
