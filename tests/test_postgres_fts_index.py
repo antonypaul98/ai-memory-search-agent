@@ -58,6 +58,14 @@ def test_schema_uses_composite_tenant_identity_and_gin_index():
     assert "ON memory_fts_documents(user_id, video_id, doc_id)" in sql
 
 
+def test_schema_initialization_can_be_disabled_for_read_only_validation():
+    factory = _Factory()
+    PostgresFTSIndex(factory, ensure_schema=False)
+
+    assert factory.connections == []
+    assert factory.calls == []
+
+
 def test_upsert_is_scoped_by_tenant_and_never_conflicts_globally():
     factory = _Factory()
     index = PostgresFTSIndex(factory)
