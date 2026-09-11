@@ -41,6 +41,20 @@ class CaptureStore:
                 ),
             )
 
+    def list_for_user(self, *, user_id: str, limit: int = 2000) -> list[dict]:
+        """Return deterministic capture export rows for exactly one tenant."""
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM captures
+                WHERE user_id = ?
+                ORDER BY created_at DESC, capture_id ASC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_retry_payload(self, capture_id: str, *, user_id: str) -> dict | None:
         with get_connection(self._settings) as conn:
             row = conn.execute(
