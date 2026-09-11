@@ -17,7 +17,7 @@ Reviewed direct `sqlite3`, schema helpers, `migrate`, and `FTSIndex` imports acr
 | `services/agent_runtime.py`, `ingest_agent.py`, `agent_status_service.py`, `review_schedule_service.py` | Agent definitions/runs/steps, ingest rules/claims, search activity and review schedules use SQLite. Preserve approval, dedup and replay contracts during routing/transfer. |
 | `services/event_bus.py` | Event/audit and subscriber-delivery persistence still uses schema connections. Postgres jobs plus Redis wake transport do not migrate these records. |
 | `services/oauth_token_vault.py` | Encrypted connector-token persistence remains SQLite. Preserve environment-owned encryption keys; token payloads must never enter migration reports. |
-| `services/privacy_service.py` | Export/deletion directly access SQLite tables, including tables with selected Postgres implementations. Must route both reads and deletions consistently before a production cutover; preserve confirmation and retention contracts. |
+| `services/privacy_service.py` | Privacy deletion of `content_url_index` is being routed through the selected tenant-scoped SQLite/Postgres store, with exact-tenant regression coverage. Export plus YouTube, graph/intelligence, trust/version/lifecycle and capsule deletion still directly access SQLite and must be migrated in bounded slices before production cutover; preserve confirmation and retention contracts. |
 | `services/feedback_service.py`, `model_router.py` | Feedback/routing feedback use direct SQLite connections. Need selected durable storage and tenant/privacy verification. |
 | `db/sqlite_client.py` | Explicit SQLite registry adapter reads/deletes registry/reflection rows. Audit consumers before retiring the adapter. |
 | `db/auth_store.py`, `memory_store.py`, `video_registry.py`, `capture_store.py`, `bookmark_store.py`, `import_run_store.py`, `job_store.py`, `youtube_memory_store.py`, `sqlite_youtube_memory_store.py`, `sqlite_ingest_artifact_store.py` | Local SQLite implementations remain intentional; production selectors exist. Direct construction and downstream consumers must still be exercised in the full production profile. |
@@ -33,7 +33,7 @@ The existing offline web, PDF and GitHub ingest suite remains part of validation
 ## Next acceptance work
 
 1. Validate real-Postgres lexical retrieval parity without schema writes, including a mismatch that keeps the gate closed. Representative fixture success is not deployment-wide parity certification.
-2. Execute/validate the guarded `content_url_index` migration against real Postgres, then audit privacy export/deletion before live cutover; the Memory Intelligence capsule/search-read bypasses are now removed.
+2. Execute/validate the guarded `content_url_index` migration against real Postgres, then complete privacy export/deletion routing before live cutover; the Memory Intelligence capsule/search-read bypasses are now removed.
 3. Migrate the remaining stores above and their canonical/approval relationships in bounded slices.
 4. Only then remove global SQLite initialization and prove startup, ingestion, retrieval, mutation, export/delete, worker retry and failure paths perform zero unintended relational SQLite writes with Postgres selected.
 
