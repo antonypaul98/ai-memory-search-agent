@@ -9,8 +9,8 @@ Reviewed direct `sqlite3`, schema helpers, `migrate`, and `FTSIndex` imports acr
 | Surface / implementation | Remaining behavior and required work |
 | --- | --- |
 | `app/main.py:lifespan`, `services/ingest_service.py:IngestService.__init__` | Unconditional schema migration can create/write SQLite even with Postgres stores selected. Remove only after dependent stores own their initialization and startup/profile tests prove safety. |
-| `services/connector_ingest_service.py` | Baseline directly constructed SQLite FTS, persisted capsule JSON via the legacy helper, and advanced SQLite cache metadata. This slice uses selected FTS, artifact and cache stores and passes exact tenant identity to lexical/artifact mutations. Direct constructor migration is removed; the dedup dependency still initializes SQLite. |
-| `services/cross_duplicate_service.py` | `content_url_index` reads/register/delete remain SQLite. Needs a tenant-scoped selected store, deterministic match ordering, and safe transfer before generic ingest is SQLite-free. |
+| `services/connector_ingest_service.py` | Baseline directly constructed SQLite FTS, persisted capsule JSON via the legacy helper, and advanced SQLite cache metadata. These now use selected FTS, artifact and cache stores and pass exact tenant identity to lexical/artifact mutations. Direct constructor migration is removed. Cross-source dedup now routes through a selected tenant-scoped content URL index store aligned with `memory_store_backend`; migration of historical `content_url_index` rows and cutover acceptance remain open. |
+| `services/cross_duplicate_service.py` | Direct `content_url_index` SQLite access is removed. SQLite remains the local implementation; Postgres selection is fail-closed through the shared runtime and content-hash duplicate selection is deterministic by `(created_at, url_hash)`. Historical row transfer/parity and full production-profile validation are still required before this surface is considered cut over. |
 | `services/memory_intelligence_service.py` | Capsule reads now follow the selected tenant-scoped artifact store. Agent/extension searches are mirrored into the canonical intelligence event stream; insights now reads that stream only, avoiding the legacy `agent_search_events` SQLite bypass and mirrored-query double counting. The underlying `IntelligenceStore` remains SQLite and is tracked separately below. |
 | `db/intelligence_store.py` | Topic profiles/links, learning edges, concept capsules, creator profiles and intelligence events remain SQLite. |
 | `db/knowledge_graph_store.py`, `services/entity_merge_service.py` | Graph entities, relations and memory links remain SQLite. Migration must preserve canonical links, temporal evidence, tenant isolation and explicit merge confirmation. |
@@ -26,14 +26,14 @@ Reviewed direct `sqlite3`, schema helpers, `migrate`, and `FTSIndex` imports acr
 
 ## Validated scope of connector regression
 
-`tests/test_connector_storage_routing.py` executes real PDF connector parsing and the real generic ingest method. It checks capsule/section/evidence tenant forwarding, canonical metadata and dedup registration, selected cache invalidation, hierarchy on/off behavior, authenticated SQLite lexical rejection, and missing-DSN failure with no fallback. Unrelated vector/canonical/dedup dependencies are isolated; therefore the no-SQLite-file assertion applies only to this routing boundary, not to the whole application.
+`tests/test_connector_storage_routing.py` executes real PDF connector parsing and the real generic ingest method. It checks capsule/section/evidence tenant forwarding, canonical metadata and dedup registration, selected cache invalidation, hierarchy on/off behavior, authenticated SQLite lexical rejection, and missing-DSN failure with no fallback. Unrelated vector/canonical dependencies are isolated; therefore the no-SQLite-file assertion applies only to this routing boundary, not to the whole application.
 
-The existing offline web, PDF and GitHub ingest suite remains part of validation. The artifact selector continues to share `YOUTUBE_STORE_BACKEND`; this also controls the common capsule artifact table for generic connectors. No new independent artifact switch is introduced.
+The existing offline web, PDF and GitHub ingest suite remains part of validation. The artifact selector continues to share `YOUTUBE_STORE_BACKEND`; this also controls the common capsule artifact table for generic connectors. Cross-source URL/content dedup now follows `MEMORY_STORE_BACKEND` so canonical memory and its duplicate index cannot intentionally select different durable backends.
 
 ## Next acceptance work
 
 1. Validate real-Postgres lexical retrieval parity without schema writes, including a mismatch that keeps the gate closed. Representative fixture success is not deployment-wide parity certification.
-2. Reroute `content_url_index` safely and audit privacy export/deletion before live cutover; the Memory Intelligence capsule/search-read bypasses are now removed.
+2. Add a guarded migration/parity path for historical `content_url_index` rows, then audit privacy export/deletion before live cutover; the Memory Intelligence capsule/search-read bypasses are now removed.
 3. Migrate the remaining stores above and their canonical/approval relationships in bounded slices.
 4. Only then remove global SQLite initialization and prove startup, ingestion, retrieval, mutation, export/delete, worker retry and failure paths perform zero unintended relational SQLite writes with Postgres selected.
 
