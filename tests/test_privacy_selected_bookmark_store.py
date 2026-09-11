@@ -123,6 +123,8 @@ def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
     ]
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
+    selected_jobs = MagicMock(return_value=[])
+    monkeypatch.setattr(privacy_module, "list_jobs_for_user", selected_jobs)
 
     class _PrivacyConnection:
         def __enter__(self):
@@ -150,6 +152,7 @@ def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
     payload = service.export_user_data(user_id="tenant-a")
 
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
+    selected_jobs.assert_called_once_with(service._settings, user_id="tenant-a", limit=500)
     assert payload["browser_bookmarks"] == [
         {"id": 7, "browser_bookmark_id": "selected-bookmark", "user_id": "tenant-a"}
     ]

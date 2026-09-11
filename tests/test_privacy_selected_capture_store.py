@@ -132,6 +132,8 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
     service._bookmark_store.list_for_user.return_value = []
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
+    selected_jobs = MagicMock(return_value=[])
+    monkeypatch.setattr(privacy_module, "list_jobs_for_user", selected_jobs)
 
     class _PrivacyConnection:
         def __enter__(self):
@@ -161,6 +163,7 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
 
     service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
+    selected_jobs.assert_called_once_with(service._settings, user_id="tenant-a", limit=500)
     assert payload["captures"] == [
         {"capture_id": "selected-capture", "user_id": "tenant-a"}
     ]
