@@ -8,9 +8,14 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_home_agent_capture_service, get_home_agent_query_service
+from app.api.dependencies import (
+    get_home_agent_capture_registry,
+    get_home_agent_capture_service,
+    get_home_agent_query_service,
+)
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
+from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
 from app.services.home_agent.query_service import HomeAgentQueryService
 
@@ -127,14 +132,16 @@ def history(
 def start_capture_session(
     body: StartCaptureSessionRequest,
     service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service),
+    registry: CaptureSessionRegistry = Depends(get_home_agent_capture_registry),
     user: UserPublic = Depends(get_current_user),
 ) -> CaptureSessionResponse:
-    """Create a short-lived capture session bound to the authenticated user."""
+    """Create and register a short-lived capture session for the authenticated user."""
     session = service.start_session(
         user_id=user.user_id,
         source_id=body.source_id,
         ttl=timedelta(seconds=body.ttl_seconds),
     )
+    registry.register(session)
     return CaptureSessionResponse(
         session_id=session.session_id,
         source_id=session.source_id,
