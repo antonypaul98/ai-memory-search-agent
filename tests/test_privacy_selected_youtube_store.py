@@ -94,6 +94,13 @@ def test_postgres_youtube_delete_carries_exact_tenant_identity():
 def test_privacy_export_uses_selected_youtube_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
+    service._auth_store = MagicMock()
+    service._auth_store.get_user_for_export.return_value = {
+        "user_id": "tenant-a",
+        "email": "a@example.test",
+        "display_name": "A",
+        "created_at": "now",
+    }
     service._memory_store = MagicMock()
     service._memory_store.list_recent.return_value = []
     youtube_memory = MagicMock()
@@ -122,14 +129,14 @@ def test_privacy_export_uses_selected_youtube_store(monkeypatch):
 
         def execute(self, sql, params=None):
             normalized = " ".join(str(sql).split())
-            if normalized.startswith("SELECT user_id, email"):
-                return _Cursor(row={"user_id": "tenant-a", "email": "a@example.test", "display_name": "A", "created_at": "now"})
+            assert "FROM users" not in normalized
             return _Cursor(rows=[])
 
     monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
 
     payload = service.export_user_data(user_id="tenant-a")
 
+    service._auth_store.get_user_for_export.assert_called_once_with(user_id="tenant-a")
     service._youtube_store.list_for_user.assert_called_once_with("tenant-a", limit=10_000)
     service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
