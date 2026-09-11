@@ -50,6 +50,52 @@ def get_job_store(settings: Settings | None = None) -> JobStore | PostgresJobSto
     )
 
 
+def list_jobs_for_user(
+    settings: Settings,
+    *,
+    user_id: str,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Read a bounded tenant export from the configured durable job backend.
+
+    This privacy/export read deliberately follows ``job_store_backend`` so a
+    Postgres deployment never falls back to the legacy SQLite file.  The query
+    preserves the historical complete ``background_jobs`` export shape while
+    remaining exact-tenant scoped and deterministic.
+    """
+    if not user_id or not user_id.strip():
+        raise ValueError("user_id is required")
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+
+    if settings.job_store_backend == "sqlite":
+        migrate(settings)
+        with get_connection(settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM background_jobs
+                WHERE user_id = ?
+                ORDER BY created_at DESC, job_id
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+    else:
+        connection_factory = get_postgres_connection_factory(settings)
+        with connection_factory() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM background_jobs
+                WHERE user_id = %s
+                ORDER BY created_at DESC, job_id
+                LIMIT %s
+                """,
+                (user_id, limit),
+            ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
 def get_job_execution_context(
     settings: Settings,
     job_id: str,
