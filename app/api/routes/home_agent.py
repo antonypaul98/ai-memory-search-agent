@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
@@ -17,7 +17,9 @@ from app.models.user import UserPublic
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
+from app.services.home_agent.observation_ingest import ObservationConsent, PHYSICAL_OBSERVATION_SCOPE
 from app.services.home_agent.query_service import HomeAgentQueryService
+from app.services.home_agent.vision_adapter import VisionDetection
 
 router = APIRouter(prefix="/home-agent", tags=["home-agent"])
 
@@ -41,6 +43,16 @@ class HistoryRequest(_StrictRequest):
 class StartCaptureSessionRequest(_StrictRequest):
     source_id: str = Field(min_length=1, max_length=200)
     ttl_seconds: int = Field(default=300, ge=1, le=900)
+
+
+class IngestDetectionRequest(_StrictRequest):
+    session_id: str = Field(min_length=1, max_length=200)
+    object_name: str = Field(min_length=1, max_length=200)
+    location: str = Field(min_length=1, max_length=500)
+    observed_at: datetime
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence_id: str = Field(min_length=1, max_length=500)
+    consent_granted: bool
 
 
 class WhereIsResponse(BaseModel):
@@ -72,6 +84,10 @@ class CaptureSessionResponse(BaseModel):
     source_id: str
     started_at: str
     expires_at: str
+
+
+class IngestDetectionResponse(BaseModel):
+    stored: bool
 
 
 @router.post("/where-is", response_model=WhereIsResponse)
@@ -148,3 +164,49 @@ def start_capture_session(
         started_at=session.started_at.isoformat(),
         expires_at=session.expires_at.isoformat(),
     )
+
+
+@router.post("/detections", response_model=IngestDetectionResponse)
+def ingest_detection(
+    body: IngestDetectionRequest,
+    service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service),
+    registry: CaptureSessionRegistry = Depends(get_home_agent_capture_registry),
+    user: UserPublic = Depends(get_current_user),
+) -> IngestDetectionResponse:
+    """Persist one structured detection only through an active server-owned session."""
+    if not body.consent_granted:
+        raise HTTPException(status_code=403, detail="explicit physical-observation consent is required")
+
+    now = datetime.now(timezone.utc)
+    try:
+        session = registry.resolve_for_user(
+            session_id=body.session_id,
+            user_id=user.user_id,
+            now=now,
+        )
+        detection = VisionDetection(
+            object_name=body.object_name,
+            location=body.location,
+            observed_at=body.observed_at,
+            confidence=body.confidence,
+            source_id=session.source_id,
+            evidence_id=body.evidence_id,
+        )
+        consent = ObservationConsent(
+            user_id=user.user_id,
+            source_id=session.source_id,
+            scope=PHYSICAL_OBSERVATION_SCOPE,
+            granted_at=now,
+            expires_at=session.expires_at,
+        )
+        stored = service.ingest_detection(
+            user_id=user.user_id,
+            session=session,
+            detection=detection,
+            consent=consent,
+            now=now,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    return IngestDetectionResponse(stored=stored)
