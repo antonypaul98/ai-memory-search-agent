@@ -128,3 +128,15 @@ class PostgresContentUrlIndexStore:
                 (user_id,),
             ).fetchall()
         return {str(row["url_hash"] if isinstance(row, dict) else row[0]) for row in rows}
+
+    def delete_reference(self, *, user_id: str, source_type: str, external_id: str) -> int:
+        """Delete exactly one tenant's references for a source item."""
+        with self._connection_factory() as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM content_url_index
+                WHERE user_id = %s AND source_type = %s AND external_id = %s
+                """,
+                (user_id, source_type, external_id),
+            )
+            return max(0, int(cursor.rowcount or 0))

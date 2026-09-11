@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
@@ -31,6 +32,7 @@ class PrivacyService:
         self._settings = settings or get_settings()
         migrate(self._settings)
         self._memory_store = get_memory_store(self._settings)
+        self._content_url_index = get_content_url_index_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._fts = FTSIndex(self._settings)
@@ -120,6 +122,11 @@ class PrivacyService:
                 logger.debug("hierarchical delete skipped for %s", external_id, exc_info=True)
 
         self._registry.delete_video(external_id, user_id=user_id)
+        self._content_url_index.delete_reference(
+            user_id=user_id,
+            source_type=source_type,
+            external_id=external_id,
+        )
         self._delete_sqlite_memory_rows(
             memory_id=memory_id,
             user_id=user_id,
@@ -190,13 +197,6 @@ class PrivacyService:
             conn.execute(
                 "DELETE FROM youtube_memories WHERE user_id = ? AND video_id = ?",
                 (user_id, external_id),
-            )
-            conn.execute(
-                """
-                DELETE FROM content_url_index
-                WHERE user_id = ? AND source_type = ? AND external_id = ?
-                """,
-                (user_id, source_type, external_id),
             )
             # Capsules are keyed only by video_id — never drop while another tenant
             # still references the same external id (bump_index_version invalidates cache).
