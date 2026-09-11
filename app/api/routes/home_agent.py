@@ -1,14 +1,17 @@
-"""Authenticated Home Agent physical-memory query routes."""
+"""Authenticated Home Agent physical-memory query and capture-control routes."""
 
 from __future__ import annotations
+
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_home_agent_query_service
+from app.api.dependencies import get_home_agent_capture_service, get_home_agent_query_service
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
+from app.services.home_agent.capture_session import BoundedVisionCaptureService
 from app.services.home_agent.query_service import HomeAgentQueryService
 
 router = APIRouter(prefix="/home-agent", tags=["home-agent"])
@@ -28,6 +31,11 @@ class HistoryRequest(_StrictRequest):
     object_name: str = Field(min_length=1, max_length=200)
     min_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     limit: int = Field(default=20, ge=1, le=100)
+
+
+class StartCaptureSessionRequest(_StrictRequest):
+    source_id: str = Field(min_length=1, max_length=200)
+    ttl_seconds: int = Field(default=300, ge=1, le=900)
 
 
 class WhereIsResponse(BaseModel):
@@ -52,6 +60,13 @@ class SightingResponse(BaseModel):
 
 class HistoryResponse(BaseModel):
     sightings: list[SightingResponse]
+
+
+class CaptureSessionResponse(BaseModel):
+    session_id: str
+    source_id: str
+    started_at: str
+    expires_at: str
 
 
 @router.post("/where-is", response_model=WhereIsResponse)
@@ -105,4 +120,24 @@ def history(
             )
             for item in sightings
         ]
+    )
+
+
+@router.post("/capture-sessions", response_model=CaptureSessionResponse)
+def start_capture_session(
+    body: StartCaptureSessionRequest,
+    service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service),
+    user: UserPublic = Depends(get_current_user),
+) -> CaptureSessionResponse:
+    """Create a short-lived capture session bound to the authenticated user."""
+    session = service.start_session(
+        user_id=user.user_id,
+        source_id=body.source_id,
+        ttl=timedelta(seconds=body.ttl_seconds),
+    )
+    return CaptureSessionResponse(
+        session_id=session.session_id,
+        source_id=session.source_id,
+        started_at=session.started_at.isoformat(),
+        expires_at=session.expires_at.isoformat(),
     )
