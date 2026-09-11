@@ -14,6 +14,7 @@ from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
+from app.db.job_store_factory import list_jobs_for_user
 from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
@@ -52,18 +53,12 @@ class PrivacyService:
         ]
         captures = self._capture_store.list_for_user(user_id=user_id, limit=2000)
         bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=5000)
+        jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=500)
         with get_connection(self._settings) as conn:
             user_row = conn.execute(
                 "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
                 (user_id,),
             ).fetchone()
-            jobs = [
-                dict(r)
-                for r in conn.execute(
-                    "SELECT * FROM background_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 500",
-                    (user_id,),
-                ).fetchall()
-            ]
             topics = [
                 dict(r)
                 for r in conn.execute(
