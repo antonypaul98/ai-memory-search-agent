@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.memory_store import get_memory_store
@@ -35,6 +36,7 @@ class PrivacyService:
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
         self._youtube_store = get_youtube_memory_store(self._settings)
+        self._capture_store = get_capture_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._fts = FTSIndex(self._settings)
@@ -46,18 +48,12 @@ class PrivacyService:
             memory.model_dump(mode="json")
             for memory in self._youtube_store.list_for_user(user_id, limit=10_000)
         ]
+        captures = self._capture_store.list_for_user(user_id=user_id, limit=2000)
         with get_connection(self._settings) as conn:
             user_row = conn.execute(
                 "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
                 (user_id,),
             ).fetchone()
-            captures = [
-                dict(r)
-                for r in conn.execute(
-                    "SELECT * FROM captures WHERE user_id = ? ORDER BY created_at DESC LIMIT 2000",
-                    (user_id,),
-                ).fetchall()
-            ]
             bookmarks = [
                 dict(r)
                 for r in conn.execute(
