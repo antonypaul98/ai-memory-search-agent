@@ -109,7 +109,7 @@ def test_learning_edge_upsert_rejects_self_edge_before_connecting():
             user_id="tenant-a",
             source_video_id="same",
             target_video_id="same",
-            relation=LearningRelation.RELATED,
+            relation=LearningRelation.SAME_TOPIC,
             strength=0.5,
             evidence="evidence",
         )
