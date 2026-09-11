@@ -128,6 +128,8 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
     service._capture_store.list_for_user.return_value = [
         {"capture_id": "selected-capture", "user_id": "tenant-a"}
     ]
+    service._bookmark_store = MagicMock()
+    service._bookmark_store.list_for_user.return_value = []
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
 
@@ -141,6 +143,7 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
         def execute(self, sql, params=None):
             normalized = " ".join(str(sql).split())
             assert "FROM captures" not in normalized
+            assert "FROM browser_bookmarks" not in normalized
             if normalized.startswith("SELECT user_id, email"):
                 return _Cursor(
                     row={
@@ -157,6 +160,7 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
     payload = service.export_user_data(user_id="tenant-a")
 
     service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
+    service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
     assert payload["captures"] == [
         {"capture_id": "selected-capture", "user_id": "tenant-a"}
     ]
