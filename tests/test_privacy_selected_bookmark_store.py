@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import sqlite3
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.db.capture_store import CaptureStore
-from app.db.postgres_capture_store import PostgresCaptureStore
+from app.config import Settings
+from app.db.bookmark_store import BookmarkStore
+from app.db.postgres_bookmark_store import PostgresBookmarkStore
 from app.services import privacy_service as privacy_module
 from app.services.privacy_service import PrivacyService
 
@@ -35,8 +37,8 @@ class _PgConnection:
         normalized = " ".join(str(sql).split())
         packed = tuple(params) if params is not None else None
         self.calls.append((normalized, packed))
-        if normalized.startswith("SELECT * FROM captures"):
-            return _Cursor(rows=[{"capture_id": "capture-a", "user_id": "tenant-a"}])
+        if normalized.startswith("SELECT * FROM browser_bookmarks"):
+            return _Cursor(rows=[{"id": 7, "browser_bookmark_id": "bookmark-a", "user_id": "tenant-a"}])
         return _Cursor()
 
 
@@ -48,76 +50,65 @@ class _PgFactory:
         return self.connection
 
 
-def test_postgres_capture_export_is_exact_tenant_scoped_and_deterministic():
+def test_postgres_bookmark_export_is_exact_tenant_scoped_and_bounded():
     factory = _PgFactory()
-    store = PostgresCaptureStore.__new__(PostgresCaptureStore)
+    store = PostgresBookmarkStore.__new__(PostgresBookmarkStore)
     store._connection_factory = factory
 
     rows = store.list_for_user(user_id="tenant-a", limit=25)
 
-    assert rows == [{"capture_id": "capture-a", "user_id": "tenant-a"}]
+    assert rows == [{"id": 7, "browser_bookmark_id": "bookmark-a", "user_id": "tenant-a"}]
     assert factory.connection.calls == [
         (
-            "SELECT * FROM captures WHERE user_id = %s ORDER BY created_at DESC, capture_id ASC LIMIT %s",
+            "SELECT * FROM browser_bookmarks WHERE user_id = %s ORDER BY id DESC LIMIT %s",
             ("tenant-a", 25),
         )
     ]
 
 
-def test_sqlite_capture_export_is_exact_tenant_scoped(tmp_path):
-    import sqlite3
-
-    path = tmp_path / "captures.db"
+def test_sqlite_bookmark_export_is_exact_tenant_scoped_and_deterministic(tmp_path):
+    path = tmp_path / "bookmarks.db"
     with sqlite3.connect(path) as conn:
         conn.execute(
             """
-            CREATE TABLE captures (
-                capture_id TEXT PRIMARY KEY,
+            CREATE TABLE browser_bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
+                browser_bookmark_id TEXT NOT NULL,
+                folder_path TEXT NOT NULL,
                 url TEXT NOT NULL,
                 url_hash TEXT NOT NULL,
                 title TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                status TEXT NOT NULL,
-                job_id TEXT,
-                stage TEXT NOT NULL,
-                stage_detail TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                error TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                sync_status TEXT NOT NULL,
+                source_browser TEXT NOT NULL,
+                last_synced_at TEXT NOT NULL,
+                removed_in_browser INTEGER NOT NULL
             )
             """
         )
         conn.executemany(
             """
-            INSERT INTO captures (
-                capture_id, user_id, url, url_hash, title, source_type, status,
-                job_id, stage, stage_detail, payload_json, error, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO browser_bookmarks (
+                user_id, browser_bookmark_id, folder_path, url, url_hash, title,
+                sync_status, source_browser, last_synced_at, removed_in_browser
+            ) VALUES (?, ?, '', ?, ?, ?, 'synced', 'chrome', ?, 0)
             """,
             [
-                ("a-2", "tenant-a", "https://a2", "h2", "A2", "web", "done", None, "done", "done", "{}", None, "2026-02-02", "2026-02-02"),
-                ("a-1", "tenant-a", "https://a1", "h1", "A1", "web", "done", None, "done", "done", "{}", None, "2026-02-01", "2026-02-01"),
-                ("b-1", "tenant-b", "https://b1", "hb", "B1", "web", "done", None, "done", "done", "{}", None, "2026-03-01", "2026-03-01"),
+                ("tenant-a", "a-1", "https://a1", "h1", "A1", "2026-02-01"),
+                ("tenant-b", "b-1", "https://b1", "hb", "B1", "2026-03-01"),
+                ("tenant-a", "a-2", "https://a2", "h2", "A2", "2026-02-02"),
             ],
         )
 
-    store = CaptureStore.__new__(CaptureStore)
-    store._settings = SimpleNamespace(sqlite_path=str(path))
-    monkey_settings = store._settings
-
-    # Use the real schema helper's connection contract without running migration.
-    from app.config import Settings
-
+    store = BookmarkStore.__new__(BookmarkStore)
     store._settings = Settings(sqlite_path=str(path))
     rows = store.list_for_user(user_id="tenant-a", limit=10)
 
-    assert [row["capture_id"] for row in rows] == ["a-2", "a-1"]
+    assert [row["browser_bookmark_id"] for row in rows] == ["a-2", "a-1"]
     assert all(row["user_id"] == "tenant-a" for row in rows)
 
 
-def test_privacy_export_uses_selected_capture_store(monkeypatch):
+def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
     service._memory_store = MagicMock()
@@ -125,11 +116,11 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
     service._youtube_store = MagicMock()
     service._youtube_store.list_for_user.return_value = []
     service._capture_store = MagicMock()
-    service._capture_store.list_for_user.return_value = [
-        {"capture_id": "selected-capture", "user_id": "tenant-a"}
-    ]
+    service._capture_store.list_for_user.return_value = []
     service._bookmark_store = MagicMock()
-    service._bookmark_store.list_for_user.return_value = []
+    service._bookmark_store.list_for_user.return_value = [
+        {"id": 7, "browser_bookmark_id": "selected-bookmark", "user_id": "tenant-a"}
+    ]
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
 
@@ -142,7 +133,6 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
 
         def execute(self, sql, params=None):
             normalized = " ".join(str(sql).split())
-            assert "FROM captures" not in normalized
             assert "FROM browser_bookmarks" not in normalized
             if normalized.startswith("SELECT user_id, email"):
                 return _Cursor(
@@ -159,8 +149,7 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
 
     payload = service.export_user_data(user_id="tenant-a")
 
-    service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
-    assert payload["captures"] == [
-        {"capture_id": "selected-capture", "user_id": "tenant-a"}
+    assert payload["browser_bookmarks"] == [
+        {"id": 7, "browser_bookmark_id": "selected-bookmark", "user_id": "tenant-a"}
     ]

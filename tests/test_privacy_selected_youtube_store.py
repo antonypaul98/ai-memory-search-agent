@@ -106,6 +106,8 @@ def test_privacy_export_uses_selected_youtube_store(monkeypatch):
     service._youtube_store.list_for_user.return_value = [youtube_memory]
     service._capture_store = MagicMock()
     service._capture_store.list_for_user.return_value = []
+    service._bookmark_store = MagicMock()
+    service._bookmark_store.list_for_user.return_value = []
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
 
@@ -128,6 +130,7 @@ def test_privacy_export_uses_selected_youtube_store(monkeypatch):
 
     service._youtube_store.list_for_user.assert_called_once_with("tenant-a", limit=10_000)
     service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
+    service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
     assert payload["youtube_memories"] == [
         {"user_id": "tenant-a", "video_id": "video-a", "title": "Selected-store row"}
     ]
