@@ -102,6 +102,7 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
     service._fts = MagicMock()
     service._hstore = MagicMock()
     service._content_url_index = MagicMock()
+    service._youtube_store = MagicMock()
     service._delete_sqlite_memory_rows = MagicMock()
     monkeypatch.setattr(privacy_module, "bump_index_version", MagicMock())
 
@@ -110,6 +111,9 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
     assert result["deleted"] is True
     service._content_url_index.delete_reference.assert_called_once_with(
         user_id="tenant-a", source_type="youtube", external_id="shared-video"
+    )
+    service._youtube_store.delete_memory.assert_called_once_with(
+        user_id="tenant-a", video_id="shared-video"
     )
     service._delete_sqlite_memory_rows.assert_called_once_with(
         memory_id="memory-a",
