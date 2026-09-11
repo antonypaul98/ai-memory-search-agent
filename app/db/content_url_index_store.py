@@ -91,3 +91,15 @@ class ContentUrlIndexStore:
                 (user_id,),
             ).fetchall()
         return {str(row["url_hash"]) for row in rows}
+
+    def delete_reference(self, *, user_id: str, source_type: str, external_id: str) -> int:
+        """Delete exactly one tenant's references for a source item."""
+        with get_connection(self._settings) as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM content_url_index
+                WHERE user_id = ? AND source_type = ? AND external_id = ?
+                """,
+                (user_id, source_type, external_id),
+            )
+            return max(0, int(cursor.rowcount or 0))
