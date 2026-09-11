@@ -111,6 +111,13 @@ def test_sqlite_bookmark_export_is_exact_tenant_scoped_and_deterministic(tmp_pat
 def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
+    service._auth_store = MagicMock()
+    service._auth_store.get_user_for_export.return_value = {
+        "user_id": "tenant-a",
+        "email": "a@example.test",
+        "display_name": "A",
+        "created_at": "now",
+    }
     service._memory_store = MagicMock()
     service._memory_store.list_recent.return_value = []
     service._youtube_store = MagicMock()
@@ -136,21 +143,14 @@ def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
         def execute(self, sql, params=None):
             normalized = " ".join(str(sql).split())
             assert "FROM browser_bookmarks" not in normalized
-            if normalized.startswith("SELECT user_id, email"):
-                return _Cursor(
-                    row={
-                        "user_id": "tenant-a",
-                        "email": "a@example.test",
-                        "display_name": "A",
-                        "created_at": "now",
-                    }
-                )
+            assert "FROM users" not in normalized
             return _Cursor(rows=[])
 
     monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
 
     payload = service.export_user_data(user_id="tenant-a")
 
+    service._auth_store.get_user_for_export.assert_called_once_with(user_id="tenant-a")
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
     selected_jobs.assert_called_once_with(service._settings, user_id="tenant-a", limit=500)
     assert payload["browser_bookmarks"] == [

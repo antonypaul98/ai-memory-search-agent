@@ -54,6 +54,24 @@ class PostgresAuthStore:
             )
         return UserPublic(user_id=user_id, email=stored_email, display_name=resolved_name)
 
+    def get_user_for_export(self, *, user_id: str) -> dict[str, Any] | None:
+        """Return only non-secret user fields for an exact-tenant privacy export."""
+        if not user_id or not user_id.strip():
+            raise ValueError("user_id is required")
+        with self._connection_factory() as conn:
+            row = conn.execute(
+                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = %s",
+                (user_id,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "user_id": _export_value(row, "user_id", 0),
+            "email": _export_value(row, "email", 1),
+            "display_name": _export_value(row, "display_name", 2),
+            "created_at": _export_value(row, "created_at", 3),
+        }
+
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
         with self._connection_factory() as conn:
@@ -164,6 +182,13 @@ def _value(row: Any, key: str) -> Any:
             "password_hash": 2,
             "display_name": 3,
         }[key]
+        return row[index]
+
+
+def _export_value(row: Any, key: str, index: int) -> Any:
+    try:
+        return row[key]
+    except (TypeError, KeyError, IndexError):
         return row[index]
 
 

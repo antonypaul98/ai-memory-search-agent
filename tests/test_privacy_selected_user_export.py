@@ -4,21 +4,21 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.config import Settings
-from app.db import job_store_factory as job_factory
+from app.db.postgres_auth_store import PostgresAuthStore
 from app.services import privacy_service as privacy_module
 from app.services.privacy_service import PrivacyService
 
 
 class _Cursor:
-    def __init__(self, *, rows=None, row=None):
-        self._rows = list(rows or [])
+    def __init__(self, *, row=None, rows=None):
         self._row = row
-
-    def fetchall(self):
-        return self._rows
+        self._rows = list(rows or [])
 
     def fetchone(self):
         return self._row
+
+    def fetchall(self):
+        return self._rows
 
 
 class _PgConnection:
@@ -36,13 +36,12 @@ class _PgConnection:
         packed = tuple(params) if params is not None else None
         self.calls.append((normalized, packed))
         return _Cursor(
-            rows=[
-                {
-                    "job_id": "job-a",
-                    "user_id": "tenant-a",
-                    "created_at": "2026-09-11T10:00:00+00:00",
-                }
-            ]
+            row={
+                "user_id": "tenant-a",
+                "email": "a@example.test",
+                "display_name": "A",
+                "created_at": "2026-09-11T10:00:00+00:00",
+            }
         )
 
 
@@ -54,29 +53,28 @@ class _PgFactory:
         return self.connection
 
 
-def test_job_export_follows_postgres_backend_and_is_exact_tenant_scoped(monkeypatch):
+def test_postgres_user_export_is_exact_tenant_scoped_and_excludes_secrets():
     factory = _PgFactory()
-    settings = Settings(job_store_backend="postgres")
-    monkeypatch.setattr(job_factory, "get_postgres_connection_factory", lambda settings: factory)
+    store = PostgresAuthStore(Settings(auth_store_backend="postgres"), factory)
 
-    rows = job_factory.list_jobs_for_user(settings, user_id="tenant-a", limit=25)
+    row = store.get_user_for_export(user_id="tenant-a")
 
-    assert rows == [
-        {
-            "job_id": "job-a",
-            "user_id": "tenant-a",
-            "created_at": "2026-09-11T10:00:00+00:00",
-        }
-    ]
+    assert row == {
+        "user_id": "tenant-a",
+        "email": "a@example.test",
+        "display_name": "A",
+        "created_at": "2026-09-11T10:00:00+00:00",
+    }
+    assert "password_hash" not in row
     assert factory.connection.calls == [
         (
-            "SELECT * FROM background_jobs WHERE user_id = %s ORDER BY created_at DESC, job_id LIMIT %s",
-            ("tenant-a", 25),
+            "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = %s",
+            ("tenant-a",),
         )
     ]
 
 
-def test_privacy_export_routes_jobs_without_legacy_sqlite_read(monkeypatch):
+def test_privacy_export_routes_user_through_selected_auth_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
     service._auth_store = MagicMock()
@@ -96,12 +94,7 @@ def test_privacy_export_routes_jobs_without_legacy_sqlite_read(monkeypatch):
     service._bookmark_store.list_for_user.return_value = []
     service._registry = MagicMock()
     service._registry.list_videos.return_value = []
-
-    selected_jobs = [
-        {"job_id": "selected-job", "user_id": "tenant-a", "created_at": "now"}
-    ]
-    selected_reader = MagicMock(return_value=selected_jobs)
-    monkeypatch.setattr(privacy_module, "list_jobs_for_user", selected_reader)
+    monkeypatch.setattr(privacy_module, "list_jobs_for_user", MagicMock(return_value=[]))
 
     class _PrivacyConnection:
         def __enter__(self):
@@ -112,8 +105,9 @@ def test_privacy_export_routes_jobs_without_legacy_sqlite_read(monkeypatch):
 
         def execute(self, sql, params=None):
             normalized = " ".join(str(sql).split())
-            assert "FROM background_jobs" not in normalized
             assert "FROM users" not in normalized
+            assert normalized.startswith("SELECT * FROM topic_profiles")
+            assert tuple(params) == ("tenant-a",)
             return _Cursor(rows=[])
 
     monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
@@ -121,5 +115,5 @@ def test_privacy_export_routes_jobs_without_legacy_sqlite_read(monkeypatch):
     payload = service.export_user_data(user_id="tenant-a")
 
     service._auth_store.get_user_for_export.assert_called_once_with(user_id="tenant-a")
-    selected_reader.assert_called_once_with(service._settings, user_id="tenant-a", limit=500)
-    assert payload["jobs"] == selected_jobs
+    assert payload["user"]["user_id"] == "tenant-a"
+    assert "password_hash" not in payload["user"]

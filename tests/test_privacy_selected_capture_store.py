@@ -104,10 +104,6 @@ def test_sqlite_capture_export_is_exact_tenant_scoped(tmp_path):
         )
 
     store = CaptureStore.__new__(CaptureStore)
-    store._settings = SimpleNamespace(sqlite_path=str(path))
-    monkey_settings = store._settings
-
-    # Use the real schema helper's connection contract without running migration.
     from app.config import Settings
 
     store._settings = Settings(sqlite_path=str(path))
@@ -120,6 +116,13 @@ def test_sqlite_capture_export_is_exact_tenant_scoped(tmp_path):
 def test_privacy_export_uses_selected_capture_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
+    service._auth_store = MagicMock()
+    service._auth_store.get_user_for_export.return_value = {
+        "user_id": "tenant-a",
+        "email": "a@example.test",
+        "display_name": "A",
+        "created_at": "now",
+    }
     service._memory_store = MagicMock()
     service._memory_store.list_recent.return_value = []
     service._youtube_store = MagicMock()
@@ -146,21 +149,14 @@ def test_privacy_export_uses_selected_capture_store(monkeypatch):
             normalized = " ".join(str(sql).split())
             assert "FROM captures" not in normalized
             assert "FROM browser_bookmarks" not in normalized
-            if normalized.startswith("SELECT user_id, email"):
-                return _Cursor(
-                    row={
-                        "user_id": "tenant-a",
-                        "email": "a@example.test",
-                        "display_name": "A",
-                        "created_at": "now",
-                    }
-                )
+            assert "FROM users" not in normalized
             return _Cursor(rows=[])
 
     monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
 
     payload = service.export_user_data(user_id="tenant-a")
 
+    service._auth_store.get_user_for_export.assert_called_once_with(user_id="tenant-a")
     service._capture_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=2000)
     service._bookmark_store.list_for_user.assert_called_once_with(user_id="tenant-a", limit=5000)
     selected_jobs.assert_called_once_with(service._settings, user_id="tenant-a", limit=500)

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.auth_store_factory import get_auth_store
 from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
@@ -35,6 +36,7 @@ class PrivacyService:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         migrate(self._settings)
+        self._auth_store = get_auth_store(self._settings)
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
         self._youtube_store = get_youtube_memory_store(self._settings)
@@ -54,11 +56,8 @@ class PrivacyService:
         captures = self._capture_store.list_for_user(user_id=user_id, limit=2000)
         bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=5000)
         jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=500)
+        user_row = self._auth_store.get_user_for_export(user_id=user_id)
         with get_connection(self._settings) as conn:
-            user_row = conn.execute(
-                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
-                (user_id,),
-            ).fetchone()
             topics = [
                 dict(r)
                 for r in conn.execute(
@@ -70,7 +69,7 @@ class PrivacyService:
         return {
             "export_version": 1,
             "exported_at": datetime.now(timezone.utc).isoformat(),
-            "user": dict(user_row) if user_row else {"user_id": user_id},
+            "user": user_row if user_row else {"user_id": user_id},
             "memories": [m.model_dump(mode="json") for m in memories],
             "youtube_memories": youtube,
             "captures": captures,
