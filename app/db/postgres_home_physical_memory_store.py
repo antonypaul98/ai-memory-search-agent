@@ -73,13 +73,32 @@ class PostgresHomePhysicalMemoryStore:
         min_confidence: float = 0.0,
     ) -> ObjectSighting | None:
         """Return the newest qualifying sighting for exactly one tenant."""
+        rows = self.history(
+            user_id=user_id,
+            object_name=object_name,
+            min_confidence=min_confidence,
+            limit=1,
+        )
+        return rows[0] if rows else None
+
+    def history(
+        self,
+        *,
+        user_id: str,
+        object_name: str,
+        min_confidence: float = 0.0,
+        limit: int = 20,
+    ) -> list[ObjectSighting]:
+        """Return deterministic newest-first history for exactly one tenant."""
         user_id = _required("user_id", user_id)
         object_name = _required("object_name", object_name)
         if not 0.0 <= min_confidence <= 1.0:
             raise ValueError("min_confidence must be between 0.0 and 1.0")
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
 
         with self._connect() as conn:
-            row = conn.execute(
+            rows = conn.execute(
                 """
                 SELECT object_name, location, observed_at, confidence, source_id, evidence_id
                 FROM home_object_sightings
@@ -87,20 +106,22 @@ class PostgresHomePhysicalMemoryStore:
                   AND LOWER(object_name) = LOWER(%s)
                   AND confidence >= %s
                 ORDER BY observed_at DESC, evidence_id DESC
-                LIMIT 1
+                LIMIT %s
                 """,
-                (user_id, object_name, min_confidence),
-            ).fetchone()
-        if not row:
-            return None
-        return ObjectSighting(
-            object_name=row["object_name"],
-            location=row["location"],
-            observed_at=datetime.fromisoformat(row["observed_at"]),
-            confidence=float(row["confidence"]),
-            source_id=row["source_id"],
-            evidence_id=row["evidence_id"],
-        )
+                (user_id, object_name, min_confidence, limit),
+            ).fetchall()
+        return [_row_to_sighting(row) for row in rows]
+
+
+def _row_to_sighting(row) -> ObjectSighting:
+    return ObjectSighting(
+        object_name=row["object_name"],
+        location=row["location"],
+        observed_at=datetime.fromisoformat(row["observed_at"]),
+        confidence=float(row["confidence"]),
+        source_id=row["source_id"],
+        evidence_id=row["evidence_id"],
+    )
 
 
 def _required(name: str, value: str) -> str:
