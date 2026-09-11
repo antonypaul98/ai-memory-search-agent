@@ -13,6 +13,39 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def ensure_postgres_content_url_index_schema(connection_factory: ConnectionFactory) -> None:
+    """Create the tenant-scoped cross-source duplicate index idempotently."""
+    with connection_factory() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS content_url_index (
+                user_id TEXT NOT NULL,
+                url_hash TEXT NOT NULL,
+                canonical_url TEXT NOT NULL,
+                content_hash TEXT NOT NULL DEFAULT '',
+                source_type TEXT NOT NULL,
+                connector_id TEXT NOT NULL,
+                external_id TEXT NOT NULL,
+                memory_id TEXT,
+                created_at TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (user_id, url_hash)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_content_url_hash
+            ON content_url_index(user_id, content_hash)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_content_url_external
+            ON content_url_index(user_id, source_type, external_id)
+            """
+        )
+
+
 class PostgresContentUrlIndexStore:
     """Tenant-scoped Postgres adapter for ``content_url_index``."""
 
@@ -21,35 +54,7 @@ class PostgresContentUrlIndexStore:
         self.ensure_schema()
 
     def ensure_schema(self) -> None:
-        with self._connection_factory() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS content_url_index (
-                    user_id TEXT NOT NULL,
-                    url_hash TEXT NOT NULL,
-                    canonical_url TEXT NOT NULL,
-                    content_hash TEXT NOT NULL DEFAULT '',
-                    source_type TEXT NOT NULL,
-                    connector_id TEXT NOT NULL,
-                    external_id TEXT NOT NULL,
-                    memory_id TEXT,
-                    created_at TIMESTAMPTZ NOT NULL,
-                    PRIMARY KEY (user_id, url_hash)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_content_url_hash
-                ON content_url_index(user_id, content_hash)
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_content_url_external
-                ON content_url_index(user_id, source_type, external_id)
-                """
-            )
+        ensure_postgres_content_url_index_schema(self._connection_factory)
 
     def find_by_url_hash(self, *, user_id: str, url_hash: str):
         with self._connection_factory() as conn:
