@@ -16,6 +16,7 @@ from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
 from app.db.video_registry import get_video_registry
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.services.fts_index import FTSIndex
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class PrivacyService:
         migrate(self._settings)
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
+        self._youtube_store = get_youtube_memory_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._fts = FTSIndex(self._settings)
@@ -40,18 +42,15 @@ class PrivacyService:
 
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
         memories = self._memory_store.list_recent(user_id=user_id, limit=10_000)
+        youtube = [
+            memory.model_dump(mode="json")
+            for memory in self._youtube_store.list_for_user(user_id, limit=10_000)
+        ]
         with get_connection(self._settings) as conn:
             user_row = conn.execute(
                 "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
                 (user_id,),
             ).fetchone()
-            youtube = [
-                dict(r)
-                for r in conn.execute(
-                    "SELECT * FROM youtube_memories WHERE user_id = ? ORDER BY saved_at DESC",
-                    (user_id,),
-                ).fetchall()
-            ]
             captures = [
                 dict(r)
                 for r in conn.execute(
@@ -127,6 +126,8 @@ class PrivacyService:
             source_type=source_type,
             external_id=external_id,
         )
+        if source_type == "youtube":
+            self._youtube_store.delete_memory(user_id=user_id, video_id=external_id)
         self._delete_sqlite_memory_rows(
             memory_id=memory_id,
             user_id=user_id,
@@ -193,10 +194,6 @@ class PrivacyService:
             conn.execute(
                 "DELETE FROM memory_records WHERE memory_id = ? AND user_id = ?",
                 (memory_id, user_id),
-            )
-            conn.execute(
-                "DELETE FROM youtube_memories WHERE user_id = ? AND video_id = ?",
-                (user_id, external_id),
             )
             # Capsules are keyed only by video_id — never drop while another tenant
             # still references the same external id (bump_index_version invalidates cache).
