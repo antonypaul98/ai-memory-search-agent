@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.auth_store_factory import get_auth_store
 from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
@@ -35,6 +36,7 @@ class PrivacyService:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         migrate(self._settings)
+        self._auth_store = get_auth_store(self._settings)
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
         self._youtube_store = get_youtube_memory_store(self._settings)
@@ -54,11 +56,8 @@ class PrivacyService:
         captures = self._capture_store.list_for_user(user_id=user_id, limit=2000)
         bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=5000)
         jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=500)
+        user_row = self._auth_store.get_user_for_export(user_id=user_id)
         with get_connection(self._settings) as conn:
-            user_row = conn.execute(
-                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
-                (user_id,),
-            ).fetchone()
             topics = [
                 dict(r)
                 for r in conn.execute(
@@ -70,7 +69,7 @@ class PrivacyService:
         return {
             "export_version": 1,
             "exported_at": datetime.now(timezone.utc).isoformat(),
-            "user": dict(user_row) if user_row else {"user_id": user_id},
+            "user": user_row if user_row else {"user_id": user_id},
             "memories": [m.model_dump(mode="json") for m in memories],
             "youtube_memories": youtube,
             "captures": captures,
@@ -91,11 +90,7 @@ class PrivacyService:
             if hasattr(memory.source_type, "value")
             else str(memory.source_type)
         )
-
-        # Vector evidence (user-scoped).
         self._repo.delete_item(external_id, user_id=user_id)
-
-        # Shared FTS / hierarchical / capsule indexes — only if no other tenant shares the id.
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
         if not shared:
             try:
@@ -182,8 +177,6 @@ class PrivacyService:
                 "DELETE FROM memory_records WHERE memory_id = ? AND user_id = ?",
                 (memory_id, user_id),
             )
-            # Capsules are keyed only by video_id — never drop while another tenant
-            # still references the same external id (bump_index_version invalidates cache).
             if delete_shared_capsule:
                 conn.execute(
                     "DELETE FROM memory_capsules_json WHERE video_id = ?",
@@ -196,13 +189,7 @@ def dump_export_json(payload: dict[str, Any]) -> str:
 
 
 def dump_export_markdown(payload: dict[str, Any]) -> str:
-    """Render the complete tenant export as portable, deterministic Markdown.
-
-    Human-readable summaries remain first. A hidden, versioned, base64-encoded JSON
-    payload is appended so the Markdown artifact is losslessly re-importable without
-    parsing presentation text or dropping connector-specific/private fields.
-    """
-
+    """Render the complete tenant export as portable, deterministic Markdown."""
     user = payload.get("user") or {}
     memories = list(payload.get("memories") or [])
     title_owner = user.get("display_name") or user.get("email") or user.get("user_id") or "User"
@@ -273,7 +260,6 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
             ]
         )
 
-    # Preserve the user record as exported too, not only the display fields above.
     lines.extend(["## User record", "", *_indented_json(user), ""])
     encoded_payload = base64.urlsafe_b64encode(
         json.dumps(payload, default=str, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -283,13 +269,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
 
 
 def load_export_markdown(markdown: str) -> dict[str, Any]:
-    """Recover the lossless export payload embedded by ``dump_export_markdown``.
-
-    This is deliberately a pure import-adapter boundary: it validates and restores
-    portable data but performs no writes. A caller must still apply normal tenant,
-    deduplication, provenance, and confirmation rules before importing records.
-    """
-
+    """Recover the lossless export payload embedded by ``dump_export_markdown``."""
     raw = markdown.encode("utf-8")
     if len(raw) > _MAX_MARKDOWN_IMPORT_BYTES:
         raise ValueError("Markdown export exceeds import size limit")
