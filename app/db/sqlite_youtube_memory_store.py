@@ -62,6 +62,15 @@ class SQLiteYouTubeMemoryStore(YouTubeMemoryStore):
             )
             return bool(cursor.rowcount)
 
+    def delete_memory(self, *, user_id: str, video_id: str) -> bool:
+        """Delete one YouTube memory only for the exact tenant/video identity."""
+        with get_connection(self._settings) as conn:
+            cursor = conn.execute(
+                "DELETE FROM youtube_memories WHERE user_id = ? AND video_id = ?",
+                (user_id, video_id),
+            )
+            return bool(cursor.rowcount)
+
     def diagnostics(self, *, user_id: str):
         # SQLite is the legacy local/self-host backend and its metric table is global.
         # Accept the selected-store tenant-explicit signature without pretending those
