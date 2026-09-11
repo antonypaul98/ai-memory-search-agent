@@ -179,3 +179,84 @@ def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: 
     assert response.status_code == 422
     home_agent_api_client.home_agent_capture_service.start_session.assert_not_called()
     home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
+
+
+def test_detection_ingest_resolves_server_owned_source(home_agent_api_client: TestClient) -> None:
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id="capture-1",
+        user_id=AUTHENTICATED_USER_ID,
+        source_id="camera-entry",
+        started_at=now - timedelta(minutes=1),
+        expires_at=now + timedelta(minutes=4),
+    )
+    home_agent_api_client.home_agent_capture_registry.resolve_for_user.return_value = session
+    home_agent_api_client.home_agent_capture_service.ingest_detection.return_value = True
+
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/detections",
+        json={
+            "session_id": "capture-1",
+            "object_name": "keys",
+            "location": "entry table",
+            "observed_at": now.isoformat(),
+            "confidence": 0.94,
+            "evidence_id": "frame-123",
+            "consent_granted": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"stored": True}
+    resolve_call = home_agent_api_client.home_agent_capture_registry.resolve_for_user.call_args.kwargs
+    assert resolve_call["session_id"] == "capture-1"
+    assert resolve_call["user_id"] == AUTHENTICATED_USER_ID
+    ingest_call = home_agent_api_client.home_agent_capture_service.ingest_detection.call_args.kwargs
+    assert ingest_call["user_id"] == AUTHENTICATED_USER_ID
+    assert ingest_call["session"] is session
+    assert ingest_call["detection"].source_id == "camera-entry"
+    assert ingest_call["consent"].source_id == "camera-entry"
+
+
+def test_detection_ingest_requires_explicit_consent(home_agent_api_client: TestClient) -> None:
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/detections",
+        json={
+            "session_id": "capture-1",
+            "object_name": "keys",
+            "location": "entry table",
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "confidence": 0.94,
+            "evidence_id": "frame-123",
+            "consent_granted": False,
+        },
+    )
+
+    assert response.status_code == 403
+    home_agent_api_client.home_agent_capture_registry.resolve_for_user.assert_not_called()
+    home_agent_api_client.home_agent_capture_service.ingest_detection.assert_not_called()
+
+
+def test_detection_ingest_rejects_caller_supplied_source_or_user(home_agent_api_client: TestClient) -> None:
+    payload = {
+        "session_id": "capture-1",
+        "object_name": "keys",
+        "location": "entry table",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "confidence": 0.94,
+        "evidence_id": "frame-123",
+        "consent_granted": True,
+    }
+
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/detections",
+        json={**payload, "source_id": "camera-attacker"},
+    )
+    assert response.status_code == 422
+
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/detections",
+        json={**payload, "user_id": "other-tenant"},
+    )
+    assert response.status_code == 422
+    home_agent_api_client.home_agent_capture_service.ingest_detection.assert_not_called()
