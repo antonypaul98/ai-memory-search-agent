@@ -24,21 +24,22 @@ class CaptureSessionRegistry:
         with self._lock:
             self._sessions[session.session_id] = session
 
-    def resolve(
+    def resolve_for_user(
         self,
         *,
         session_id: str,
         user_id: str,
-        source_id: str,
         now: datetime | None = None,
     ) -> CaptureSession:
-        """Resolve only an active session owned by this user and source."""
+        """Resolve an active session for its authenticated owner.
+
+        The stored session remains the authority for source_id and expiry so API
+        callers cannot choose either value during detection ingest.
+        """
         if not session_id.strip():
             raise ValueError("session_id is required")
         if not user_id.strip():
             raise ValueError("user_id is required")
-        if not source_id.strip():
-            raise ValueError("source_id is required")
 
         resolved_now = now or datetime.now(timezone.utc)
         if resolved_now.tzinfo is None or resolved_now.utcoffset() is None:
@@ -53,10 +54,31 @@ class CaptureSessionRegistry:
                 self._sessions.pop(session_id, None)
                 raise PermissionError("capture session is missing, mismatched, or expired")
 
-            if session.user_id != user_id or session.source_id != source_id:
+            if session.user_id != user_id:
                 raise PermissionError("capture session is missing, mismatched, or expired")
 
             return session
+
+    def resolve(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        source_id: str,
+        now: datetime | None = None,
+    ) -> CaptureSession:
+        """Resolve only an active session owned by this user and source."""
+        if not source_id.strip():
+            raise ValueError("source_id is required")
+
+        session = self.resolve_for_user(
+            session_id=session_id,
+            user_id=user_id,
+            now=now,
+        )
+        if session.source_id != source_id:
+            raise PermissionError("capture session is missing, mismatched, or expired")
+        return session
 
     def revoke(self, *, session_id: str) -> bool:
         """Remove a session; return whether one existed."""
