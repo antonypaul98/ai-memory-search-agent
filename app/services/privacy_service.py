@@ -19,6 +19,7 @@ from app.db.job_store_factory import list_jobs_for_user
 from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
+from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.services.fts_index import FTSIndex
@@ -42,6 +43,7 @@ class PrivacyService:
         self._youtube_store = get_youtube_memory_store(self._settings)
         self._capture_store = get_capture_store(self._settings)
         self._bookmark_store = get_bookmark_store(self._settings)
+        self._topic_store = get_topic_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._fts = FTSIndex(self._settings)
@@ -57,14 +59,12 @@ class PrivacyService:
         bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=5000)
         jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=500)
         user_row = self._auth_store.get_user_for_export(user_id=user_id)
-        with get_connection(self._settings) as conn:
-            topics = [
-                dict(r)
-                for r in conn.execute(
-                    "SELECT * FROM topic_profiles WHERE user_id = ? ORDER BY last_updated_at DESC",
-                    (user_id,),
-                ).fetchall()
-            ]
+        topic_store = getattr(self, "_topic_store", None)
+        topics = (
+            [topic.model_dump(mode="json") for topic in topic_store.list_topics(user_id, limit=500)]
+            if topic_store is not None
+            else []
+        )
 
         return {
             "export_version": 1,
