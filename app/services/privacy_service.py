@@ -90,7 +90,11 @@ class PrivacyService:
             if hasattr(memory.source_type, "value")
             else str(memory.source_type)
         )
+
+        # Vector evidence (user-scoped).
         self._repo.delete_item(external_id, user_id=user_id)
+
+        # Shared FTS / hierarchical / capsule indexes — only if no other tenant shares the id.
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
         if not shared:
             try:
@@ -177,6 +181,8 @@ class PrivacyService:
                 "DELETE FROM memory_records WHERE memory_id = ? AND user_id = ?",
                 (memory_id, user_id),
             )
+            # Capsules are keyed only by video_id — never drop while another tenant
+            # still references the same external id (bump_index_version invalidates cache).
             if delete_shared_capsule:
                 conn.execute(
                     "DELETE FROM memory_capsules_json WHERE video_id = ?",
@@ -189,7 +195,13 @@ def dump_export_json(payload: dict[str, Any]) -> str:
 
 
 def dump_export_markdown(payload: dict[str, Any]) -> str:
-    """Render the complete tenant export as portable, deterministic Markdown."""
+    """Render the complete tenant export as portable, deterministic Markdown.
+
+    Human-readable summaries remain first. A hidden, versioned, base64-encoded JSON
+    payload is appended so the Markdown artifact is losslessly re-importable without
+    parsing presentation text or dropping connector-specific/private fields.
+    """
+
     user = payload.get("user") or {}
     memories = list(payload.get("memories") or [])
     title_owner = user.get("display_name") or user.get("email") or user.get("user_id") or "User"
@@ -260,6 +272,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
             ]
         )
 
+    # Preserve the user record as exported too, not only the display fields above.
     lines.extend(["## User record", "", *_indented_json(user), ""])
     encoded_payload = base64.urlsafe_b64encode(
         json.dumps(payload, default=str, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -269,7 +282,13 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
 
 
 def load_export_markdown(markdown: str) -> dict[str, Any]:
-    """Recover the lossless export payload embedded by ``dump_export_markdown``."""
+    """Recover the lossless export payload embedded by ``dump_export_markdown``.
+
+    This is deliberately a pure import-adapter boundary: it validates and restores
+    portable data but performs no writes. A caller must still apply normal tenant,
+    deduplication, provenance, and confirmation rules before importing records.
+    """
+
     raw = markdown.encode("utf-8")
     if len(raw) > _MAX_MARKDOWN_IMPORT_BYTES:
         raise ValueError("Markdown export exceeds import size limit")
