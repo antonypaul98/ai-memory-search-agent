@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from app.config import Settings, get_settings
 from app.core.security import hash_password, new_session_token, verify_password
@@ -43,6 +44,17 @@ class AuthStore:
                 ),
             )
         return UserPublic(user_id=user_id, email=email.lower(), display_name=display_name or email)
+
+    def get_user_for_export(self, *, user_id: str) -> dict[str, Any] | None:
+        """Return only non-secret user fields for an exact-tenant privacy export."""
+        if not user_id or not user_id.strip():
+            raise ValueError("user_id is required")
+        with get_connection(self._settings) as conn:
+            row = conn.execute(
+                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        return dict(row) if row else None
 
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
