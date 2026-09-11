@@ -16,6 +16,7 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
+from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store import YouTubeMemoryStore
 from app.models.capsule import MemoryCapsule
@@ -88,9 +89,11 @@ class MemoryIntelligenceService:
         store: IntelligenceStore | None = None,
         search: SearchService | None = None,
         artifact_store: Any | None = None,
+        topic_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
+        self._topics = topic_store or (store if store is not None else get_topic_store(self._settings))
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
         self._yt = YouTubeMemoryStore(self._settings)
@@ -129,7 +132,7 @@ class MemoryIntelligenceService:
         topic_names: list[str] = []
         for topic in capsule.topics:
             cat = self._classify_topic(topic)
-            profile = self._store.upsert_topic(
+            profile = self._topics.upsert_topic(
                 user_id=user_id,
                 name=topic,
                 category=cat,
@@ -144,7 +147,7 @@ class MemoryIntelligenceService:
 
         for entity in capsule.entities + capsule.tools_or_components:
             cat = self._classify_topic(entity)
-            self._store.upsert_topic(
+            self._topics.upsert_topic(
                 user_id=user_id,
                 name=entity,
                 category=cat,
@@ -158,7 +161,7 @@ class MemoryIntelligenceService:
             counts["topics"] += 1
 
         if reflection and reflection.goal:
-            self._store.upsert_topic(
+            self._topics.upsert_topic(
                 user_id=user_id,
                 name=reflection.goal,
                 category=TopicCategory.PROJECT,
@@ -246,7 +249,7 @@ class MemoryIntelligenceService:
         created = 0
         peer_ids: set[str] = set()
         for name in topic_names[:8]:
-            topic = self._store.find_topic_by_name(name, user_id=user_id)
+            topic = self._topics.find_topic_by_name(name, user_id=user_id)
             if not topic:
                 continue
             for vid in topic.video_ids:
@@ -262,7 +265,7 @@ class MemoryIntelligenceService:
             peer_topic_names = (
                 list(peer_capsule.topics)
                 if peer_capsule and peer_capsule.topics
-                else [t.name for t in self._store.topics_for_video(peer_id, user_id=user_id)]
+                else [t.name for t in self._topics.topics_for_video(peer_id, user_id=user_id)]
             )
             peer_topics = {normalize_topic(t) for t in peer_topic_names}
             shared = sorted(source_topics & peer_topics)
@@ -361,7 +364,7 @@ class MemoryIntelligenceService:
         return created
 
     def _refresh_concept_capsule(self, *, user_id: str, topic_name: str) -> ConceptCapsule | None:
-        topic = self._store.find_topic_by_name(topic_name, user_id=user_id)
+        topic = self._topics.find_topic_by_name(topic_name, user_id=user_id)
         if not topic or topic.memory_count < 1:
             return None
         creators: list[str] = []
@@ -426,7 +429,7 @@ class MemoryIntelligenceService:
         )
         hits: list[IntelligenceHit] = []
         for idx, item in enumerate(base.results[:limit]):
-            entities = [t.name for t in self._store.topics_for_video(item.video_id, user_id=user_id)]
+            entities = [t.name for t in self._topics.topics_for_video(item.video_id, user_id=user_id)]
             related_ids = self._related_video_ids(item.video_id, user_id=user_id, limit=5)
             alternatives = [
                 r.video_id
@@ -477,7 +480,7 @@ class MemoryIntelligenceService:
         for edge in self._store.edges_for_video(video_id, user_id=user_id, limit=30):
             other = edge.target_video_id if edge.source_video_id == video_id else edge.source_video_id
             scored[other] = max(scored.get(other, 0.0), edge.strength)
-        for topic in self._store.topics_for_video(video_id, user_id=user_id):
+        for topic in self._topics.topics_for_video(video_id, user_id=user_id):
             for peer in topic.video_ids:
                 if peer != video_id:
                     scored[peer] = max(scored.get(peer, 0.0), 0.4)
@@ -486,14 +489,14 @@ class MemoryIntelligenceService:
     # ── Feature 3: Topic discovery ──────────────────────────────────────
 
     def list_topics(self, *, user_id: str, limit: int = 50) -> TopicListResponse:
-        topics = self._store.list_topics(user_id, limit=limit)
+        topics = self._topics.list_topics(user_id, limit=limit)
         return TopicListResponse(topics=topics, total=len(topics))
 
     def get_topic(self, topic_or_name: str, *, user_id: str) -> TopicProfile | None:
-        topic = self._store.get_topic(topic_or_name, user_id=user_id)
+        topic = self._topics.get_topic(topic_or_name, user_id=user_id)
         if topic:
             return topic
-        return self._store.find_topic_by_name(topic_or_name, user_id=user_id)
+        return self._topics.find_topic_by_name(topic_or_name, user_id=user_id)
 
     # ── Feature 4: Timeline ─────────────────────────────────────────────
 
@@ -507,14 +510,14 @@ class MemoryIntelligenceService:
     ) -> TimelineResponse:
         memories = self._yt.list_for_user(user_id, limit=200)
         if topic:
-            profile = self._store.find_topic_by_name(topic, user_id=user_id)
+            profile = self._topics.find_topic_by_name(topic, user_id=user_id)
             allowed = set(profile.video_ids) if profile else set()
             memories = [m for m in memories if m.video_id in allowed]
 
         entries: list[TimelineEntry] = []
         for mem in memories:
             usage = self._registry.get_usage(mem.video_id)
-            topics = [t.name for t in self._store.topics_for_video(mem.video_id, user_id=user_id)]
+            topics = [t.name for t in self._topics.topics_for_video(mem.video_id, user_id=user_id)]
             entries.append(
                 TimelineEntry(
                     video_id=mem.video_id,
@@ -576,7 +579,7 @@ class MemoryIntelligenceService:
                 video_id=video_id, edges=self._annotate_edges(edges, user_id), node_count=len(nodes)
             )
         if topic:
-            profile = self._store.find_topic_by_name(topic, user_id=user_id)
+            profile = self._topics.find_topic_by_name(topic, user_id=user_id)
             vids = profile.video_ids if profile else []
             edges = self._store.edges_for_topic_videos(vids, user_id=user_id, limit=limit)
             return LearningGraphResponse(
@@ -615,7 +618,7 @@ class MemoryIntelligenceService:
     # ── Feature 6: Learning roadmap ─────────────────────────────────────
 
     def roadmap(self, topic: str, *, user_id: str) -> LearningRoadmap:
-        profile = self._store.find_topic_by_name(topic, user_id=user_id)
+        profile = self._topics.find_topic_by_name(topic, user_id=user_id)
         if not profile:
             return LearningRoadmap(
                 topic=topic,
@@ -675,7 +678,7 @@ class MemoryIntelligenceService:
                     if ref and ref not in profile.normalized_name:
                         assumed_topics.add(ref)
         for name in sorted(assumed_topics):
-            other = self._store.find_topic_by_name(name, user_id=user_id)
+            other = self._topics.find_topic_by_name(name, user_id=user_id)
             if other is None or other.memory_count == 0:
                 missing.append(name)
 
@@ -698,7 +701,7 @@ class MemoryIntelligenceService:
     # ── Feature 7: Concept capsules ─────────────────────────────────────
 
     def list_capsules(self, *, user_id: str, limit: int = 50) -> ConceptCapsuleListResponse:
-        for topic in self._store.list_topics(user_id, limit=20):
+        for topic in self._topics.list_topics(user_id, limit=20):
             self._refresh_concept_capsule(user_id=user_id, topic_name=topic.name)
         capsules = self._store.list_concept_capsules(user_id, limit=limit)
         return ConceptCapsuleListResponse(capsules=capsules, total=len(capsules))
@@ -732,7 +735,7 @@ class MemoryIntelligenceService:
                         )
                     )
 
-            topics = {t.normalized_name for t in self._store.topics_for_video(mem.video_id, user_id=user_id)}
+            topics = {t.normalized_name for t in self._topics.topics_for_video(mem.video_id, user_id=user_id)}
             for other in memories:
                 if other.video_id <= mem.video_id:
                     continue
@@ -740,7 +743,7 @@ class MemoryIntelligenceService:
                 if pair in seen_pairs:
                     continue
                 other_topics = {
-                    t.normalized_name for t in self._store.topics_for_video(other.video_id, user_id=user_id)
+                    t.normalized_name for t in self._topics.topics_for_video(other.video_id, user_id=user_id)
                 }
                 shared = sorted(topics & other_topics)
                 if len(shared) < 1:
@@ -800,7 +803,7 @@ class MemoryIntelligenceService:
                 if usage.helpful_count > best_helpful:
                     best_helpful = usage.helpful_count
                     most_useful = m.video_id
-                for t in self._store.topics_for_video(m.video_id, user_id=user_id):
+                for t in self._topics.topics_for_video(m.video_id, user_id=user_id):
                     overlap.add(t.name)
             related: list[str] = list(c.related_creators)
             for other in creators:
@@ -830,7 +833,7 @@ class MemoryIntelligenceService:
     # ── Feature 10: Insights dashboard ──────────────────────────────────
 
     def insights(self, *, user_id: str) -> InsightsDashboard:
-        topics = self._store.list_topics(user_id, limit=100)
+        topics = self._topics.list_topics(user_id, limit=100)
         top_topics = topics[:10]
 
         most_saved = [t.name for t in topics[:15]]
