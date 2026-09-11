@@ -11,6 +11,20 @@ class BookmarkStore:
         self._settings = settings
         migrate(settings)
 
+    def list_for_user(self, *, user_id: str, limit: int = 5000) -> list[dict]:
+        """Return deterministic bookmark export rows for exactly one tenant."""
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM browser_bookmarks
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def sync_snapshot(
         self,
         *,
