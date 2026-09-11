@@ -7,9 +7,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_home_agent_capture_service, get_home_agent_query_service
+from app.api.dependencies import (
+    get_home_agent_capture_registry,
+    get_home_agent_capture_service,
+    get_home_agent_query_service,
+)
 from app.config import Settings, get_settings
 from app.models.user import UserPublic
+from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService, CaptureSession
 from app.services.home_agent.physical_memory import ObjectSighting
 from app.services.home_agent.query_service import HomeAgentQueryService, WhereAnswer
@@ -28,15 +33,18 @@ def home_agent_api_client(test_settings: Settings) -> TestClient:
 
     query_service = MagicMock(spec=HomeAgentQueryService)
     capture_service = MagicMock(spec=BoundedVisionCaptureService)
+    capture_registry = MagicMock(spec=CaptureSessionRegistry)
     app.dependency_overrides[get_settings] = lambda: test_settings
     app.dependency_overrides[get_current_user] = _authenticated_user
     app.dependency_overrides[get_home_agent_query_service] = lambda: query_service
     app.dependency_overrides[get_home_agent_capture_service] = lambda: capture_service
+    app.dependency_overrides[get_home_agent_capture_registry] = lambda: capture_registry
 
     with patch("app.main.get_settings", lambda: test_settings):
         with TestClient(app) as client:
             client.home_agent_service = query_service
             client.home_agent_capture_service = capture_service
+            client.home_agent_capture_registry = capture_registry
             yield client
 
     app.dependency_overrides.clear()
@@ -118,13 +126,14 @@ def test_history_rejects_caller_supplied_user_id(home_agent_api_client: TestClie
 
 def test_capture_session_uses_authenticated_identity(home_agent_api_client: TestClient) -> None:
     started_at = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
-    home_agent_api_client.home_agent_capture_service.start_session.return_value = CaptureSession(
+    session = CaptureSession(
         session_id="capture-1",
         user_id=AUTHENTICATED_USER_ID,
         source_id="camera-entry",
         started_at=started_at,
         expires_at=started_at + timedelta(minutes=5),
     )
+    home_agent_api_client.home_agent_capture_service.start_session.return_value = session
 
     response = home_agent_api_client.post(
         "/api/v1/home-agent/capture-sessions",
@@ -143,6 +152,7 @@ def test_capture_session_uses_authenticated_identity(home_agent_api_client: Test
         source_id="camera-entry",
         ttl=timedelta(seconds=300),
     )
+    home_agent_api_client.home_agent_capture_registry.register.assert_called_once_with(session)
 
 
 def test_capture_session_rejects_caller_supplied_user_id(home_agent_api_client: TestClient) -> None:
@@ -157,6 +167,7 @@ def test_capture_session_rejects_caller_supplied_user_id(home_agent_api_client: 
 
     assert response.status_code == 422
     home_agent_api_client.home_agent_capture_service.start_session.assert_not_called()
+    home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
 
 
 def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: TestClient) -> None:
@@ -167,3 +178,4 @@ def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: 
 
     assert response.status_code == 422
     home_agent_api_client.home_agent_capture_service.start_session.assert_not_called()
+    home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
