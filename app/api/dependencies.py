@@ -14,6 +14,7 @@ from app.services.chat_service import ChatService
 from app.services.context_router import ContextRouter, LocalMemoryContextProvider
 from app.services.feedback_service import FeedbackService
 from app.services.health_service import HealthService
+from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
 from app.services.home_agent.observation_ingest import HomeObservationIngestService
 from app.services.home_agent.query_service import HomeAgentQueryService
@@ -21,6 +22,9 @@ from app.services.home_agent.vision_adapter import ConsentGatedVisionAdapter
 from app.services.ingest_service import IngestService
 from app.services.recommendation_service import RecommendationService
 from app.services.search_service import SearchService
+
+
+_HOME_AGENT_CAPTURE_REGISTRY = CaptureSessionRegistry()
 
 
 def get_app_settings() -> Settings:
@@ -107,3 +111,8 @@ def get_home_agent_capture_service() -> BoundedVisionCaptureService:
     ingest_service = HomeObservationIngestService(_get_home_agent_physical_memory_store())
     adapter = ConsentGatedVisionAdapter(ingest_service)
     return BoundedVisionCaptureService(adapter)
+
+
+def get_home_agent_capture_registry() -> CaptureSessionRegistry:
+    """Provide the process-local server-owned capture-session registry."""
+    return _HOME_AGENT_CAPTURE_REGISTRY
