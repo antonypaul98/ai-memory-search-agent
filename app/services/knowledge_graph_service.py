@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from app.config import Settings, get_settings
-from app.db.knowledge_graph_store import KnowledgeGraphStore, get_knowledge_graph_store
+from app.db.knowledge_graph_store import KnowledgeGraphStore
+from app.db.knowledge_graph_store_factory import get_selected_knowledge_graph_store
 from app.models.capsule import MemoryCapsule
 from app.models.knowledge_graph import (
     EntityType,
@@ -41,10 +43,10 @@ class KnowledgeGraphService:
     def __init__(
         self,
         settings: Settings | None = None,
-        store: KnowledgeGraphStore | None = None,
+        store: KnowledgeGraphStore | Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._store = store or get_knowledge_graph_store(self._settings)
+        self._store = store or get_selected_knowledge_graph_store(self._settings)
 
     def connect_memory(
         self,
