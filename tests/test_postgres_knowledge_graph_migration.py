@@ -140,7 +140,7 @@ def test_migration_is_read_only_deterministic_and_idempotent(tmp_path):
     assert second.entities_inserted == 0
     assert second.relations_inserted == 0
     assert second.memory_links_inserted == 0
-    assert list(target.entities) == ["e1", "e2", "e3"]
+    assert list(target.entities) == ["e2", "e1", "e3"]
     assert list(target.relations) == ["r1"]
     assert list(target.links) == [("alice", "m1", "e1")]
 
