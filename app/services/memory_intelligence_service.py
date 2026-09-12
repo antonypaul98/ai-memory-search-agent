@@ -16,6 +16,7 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
+from app.db.learning_edge_store_factory import get_learning_edge_store
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store import YouTubeMemoryStore
@@ -90,10 +91,14 @@ class MemoryIntelligenceService:
         search: SearchService | None = None,
         artifact_store: Any | None = None,
         topic_store: Any | None = None,
+        learning_edge_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
         self._topics = topic_store or (store if store is not None else get_topic_store(self._settings))
+        self._edges = learning_edge_store or (
+            store if store is not None else get_learning_edge_store(self._settings)
+        )
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
         self._yt = YouTubeMemoryStore(self._settings)
@@ -270,7 +275,7 @@ class MemoryIntelligenceService:
             peer_topics = {normalize_topic(t) for t in peer_topic_names}
             shared = sorted(source_topics & peer_topics)
             if not shared and peer and peer.channel == metadata.channel:
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=metadata.video_id,
                     target_video_id=peer_id,
@@ -287,7 +292,7 @@ class MemoryIntelligenceService:
                 continue
 
             shared_label = ", ".join(shared[:5])
-            self._store.upsert_edge(
+            self._edges.upsert_edge(
                 user_id=user_id,
                 source_video_id=metadata.video_id,
                 target_video_id=peer_id,
@@ -305,7 +310,7 @@ class MemoryIntelligenceService:
                 f"{peer_capsule.short_summary if peer_capsule else ''}"
             ).lower()
             if _CONTRADICT_RE.search(source_text) or _CONTRADICT_RE.search(peer_text):
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=metadata.video_id,
                     target_video_id=peer_id,
@@ -316,7 +321,7 @@ class MemoryIntelligenceService:
                 )
                 created += 1
             elif advanced and not beginner:
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=metadata.video_id,
                     target_video_id=peer_id,
@@ -327,7 +332,7 @@ class MemoryIntelligenceService:
                 )
                 created += 1
             elif beginner:
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=metadata.video_id,
                     target_video_id=peer_id,
@@ -338,7 +343,7 @@ class MemoryIntelligenceService:
                 )
                 created += 1
             elif _EXPAND_RE.search(source_text):
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=metadata.video_id,
                     target_video_id=peer_id,
@@ -350,7 +355,7 @@ class MemoryIntelligenceService:
                 created += 1
 
             if advanced and any(_BEGINNER_RE.search(t) for t in peer_topic_names):
-                self._store.upsert_edge(
+                self._edges.upsert_edge(
                     user_id=user_id,
                     source_video_id=peer_id,
                     target_video_id=metadata.video_id,
@@ -477,7 +482,7 @@ class MemoryIntelligenceService:
     def _related_video_ids(self, video_id: str, *, user_id: str, limit: int = 5) -> list[str]:
         """Related IDs from learning edges + shared topics (no embedding calls)."""
         scored: dict[str, float] = {}
-        for edge in self._store.edges_for_video(video_id, user_id=user_id, limit=30):
+        for edge in self._edges.edges_for_video(video_id, user_id=user_id, limit=30):
             other = edge.target_video_id if edge.source_video_id == video_id else edge.source_video_id
             scored[other] = max(scored.get(other, 0.0), edge.strength)
         for topic in self._topics.topics_for_video(video_id, user_id=user_id):
@@ -570,7 +575,7 @@ class MemoryIntelligenceService:
         limit: int = 50,
     ) -> LearningGraphResponse:
         if video_id:
-            edges = self._store.edges_for_video(video_id, user_id=user_id, limit=limit)
+            edges = self._edges.edges_for_video(video_id, user_id=user_id, limit=limit)
             nodes = {video_id}
             for e in edges:
                 nodes.add(e.source_video_id)
@@ -581,7 +586,7 @@ class MemoryIntelligenceService:
         if topic:
             profile = self._topics.find_topic_by_name(topic, user_id=user_id)
             vids = profile.video_ids if profile else []
-            edges = self._store.edges_for_topic_videos(vids, user_id=user_id, limit=limit)
+            edges = self._edges.edges_for_topic_videos(vids, user_id=user_id, limit=limit)
             return LearningGraphResponse(
                 topic=topic,
                 edges=self._annotate_edges(edges, user_id),
@@ -589,7 +594,7 @@ class MemoryIntelligenceService:
             )
         all_edges: list[LearningEdge] = []
         for mem in self._yt.list_for_user(user_id, limit=40):
-            all_edges.extend(self._store.edges_for_video(mem.video_id, user_id=user_id, limit=10))
+            all_edges.extend(self._edges.edges_for_video(mem.video_id, user_id=user_id, limit=10))
         dedup: dict[str, LearningEdge] = {e.edge_id: e for e in all_edges}
         ranked = sorted(dedup.values(), key=lambda e: e.strength, reverse=True)[:limit]
         nodes: set[str] = set()
@@ -670,7 +675,7 @@ class MemoryIntelligenceService:
         order_ids = [s.video_id for s in ordered]
 
         missing: list[str] = []
-        edges = self._store.edges_for_topic_videos(profile.video_ids, user_id=user_id, limit=100)
+        edges = self._edges.edges_for_topic_videos(profile.video_ids, user_id=user_id, limit=100)
         assumed_topics: set[str] = set()
         for e in edges:
             if e.relation == LearningRelation.ASSUMES:
@@ -881,7 +886,7 @@ class MemoryIntelligenceService:
             total_memories=len(self._yt.list_for_user(user_id, limit=5000)),
             total_topics=len(topics),
             total_creators=len(creators),
-            total_learning_edges=self._store.count_edges(user_id),
+            total_learning_edges=self._edges.count_edges(user_id),
         )
 
 
