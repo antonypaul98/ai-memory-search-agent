@@ -12,6 +12,9 @@ from app.db.postgres_runtime import get_postgres_connection_factory
 
 def get_selected_knowledge_graph_store(settings: Settings | None = None) -> Any:
     resolved = settings or get_settings()
-    if resolved.memory_store_backend == "postgres":
+    # Keep partial settings/test doubles compatible with the application's
+    # long-standing SQLite default while preserving explicit Postgres routing.
+    backend = getattr(resolved, "memory_store_backend", "sqlite")
+    if backend == "postgres":
         return PostgresKnowledgeGraphStore(get_postgres_connection_factory(resolved))
     return KnowledgeGraphStore(resolved)
