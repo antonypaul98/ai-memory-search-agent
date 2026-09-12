@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import Settings, get_settings
 from app.db.concept_capsule_store_factory import get_concept_capsule_store
+from app.db.creator_profile_store_factory import get_creator_profile_store
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
 from app.db.learning_edge_store_factory import get_learning_edge_store
@@ -94,6 +95,7 @@ class MemoryIntelligenceService:
         topic_store: Any | None = None,
         learning_edge_store: Any | None = None,
         concept_capsule_store: Any | None = None,
+        creator_profile_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
@@ -103,6 +105,9 @@ class MemoryIntelligenceService:
         )
         self._capsules = concept_capsule_store or (
             store if store is not None else get_concept_capsule_store(self._settings)
+        )
+        self._creators = creator_profile_store or (
+            store if store is not None else get_creator_profile_store(self._settings)
         )
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
@@ -219,7 +224,7 @@ class MemoryIntelligenceService:
                 beg += 1
             if advanced and not any(m.video_id == metadata.video_id for m in channel_videos):
                 adv += 1
-            self._store.replace_creator_stats(
+            self._creators.replace_creator_stats(
                 user_id=user_id,
                 name=metadata.channel,
                 channel_id=metadata.channel_id or "",
@@ -794,7 +799,7 @@ class MemoryIntelligenceService:
     # ── Feature 9: Creator intelligence ─────────────────────────────────
 
     def list_creators(self, *, user_id: str, limit: int = 50) -> CreatorListResponse:
-        creators = self._store.list_creators(user_id, limit=limit)
+        creators = self._creators.list_creators(user_id, limit=limit)
         enriched: list[CreatorProfile] = []
         for c in creators:
             channel_memories = [
@@ -835,10 +840,10 @@ class MemoryIntelligenceService:
         return CreatorListResponse(creators=enriched, total=len(enriched))
 
     def get_creator(self, name_or_id: str, *, user_id: str) -> CreatorProfile | None:
-        c = self._store.get_creator(name_or_id, user_id=user_id)
+        c = self._creators.get_creator(name_or_id, user_id=user_id)
         if c:
             return c
-        return self._store.find_creator_by_name(name_or_id, user_id=user_id)
+        return self._creators.find_creator_by_name(name_or_id, user_id=user_id)
 
     # ── Feature 10: Insights dashboard ──────────────────────────────────
 
@@ -879,7 +884,7 @@ class MemoryIntelligenceService:
         )
         knowledge_growth = _growth_series([t.first_seen_at for t in topics if t.first_seen_at])
 
-        creators = self._store.list_creators(user_id, limit=200)
+        creators = self._creators.list_creators(user_id, limit=200)
         return InsightsDashboard(
             top_topics=top_topics,
             most_saved_concepts=most_saved,
