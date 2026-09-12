@@ -6,7 +6,10 @@ import json
 from datetime import datetime, timezone
 
 from app.config import Settings, get_settings
-from app.db.knowledge_graph_store import KnowledgeGraphStore, get_knowledge_graph_store
+from app.db.knowledge_graph_store import KnowledgeGraphStore
+from app.db.knowledge_graph_store_factory import get_selected_knowledge_graph_store
+from app.db.postgres_entity_merge import merge_postgres_entities
+from app.db.postgres_knowledge_graph_store import PostgresKnowledgeGraphStore
 from app.db.schema import get_connection
 from app.models.knowledge_graph import GraphEntityMergeResult
 
@@ -25,10 +28,10 @@ class EntityMergeService:
     def __init__(
         self,
         settings: Settings | None = None,
-        store: KnowledgeGraphStore | None = None,
+        store: KnowledgeGraphStore | PostgresKnowledgeGraphStore | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._store = store or get_knowledge_graph_store(self._settings)
+        self._store = store or get_selected_knowledge_graph_store(self._settings)
 
     def merge(
         self,
@@ -39,11 +42,8 @@ class EntityMergeService:
     ) -> GraphEntityMergeResult:
         if target_entity_id == source_entity_id:
             raise EntityMergeError("source and target entities must be different")
-        if not isinstance(self._store, KnowledgeGraphStore):
-            raise EntityMergeError(
-                "entity merge is unavailable for the selected graph backend until "
-                "its atomic merge path is implemented"
-            )
+        if not isinstance(self._store, (KnowledgeGraphStore, PostgresKnowledgeGraphStore)):
+            raise EntityMergeError("unsupported selected graph backend")
 
         target = self._store.get_entity(target_entity_id, user_id=user_id)
         source = self._store.get_entity(source_entity_id, user_id=user_id)
@@ -53,6 +53,24 @@ class EntityMergeService:
             raise EntityMergeError("only entities of the same type can be merged")
         if target.entity_type.value == "memory":
             raise EntityMergeError("memory entities cannot be merged")
+
+        if isinstance(self._store, PostgresKnowledgeGraphStore):
+            try:
+                merged = merge_postgres_entities(
+                    self._store,
+                    user_id=user_id,
+                    target_entity_id=target_entity_id,
+                    source_entity_id=source_entity_id,
+                )
+            except ValueError as exc:
+                raise EntityMergeError(str(exc)) from exc
+            return GraphEntityMergeResult(
+                entity=merged.entity,
+                merged_source_entity_id=source_entity_id,
+                rewired_memory_links=merged.rewired_memory_links,
+                rewired_relations=merged.rewired_relations,
+                collapsed_relations=merged.collapsed_relations,
+            )
 
         rewired_links = 0
         rewired_relations = 0
