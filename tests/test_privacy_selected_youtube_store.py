@@ -161,6 +161,7 @@ def test_non_youtube_privacy_delete_does_not_touch_youtube_store(monkeypatch):
     service._content_url_index = MagicMock()
     service._youtube_store = MagicMock()
     service._delete_sqlite_memory_rows = MagicMock()
+    monkeypatch.setattr(privacy_module, "delete_memory_graph_links", MagicMock())
     monkeypatch.setattr(privacy_module, "bump_index_version", MagicMock())
 
     service.delete_memory(memory_id="memory-a", user_id="tenant-a")
