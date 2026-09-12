@@ -88,13 +88,13 @@ def _source_db(tmp_path) -> str:
             "INSERT INTO kg_entities VALUES (?,?,?,?,?,?,?,?,?)",
             [
                 ("e1", "alice", "person", "Ada Lovelace", "ada lovelace", "[]", "{}", "2026-09-10T10:00:00+00:00", "2026-09-10T10:00:00+00:00"),
-                ("e2", "alice", "organization", "Analytical Society", "analytical society", "[]", "{}", "2026-09-10T10:01:00+00:00", "2026-09-10T10:01:00+00:00"),
+                ("e2", "alice", "company", "Analytical Society", "analytical society", "[]", "{}", "2026-09-10T10:01:00+00:00", "2026-09-10T10:01:00+00:00"),
                 ("e3", "bob", "person", "Grace Hopper", "grace hopper", "[]", "{}", "2026-09-10T10:02:00+00:00", "2026-09-10T10:02:00+00:00"),
             ],
         )
         conn.execute(
             "INSERT INTO kg_relations VALUES (?,?,?,?,?,?,?,?,?)",
-            ("r1", "alice", "e1", "member_of", "e2", "m1", 0.9, '{"valid_from":"2026-09-10T10:00:00+00:00"}', "2026-09-10T10:03:00+00:00"),
+            ("r1", "alice", "e1", "related_to", "e2", "m1", 0.9, '{"valid_from":"2026-09-10T10:00:00+00:00"}', "2026-09-10T10:03:00+00:00"),
         )
         conn.execute(
             "INSERT INTO kg_memory_entities VALUES (?,?,?,?,?,?,?)",
