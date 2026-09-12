@@ -15,8 +15,8 @@ from app.db.postgres_knowledge_graph_store import PostgresKnowledgeGraphStore
 
 
 def delete_memory_graph_links(
-    *,
     settings: Settings,
+    *,
     memory_id: str,
     user_id: str,
     store: Any | None = None,
