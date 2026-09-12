@@ -14,11 +14,12 @@ from app.db.postgres_intelligence_event_migration import (
 
 
 class _Cursor:
-    def __init__(self, rowcount: int = 0) -> None:
+    def __init__(self, rowcount: int = 0, row=None) -> None:
         self.rowcount = rowcount
+        self._row = row
 
     def fetchone(self):
-        return None
+        return self._row
 
 
 class _FakePostgres:
@@ -36,6 +37,13 @@ class _FakePostgres:
     def execute(self, sql: str, params=None):
         values = tuple(params) if params is not None else ()
         normalized = " ".join(sql.split()).lower()
+        if normalized.startswith("select id,user_id,event_type,topic,video_id,query,created_at"):
+            event_id = int(values[0])
+            row = next((row for row in self.event_rows if int(row[0]) == event_id), None)
+            if row is None:
+                return _Cursor(0)
+            keys = ("id", "user_id", "event_type", "topic", "video_id", "query", "created_at")
+            return _Cursor(0, dict(zip(keys, row)))
         if normalized.startswith("insert into intelligence_events"):
             event_id = int(values[0])
             if event_id in self.event_ids:
@@ -125,6 +133,21 @@ def test_tenant_scoped_migration_never_copies_other_tenant(tmp_path):
     )
     assert report.events_seen == 2
     assert [row[1] for row in target.event_rows] == ["alice", "alice"]
+
+
+def test_nonidentical_target_id_collision_fails_before_new_row_mutation(tmp_path):
+    settings = Settings(sqlite_path=_source_db(tmp_path))
+    target = _FakePostgres()
+    target.event_ids.add(3)
+    target.event_rows.append(
+        (3, "other-tenant", "search", None, None, "different", datetime(2026, 9, 1, tzinfo=timezone.utc))
+    )
+    before = list(target.event_rows)
+
+    with pytest.raises(ValueError, match="id collision"):
+        migrate_intelligence_events_to_postgres(settings, connection_factory=lambda: target)
+
+    assert target.event_rows == before
 
 
 def test_blank_identity_fails_before_target_row_mutation(tmp_path):
