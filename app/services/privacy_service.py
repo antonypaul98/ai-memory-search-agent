@@ -16,6 +16,7 @@ from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.job_store_factory import list_jobs_for_user
+from app.db.knowledge_graph_privacy import delete_memory_graph_links
 from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
@@ -114,6 +115,11 @@ class PrivacyService:
         )
         if source_type == "youtube":
             self._youtube_store.delete_memory(user_id=user_id, video_id=external_id)
+        delete_memory_graph_links(
+            self._settings,
+            memory_id=memory_id,
+            user_id=user_id,
+        )
         self._delete_sqlite_memory_rows(
             memory_id=memory_id,
             user_id=user_id,
@@ -157,10 +163,6 @@ class PrivacyService:
         delete_shared_capsule: bool = True,
     ) -> None:
         with get_connection(self._settings) as conn:
-            conn.execute(
-                "DELETE FROM kg_memory_entities WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
             conn.execute(
                 "DELETE FROM topic_memory_links WHERE memory_id = ? AND user_id = ?",
                 (memory_id, user_id),
