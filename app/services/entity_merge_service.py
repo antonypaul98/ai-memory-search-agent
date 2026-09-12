@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from app.config import Settings, get_settings
 from app.db.knowledge_graph_store import KnowledgeGraphStore, get_knowledge_graph_store
 from app.db.schema import get_connection
-from app.models.knowledge_graph import GraphEntity, GraphEntityMergeResult
+from app.models.knowledge_graph import GraphEntityMergeResult
 
 
 def _utc_now() -> str:
@@ -39,6 +39,11 @@ class EntityMergeService:
     ) -> GraphEntityMergeResult:
         if target_entity_id == source_entity_id:
             raise EntityMergeError("source and target entities must be different")
+        if not isinstance(self._store, KnowledgeGraphStore):
+            raise EntityMergeError(
+                "entity merge is unavailable for the selected graph backend until "
+                "its atomic merge path is implemented"
+            )
 
         target = self._store.get_entity(target_entity_id, user_id=user_id)
         source = self._store.get_entity(source_entity_id, user_id=user_id)
