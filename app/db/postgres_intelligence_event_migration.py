@@ -69,8 +69,26 @@ def migrate_intelligence_events_to_postgres(
 
     normalized_rows = _validate_source_rows(rows)
     inserted = 0
+    existing_ids: set[int] = set()
     with factory() as target:
+        # Preflight every imported serial identity before any row mutation. A
+        # non-identical target row with the same id is data loss if silently
+        # skipped, so fail closed instead.
         for row in normalized_rows:
+            existing = target.execute(
+                """SELECT id,user_id,event_type,topic,video_id,query,created_at
+                FROM intelligence_events WHERE id = %s""",
+                (row[0],),
+            ).fetchone()
+            if existing is None:
+                continue
+            if _event_signature(existing) != _event_signature(row):
+                raise ValueError(f"intelligence event id collision for id={row[0]}")
+            existing_ids.add(int(row[0]))
+
+        for row in normalized_rows:
+            if int(row[0]) in existing_ids:
+                continue
             cur = target.execute(
                 """INSERT INTO intelligence_events (
                     id,user_id,event_type,topic,video_id,query,created_at
@@ -79,6 +97,8 @@ def migrate_intelligence_events_to_postgres(
                 row,
             )
             inserted += max(int(cur.rowcount or 0), 0)
+        # Explicit source ids bypass BIGSERIAL's sequence. Keep the next live
+        # record_event() insert safely above the migrated maximum id.
         target.execute(
             """SELECT setval(
                 pg_get_serial_sequence('intelligence_events', 'id'),
@@ -129,6 +149,20 @@ def _validate_source_rows(rows: list[sqlite3.Row]) -> list[tuple[Any, ...]]:
             )
         )
     return normalized
+
+
+def _event_signature(row: Any) -> tuple[Any, ...]:
+    if isinstance(row, tuple):
+        values = row
+    else:
+        values = tuple(row[key] for key in ("id", "user_id", "event_type", "topic", "video_id", "query", "created_at"))
+    created_at = values[6]
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    if not isinstance(created_at, datetime) or created_at.tzinfo is None:
+        raise ValueError("target intelligence event has invalid created_at")
+    created_at = created_at.astimezone(timezone.utc)
+    return (*values[:6], created_at)
 
 
 def _open_source_read_only(settings: Settings) -> sqlite3.Connection:
