@@ -17,6 +17,7 @@ from app.config import Settings, get_settings
 from app.db.concept_capsule_store_factory import get_concept_capsule_store
 from app.db.creator_profile_store_factory import get_creator_profile_store
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
+from app.db.intelligence_event_store_factory import get_intelligence_event_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
 from app.db.learning_edge_store_factory import get_learning_edge_store
 from app.db.topic_store_factory import get_topic_store
@@ -96,6 +97,7 @@ class MemoryIntelligenceService:
         learning_edge_store: Any | None = None,
         concept_capsule_store: Any | None = None,
         creator_profile_store: Any | None = None,
+        intelligence_event_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
@@ -108,6 +110,9 @@ class MemoryIntelligenceService:
         )
         self._creators = creator_profile_store or (
             store if store is not None else get_creator_profile_store(self._settings)
+        )
+        self._events = intelligence_event_store or (
+            store if store is not None else get_intelligence_event_store(self._settings)
         )
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
@@ -137,7 +142,7 @@ class MemoryIntelligenceService:
     ) -> dict[str, int]:
         """Update topics, creators, edges, capsules incrementally after ingest."""
         counts = {"topics": 0, "edges": 0, "creators": 0, "capsules": 0}
-        self._store.record_event(
+        self._events.record_event(
             user_id=user_id,
             event_type="save",
             video_id=metadata.video_id,
@@ -437,7 +442,7 @@ class MemoryIntelligenceService:
             "enrich_why_matched",
             "attach_entities_related",
         ]
-        self._store.record_event(user_id=user_id, event_type="search", query=query)
+        self._events.record_event(user_id=user_id, event_type="search", query=query)
 
         base = self._search.search(
             query, limit=max(limit * 2, limit), user_id=user_id, filters=filters
@@ -858,7 +863,7 @@ class MemoryIntelligenceService:
         # this stream at write time, so consulting the legacy SQLite table
         # here would double-count those queries and bypass backend routing.
         search_counts: dict[str, int] = {}
-        for ev in self._store.recent_events(user_id, event_type="search", limit=300):
+        for ev in self._events.recent_events(user_id, event_type="search", limit=300):
             q = (ev.get("query") or "").strip().lower()
             if not q:
                 continue
@@ -876,7 +881,7 @@ class MemoryIntelligenceService:
             if t.last_seen_at < cutoff and t.name not in most_searched[:5]
         ][:10]
 
-        dates = self._store.save_dates(user_id)
+        dates = self._events.save_dates(user_id)
         streak = _streak_days(dates)
 
         memory_growth = _growth_series(
