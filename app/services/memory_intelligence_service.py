@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.concept_capsule_store_factory import get_concept_capsule_store
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.intelligence_store import IntelligenceStore, normalize_topic
 from app.db.learning_edge_store_factory import get_learning_edge_store
@@ -92,12 +93,16 @@ class MemoryIntelligenceService:
         artifact_store: Any | None = None,
         topic_store: Any | None = None,
         learning_edge_store: Any | None = None,
+        concept_capsule_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = store or IntelligenceStore(self._settings)
         self._topics = topic_store or (store if store is not None else get_topic_store(self._settings))
         self._edges = learning_edge_store or (
             store if store is not None else get_learning_edge_store(self._settings)
+        )
+        self._capsules = concept_capsule_store or (
+            store if store is not None else get_concept_capsule_store(self._settings)
         )
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
@@ -386,7 +391,7 @@ class MemoryIntelligenceService:
         summary = topic.summary or "; ".join(summaries[:3])
         if not summary:
             summary = f"Saved memories about {topic.name}."
-        return self._store.upsert_concept_capsule(
+        return self._capsules.upsert_concept_capsule(
             user_id=user_id,
             name=topic.name,
             summary=summary[:1000],
@@ -708,11 +713,11 @@ class MemoryIntelligenceService:
     def list_capsules(self, *, user_id: str, limit: int = 50) -> ConceptCapsuleListResponse:
         for topic in self._topics.list_topics(user_id, limit=20):
             self._refresh_concept_capsule(user_id=user_id, topic_name=topic.name)
-        capsules = self._store.list_concept_capsules(user_id, limit=limit)
+        capsules = self._capsules.list_concept_capsules(user_id, limit=limit)
         return ConceptCapsuleListResponse(capsules=capsules, total=len(capsules))
 
     def get_capsule(self, capsule_id: str, *, user_id: str) -> ConceptCapsule | None:
-        return self._store.get_concept_capsule(capsule_id, user_id=user_id)
+        return self._capsules.get_concept_capsule(capsule_id, user_id=user_id)
 
     # ── Feature 8: Duplicate knowledge ──────────────────────────────────
 
