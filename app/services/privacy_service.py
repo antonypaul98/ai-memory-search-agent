@@ -16,7 +16,7 @@ from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.job_store_factory import list_jobs_for_user
-from app.db.knowledge_graph_privacy import delete_memory_graph_links
+from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_store import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
@@ -66,6 +66,7 @@ class PrivacyService:
             if topic_store is not None
             else []
         )
+        knowledge_graph = export_user_graph(self._settings, user_id=user_id)
 
         return {
             "export_version": 1,
@@ -78,6 +79,7 @@ class PrivacyService:
             "jobs": jobs,
             "topics": topics,
             "video_registry": self._registry.list_videos(user_id=user_id),
+            "knowledge_graph": knowledge_graph,
         }
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
@@ -260,6 +262,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
         ("jobs", "Background jobs"),
         ("topics", "Topics"),
         ("video_registry", "Video registry"),
+        ("knowledge_graph", "Knowledge graph"),
     )
     for key, label in collection_labels:
         value = payload.get(key) or []
