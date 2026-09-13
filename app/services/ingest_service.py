@@ -17,6 +17,7 @@ from app.core.embeddings import embed_texts
 from app.core.exceptions import AppError, InvalidYouTubeURLError
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
+from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import migrate
 from app.db.video_registry import VideoRegistry, get_video_registry
@@ -89,7 +90,8 @@ class IngestService:
         self._yt_store = get_youtube_memory_store(self._settings)
         self._artifact_store = get_ingest_artifact_store(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt_store)
-        migrate(self._settings)
+        if not is_complete_postgres_profile(self._settings):
+            migrate(self._settings)
 
     def ingest_batch(
         self,
