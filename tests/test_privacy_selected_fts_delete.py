@@ -23,7 +23,9 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
     monkeypatch.setattr(privacy_module, "get_topic_store", MagicMock())
     monkeypatch.setattr(privacy_module, "MemoryRepository", MagicMock())
     monkeypatch.setattr(privacy_module, "get_video_registry", MagicMock())
-    monkeypatch.setattr(privacy_module, "get_fts_index", selected_fts)
+    monkeypatch.setattr(
+        privacy_module, "get_fts_index_for_exclusive_delete", selected_fts
+    )
     monkeypatch.setattr(privacy_module, "HierarchicalStore", MagicMock())
 
     service = PrivacyService(settings)
