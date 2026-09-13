@@ -105,11 +105,18 @@ class PrivacyService:
         self._repo.delete_item(external_id, user_id=user_id)
 
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
+        # Postgres lexical rows are tenant-owned even when the source is shared.
+        # Propagate failure before deleting canonical ownership so a retry can
+        # still remove searchable private content. SQLite retains its exclusive
+        # source guard because its legacy index has no tenant column.
+        if getattr(self._settings, "fts_store_backend", "sqlite") == "postgres":
+            self._fts.delete_video(external_id, user_id=user_id)
         if not shared:
-            try:
-                self._fts.delete_video(external_id, user_id=user_id)
-            except Exception:
-                logger.debug("fts delete skipped for %s", external_id, exc_info=True)
+            if getattr(self._settings, "fts_store_backend", "sqlite") != "postgres":
+                try:
+                    self._fts.delete_video(external_id, user_id=user_id)
+                except Exception:
+                    logger.debug("fts delete skipped for %s", external_id, exc_info=True)
             try:
                 self._hstore.delete_video(external_id)
             except Exception:

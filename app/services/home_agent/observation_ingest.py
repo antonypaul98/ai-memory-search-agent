@@ -48,7 +48,7 @@ class ObservationConsent:
             return False
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("now must be timezone-aware")
-        return self.expires_at is None or now < self.expires_at
+        return self.granted_at <= now and (self.expires_at is None or now < self.expires_at)
 
 
 class HomeObservationIngestService:
