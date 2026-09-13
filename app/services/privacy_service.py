@@ -15,6 +15,7 @@ from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
+from app.db.ingest_artifact_privacy import delete_capsule_artifact
 from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
@@ -98,12 +99,8 @@ class PrivacyService:
             else str(memory.source_type)
         )
 
-        # Vector evidence (user-scoped).
         self._repo.delete_item(external_id, user_id=user_id)
 
-        # Shared FTS / hierarchical / legacy capsule indexes — only if no other
-        # tenant shares the external id. Postgres capsule artifacts are tenant-keyed,
-        # but keeping the same guard preserves SQLite compatibility semantics.
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
         if not shared:
             try:
@@ -114,10 +111,13 @@ class PrivacyService:
                 self._hstore.delete_video(external_id)
             except Exception:
                 logger.debug("hierarchical delete skipped for %s", external_id, exc_info=True)
-            self._artifact_store.delete_capsule_json(
-                user_id=user_id,
-                video_id=external_id,
-            )
+
+        delete_capsule_artifact(
+            self._artifact_store,
+            user_id=user_id,
+            video_id=external_id,
+            shared_external_id=shared,
+        )
 
         self._registry.delete_video(external_id, user_id=user_id)
         self._content_url_index.delete_reference(
@@ -253,7 +253,6 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
             ]
         )
 
-    # Preserve the user record as exported too, not only the display fields above.
     lines.extend(["## User record", "", *_indented_json(user), ""])
     encoded_payload = base64.urlsafe_b64encode(
         json.dumps(payload, default=str, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -263,12 +262,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
 
 
 def load_export_markdown(markdown: str) -> dict[str, Any]:
-    """Recover the lossless export payload embedded by ``dump_export_markdown``.
-
-    This is deliberately a pure import-adapter boundary: it validates and restores
-    portable data but performs no writes. A caller must still apply normal tenant,
-    deduplication, provenance, and confirmation rules before importing records.
-    """
+    """Recover the lossless export payload embedded by ``dump_export_markdown``."""
 
     raw = markdown.encode("utf-8")
     if len(raw) > _MAX_MARKDOWN_IMPORT_BYTES:
