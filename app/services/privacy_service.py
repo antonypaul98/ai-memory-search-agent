@@ -17,7 +17,8 @@ from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
 from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
-from app.db.memory_store import get_memory_store
+from app.db.memory_privacy import delete_canonical_memory
+from app.db.memory_store_factory import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
 from app.db.topic_store_factory import get_topic_store
@@ -122,6 +123,12 @@ class PrivacyService:
             memory_id=memory_id,
             user_id=user_id,
         )
+        if not delete_canonical_memory(
+            self._memory_store,
+            memory_id=memory_id,
+            user_id=user_id,
+        ):
+            raise RuntimeError(f"Canonical memory deletion lost ownership: {memory_id}")
         self._delete_sqlite_memory_rows(
             memory_id=memory_id,
             user_id=user_id,
@@ -167,22 +174,6 @@ class PrivacyService:
         with get_connection(self._settings) as conn:
             conn.execute(
                 "DELETE FROM topic_memory_links WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
-            conn.execute(
-                "DELETE FROM memory_trust_history WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
-            conn.execute(
-                "DELETE FROM memory_versions WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
-            conn.execute(
-                "DELETE FROM memory_lifecycle_events WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
-            conn.execute(
-                "DELETE FROM memory_records WHERE memory_id = ? AND user_id = ?",
                 (memory_id, user_id),
             )
             # Capsules are keyed only by video_id — never drop while another tenant
