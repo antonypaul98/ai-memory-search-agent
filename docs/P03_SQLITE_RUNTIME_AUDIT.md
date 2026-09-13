@@ -8,7 +8,7 @@ Reviewed direct `sqlite3`, schema helpers, `migrate`, and `FTSIndex` imports acr
 
 | Surface / implementation | Remaining behavior and required work |
 | --- | --- |
-| `app/main.py:lifespan`, `services/ingest_service.py:IngestService.__init__` | Unconditional schema migration can create/write SQLite even with Postgres stores selected. Remove only after dependent stores own their initialization and startup/profile tests prove safety. |
+| `app/main.py:lifespan`, `services/ingest_service.py:IngestService.__init__` | PRs #243 and #245 gate legacy migration on the selected Postgres profile. Constructor regression coverage is merged; full ingest/worker execution remains required. |
 | `services/connector_ingest_service.py` | Baseline directly constructed SQLite FTS, persisted capsule JSON via the legacy helper, and advanced SQLite cache metadata. These now use selected FTS, artifact and cache stores and pass exact tenant identity to lexical/artifact mutations. Direct constructor migration is removed. Cross-source dedup now routes through a selected tenant-scoped content URL index store aligned with `memory_store_backend`. |
 | `services/cross_duplicate_service.py` | Direct `content_url_index` SQLite access is removed. SQLite remains the local implementation; Postgres selection is fail-closed through the shared runtime and content-hash duplicate selection is deterministic by `(created_at, url_hash)`. A guarded exact-tenant migration now copies legacy rows from one read-only SQLite snapshot, preserves target-authoritative rows, validates source identity coverage inside the target transaction, and reports counts only. Live production execution/full-profile validation remain open. |
 | `services/memory_intelligence_service.py` | Capsule reads now follow the selected tenant-scoped artifact store. Agent/extension searches are mirrored into the canonical intelligence event stream; insights now reads that stream only, avoiding the legacy `agent_search_events` SQLite bypass and mirrored-query double counting. The underlying `IntelligenceStore` remains SQLite and is tracked separately below. |
@@ -38,3 +38,13 @@ The existing offline web, PDF and GitHub ingest suite remains part of validation
 4. Only then remove global SQLite initialization and prove startup, ingestion, retrieval, mutation, export/delete, worker retry and failure paths perform zero unintended relational SQLite writes with Postgres selected.
 
 No production data was migrated; no full P-03 or Jarvis-transition completion is claimed.
+
+## Runtime acceptance update — 2026-09-13
+
+#246 gates PrivacyService migration; #247 and #248 prove selected import/graph
+runtime persistence without SQLite connections. #249 exercises selected relational
+privacy construction, lexical search, export and delete against real Postgres with
+a SQLite sentinel. It repairs shared-source lexical deletion and tests failure/retry
+without losing canonical ownership. CI: 1,027 passed. Chroma is isolated in this
+proof; full multi-worker production acceptance remains open. The older table is
+a historical inventory and must be re-audited against current selected factories.

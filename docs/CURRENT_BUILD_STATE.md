@@ -1,8 +1,62 @@
 # Current Memory Search Build State
 
-Updated: 2026-09-10
+Updated: 2026-09-13
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
+
+## Verified continuation — 2026-09-13
+
+Starting main: `3c136cbc61bfb79c0f73e6fdb7878f2cb5f504c7`. Reviewed recent merged
+PRs #238–#247 and open #248; #248 passed CI and was merged as
+`c172d26919cc86f8b4db8bb18551b9dd5687fcb0`.
+
+**Gate reconciliation: recorded 2/29; actual full 29-item count is not verifiable.**
+The handoff's approximately 22/29 is unsupported by a repository inventory. The
+historical section below explicitly states that no full 29-checkpoint inventory
+exists. Do not create a fictional checkpoint 23, reset completed work, or count
+individual regression PRs as new gate checkpoints. P-03 remains Partial.
+
+PR #249 repaired a real privacy defect: tenant-owned Postgres lexical rows now
+get deleted even when another tenant saved the same external source. A lexical
+delete failure propagates before canonical ownership is removed, enabling retry.
+Its selected PrivacyService integration executes relational construction, search,
+export and deletion with SQLite connections rejected, including shared-source
+isolation and injected failure/retry. Chroma dependencies are explicitly isolated;
+this does not certify the full ingest/worker/vector profile.
+
+#249 also rejects future-dated Home Agent consent. CI run
+[34785396499](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34785396499)
+passed 1,027 Python tests plus extension tests and benchmark; merged as
+`2b83a29df3fb031eca5fda3505f2c46b8bdff7f0`.
+
+Local broad validation: 1,014 passed, 11 skipped, two failures. Both failures
+reproduce against unchanged main in this environment: public-host DNS resolution
+and embedding-model loading. Real Postgres/Redis acceptance is supplied by CI.
+No live production migration was run.
+
+Home Agent already had Postgres sightings, authenticated last-seen/history,
+consent, structured detections and bounded capture sessions. The current image
+extension adds local image decoding, a local OWL-ViT adapter, private image evidence,
+canonical class records, transactional multi-object observations, tenant-scoped
+evidence deletion and a CLI. See `HOME_AGENT_V1.md` for the precise acceptance
+boundary. V1 remains incomplete until trained-detector/demo and all acceptance
+items are validated. Current user authorization permits this modular Home Agent
+foundation alongside unfinished Memory Agent work; this supersedes the historical
+blanket exclusion of vision below, without declaring the Jarvis transition complete.
+
+Home image continuation is tracked in PR #250. Local trained OWL-ViT inference
+on the pinned public sample detected two cats and a remote control in 486 ms
+after loading; this is not household/keys accuracy certification. A separate
+`Home vision smoke` workflow executes trained detection with real Postgres and
+last-seen retrieval; its current-head outcome must be verified before merge.
+The image ingest gate is rechecked after inference so expired consent cannot
+retain private evidence. Acceptance documentation is in `HOME_AGENT_V1.md`.
+
+Next Memory execution: complete the updated relational runtime audit and remaining
+agent/event/OAuth/feedback paths, full ingest/worker failure/isolation execution,
+and deployment-specific migrated lexical parity. Next Home execution: validate
+trained detection with real household images, complete conflict-aware responses,
+alias/instance/location metadata and authenticated image/evidence interfaces.
 
 ## Active continuation: P-03 artifact migration
 
@@ -17,7 +71,7 @@ This carries forward the explicitly established 1/29 session baseline from PR #1
 | 1. Preview-first legacy ingest-artifact migration | PR #163 established the migration. PR #166 repairs its missing-ownership-proof gap and ensures a consistent SQLite snapshot. These repairs are not counted as extra checkpoints. |
 | 2. Real-Postgres ingest-artifact migration acceptance | PR #166 / commit `99519a12af0af8d935c5336ca045ea5789754912` / [CI run 34494127491](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34494127491): 791 Python tests, no skips; real-Postgres retry, rollback, target preservation and tenant isolation; 27 extension tests and benchmark passed. |
 
-The next P-03 work is the remaining relational SQLite-write audit, representative lexical parity on migrated state, broader production-profile failure/isolation integration, and zero-SQLite-write proof for the supported multi-worker profile. `IngestService.__init__` still invokes SQLite schema migration; production SQLite retirement is not claimed. See `P03_POSTGRES_MIGRATION.md` for exact boundaries and operator instructions.
+The next P-03 work is the remaining relational SQLite-write audit, representative lexical parity on migrated state, broader production-profile failure/isolation integration, and zero-SQLite-write proof for the supported multi-worker profile. PRs #243/#245/#246 now gate legacy schema migration for the selected Postgres profile; production-wide SQLite retirement is still not claimed. See `P03_POSTGRES_MIGRATION.md` for exact boundaries and operator instructions.
 
 No live production database migration was executed. All planned Memory Search versions and acceptance criteria must be complete before Jarvis-specific work. After that explicit completion gate, the first major Jarvis module is the Career/Job Agent.
 
