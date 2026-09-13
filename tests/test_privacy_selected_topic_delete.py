@@ -76,6 +76,7 @@ def test_unknown_topic_store_fails_closed():
         delete_memory_topic_links(object(), memory_id="memory-1", user_id="tenant-a")
 
 
-def test_sqlite_residual_cleanup_no_longer_deletes_topic_links():
-    source = inspect.getsource(PrivacyService._delete_sqlite_memory_rows)
+def test_legacy_sqlite_topic_cleanup_is_removed_from_privacy_service():
+    source = inspect.getsource(PrivacyService)
+    assert not hasattr(PrivacyService, "_delete_sqlite_memory_rows")
     assert "topic_memory_links" not in source
