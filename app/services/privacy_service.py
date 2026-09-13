@@ -27,7 +27,7 @@ from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
-from app.services.fts_index_factory import get_fts_index
+from app.services.fts_index_factory import get_fts_index_for_exclusive_delete
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class PrivacyService:
         self._topic_store = get_topic_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
-        self._fts = get_fts_index(self._settings)
+        self._fts = get_fts_index_for_exclusive_delete(self._settings)
         self._hstore = HierarchicalStore(self._settings)
 
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
