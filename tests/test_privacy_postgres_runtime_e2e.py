@@ -58,7 +58,6 @@ def test_selected_privacy_search_delete_is_sqlite_free_and_retryable(monkeypatch
         assert service._fts.search("lexical", user_id=owner + "-stranger", video_ids=[external_id]) == []
 
         # A failed lexical delete must retain the canonical record for retry.
-        real_delete = service._fts.delete_video
         with monkeypatch.context() as patch:
             patch.setattr(service._fts, "delete_video", MagicMock(side_effect=RuntimeError("injected failure")))
             with pytest.raises(RuntimeError, match="injected failure"):

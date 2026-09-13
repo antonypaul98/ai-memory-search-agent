@@ -1,0 +1,5 @@
+-r requirements.txt
+Pillow>=10.0.0
+transformers>=4.40.0,<6
+# OWL-ViT's image processor may use torchvision in recent Transformers releases.
+torchvision>=0.19.0
