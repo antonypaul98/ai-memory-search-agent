@@ -22,12 +22,13 @@ from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_use
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
-from app.db.schema import bump_index_version, migrate
+from app.db.schema import migrate
 from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.services.fts_index_factory import get_fts_index_for_exclusive_delete
+from app.services.semantic_cache import SemanticCache
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class PrivacyService:
             user_id=user_id,
         ):
             raise RuntimeError(f"Canonical memory deletion lost ownership: {memory_id}")
-        bump_index_version(self._settings)
+        SemanticCache(self._settings).bump_index_version_and_invalidate()
         logger.info(
             "memory_deleted memory_id=%s user_id=%s external_id=%s",
             memory_id,
