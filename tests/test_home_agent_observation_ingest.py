@@ -85,3 +85,22 @@ def test_consent_rejects_naive_timestamps() -> None:
             scope=PHYSICAL_OBSERVATION_SCOPE,
             granted_at=datetime(2026, 9, 11, 8, 0),
         )
+
+
+@pytest.mark.parametrize("offset,allowed", [(-1, False), (0, True), (1, True), (60, False)])
+def test_consent_grant_and_expiry_boundaries(offset, allowed):
+    consent = ObservationConsent(
+        user_id="user-a", source_id="camera-entry", scope=PHYSICAL_OBSERVATION_SCOPE,
+        granted_at=NOW, expires_at=NOW + timedelta(seconds=60),
+    )
+    store = MagicMock()
+    service = HomeObservationIngestService(store)
+    if allowed:
+        service.ingest(user_id="user-a", sighting=_sighting(), consent=consent,
+                       now=NOW + timedelta(seconds=offset))
+        store.store_sighting.assert_called_once()
+    else:
+        with pytest.raises(PermissionError):
+            service.ingest(user_id="user-a", sighting=_sighting(), consent=consent,
+                           now=NOW + timedelta(seconds=offset))
+        store.store_sighting.assert_not_called()

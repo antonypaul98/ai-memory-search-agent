@@ -66,3 +66,28 @@ def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_sele
     service._hstore.delete_video.assert_called_once_with("doc-a")
     cache_factory.assert_called_once_with(service._settings)
     selected_cache.bump_index_version_and_invalidate.assert_called_once_with()
+
+
+import pytest
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_postgres_lexical_delete_failure_preserves_canonical_ownership(monkeypatch, shared):
+    service = PrivacyService.__new__(PrivacyService)
+    service._settings = SimpleNamespace(fts_store_backend="postgres")
+    service._memory_store = MagicMock()
+    service._memory_store.get.return_value = SimpleNamespace(
+        memory_id="memory-a", external_id="doc-a", source_type="pdf"
+    )
+    service._repo = MagicMock()
+    service._registry = MagicMock()
+    service._registry.other_users_have_video.return_value = shared
+    service._fts = MagicMock()
+    service._fts.delete_video.side_effect = RuntimeError("unavailable")
+    canonical_delete = MagicMock()
+    monkeypatch.setattr(privacy_module, "delete_canonical_memory", canonical_delete)
+    with pytest.raises(RuntimeError, match="unavailable"):
+        service.delete_memory(memory_id="memory-a", user_id="tenant-a")
+    service._fts.delete_video.assert_called_once_with("doc-a", user_id="tenant-a")
+    canonical_delete.assert_not_called()
+    service._registry.delete_video.assert_not_called()
