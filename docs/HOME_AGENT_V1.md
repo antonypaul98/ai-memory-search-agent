@@ -38,8 +38,8 @@ python -m pip install -r requirements-home-vision.txt
 ```
 
 Download the `google/owlvit-base-patch32` checkpoint separately using the Hugging Face
-Hub client into a local directory. Review model licensing and pin the downloaded
-revision for reproducibility. The runtime requires local model files and never
+Hub client into a local directory. The smoke test pins model revision
+`cbc355fb364588351c5d51c7f74465e8e7ec6f72`; use that revision for reproducibility. The runtime requires local model files and never
 falls back to network inference. Configure the existing environment-owned Postgres
 DSN (`POSTGRES_DSN_ENV`, default `DATABASE_URL`) for a development database.
 
@@ -78,3 +78,18 @@ The upload/evidence HTTP endpoints are not yet implemented.
 - End-to-end trained-detector demo and final CI evidence must be recorded before
   checking the complete V1 definition of done. No completion percentage is asserted
   from implementation presence alone.
+
+## Trained detector acceptance
+
+Local inference on the pinned public COCO sample detected two cats and a remote
+control, with scores approximately 0.287, 0.254 and 0.328. Detection took 486 ms
+after model loading in this environment; this is one sample, not a latency SLA
+or household/keys accuracy certification. The detector ID hashes checkpoint assets,
+labels and threshold.
+
+`python scripts/home_vision_smoke.py` is the repeatable full trained-detector +
+Postgres smoke command. It requires a disposable `MEMORY_AGENT_TEST_POSTGRES_DSN`,
+downloads a pinned public sample and model, stores two explicitly labeled demo
+locations, restarts storage, verifies last-seen/evidence/tenant isolation, and
+deletes only its randomly scoped fixture records. `Home vision smoke` CI runs
+this separately for relevant Home Agent PRs; ordinary tests need no model download.

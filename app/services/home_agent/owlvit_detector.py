@@ -1,5 +1,7 @@
 """Optional local OWL-ViT adapter. Model assets must already exist on disk."""
 from pathlib import Path
+from hashlib import sha256
+import json
 
 from .image_ingest import DetectedObject, normalize_class
 
@@ -17,14 +19,21 @@ class LocalOwlViTDetector:
         self.processor = OwlViTProcessor.from_pretrained(model_path, local_files_only=True)
         self.model = OwlViTForObjectDetection.from_pretrained(model_path, local_files_only=True).eval()
         self.threshold = threshold
-        self.detector_id = "owlvit:" + Path(model_path).name
+        fingerprint = sha256(json.dumps({"labels": self.labels, "threshold": threshold}, sort_keys=True).encode())
+        for asset in sorted(Path(model_path).iterdir()):
+            if asset.is_file() and asset.suffix in {".json", ".txt", ".bin", ".safetensors"}:
+                fingerprint.update(asset.name.encode())
+                with asset.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        fingerprint.update(chunk)
+        self.detector_id = "owlvit:sha256:" + fingerprint.hexdigest()
 
     def detect(self, image):
         import torch
         inputs = self.processor(text=[self.labels], images=image, return_tensors="pt")
         with torch.inference_mode():
             outputs = self.model(**inputs)
-        result = self.processor.post_process_object_detection(
+        result = self.processor.image_processor.post_process_object_detection(
             outputs, threshold=self.threshold, target_sizes=torch.tensor([image.size[::-1]])
         )[0]
         width, height = image.size
