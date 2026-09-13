@@ -27,7 +27,7 @@ from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
-from app.services.fts_index import FTSIndex
+from app.services.fts_index_factory import get_fts_index
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class PrivacyService:
         self._topic_store = get_topic_store(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
-        self._fts = FTSIndex(self._settings)
+        self._fts = get_fts_index(self._settings)
         self._hstore = HierarchicalStore(self._settings)
 
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
@@ -104,7 +104,7 @@ class PrivacyService:
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
         if not shared:
             try:
-                self._fts.delete_video(external_id)
+                self._fts.delete_video(external_id, user_id=user_id)
             except Exception:
                 logger.debug("fts delete skipped for %s", external_id, exc_info=True)
             try:
