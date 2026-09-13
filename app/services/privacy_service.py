@@ -18,7 +18,7 @@ from app.db.hierarchical_store import HierarchicalStore
 from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
-from app.db.memory_store import get_memory_store
+from app.db.memory_store_factory import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
 from app.db.topic_store_factory import get_topic_store
