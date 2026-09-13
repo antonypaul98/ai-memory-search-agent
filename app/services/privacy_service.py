@@ -21,6 +21,7 @@ from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
+from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import migrate
 from app.db.topic_privacy import delete_memory_topic_links
@@ -42,7 +43,8 @@ class PrivacyService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
-        migrate(self._settings)
+        if not is_complete_postgres_profile(self._settings):
+            migrate(self._settings)
         self._auth_store = get_auth_store(self._settings)
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
