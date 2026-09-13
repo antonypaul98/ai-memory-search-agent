@@ -101,12 +101,14 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
     service._registry.other_users_have_video.return_value = True
     service._fts = MagicMock()
     service._hstore = MagicMock()
+    service._artifact_store = MagicMock()
     service._content_url_index = MagicMock()
     service._youtube_store = MagicMock()
     service._topic_store = MagicMock()
-    service._delete_sqlite_memory_rows = MagicMock()
+    capsule_delete = MagicMock()
     canonical_delete = MagicMock(return_value=True)
     topic_delete = MagicMock()
+    monkeypatch.setattr(privacy_module, "delete_capsule_artifact", capsule_delete)
     monkeypatch.setattr(privacy_module, "delete_memory_graph_links", MagicMock())
     monkeypatch.setattr(privacy_module, "delete_memory_topic_links", topic_delete)
     monkeypatch.setattr(privacy_module, "delete_canonical_memory", canonical_delete)
@@ -115,6 +117,12 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
     result = service.delete_memory(memory_id="memory-a", user_id="tenant-a")
 
     assert result["deleted"] is True
+    capsule_delete.assert_called_once_with(
+        service._artifact_store,
+        user_id="tenant-a",
+        video_id="shared-video",
+        shared_external_id=True,
+    )
     topic_delete.assert_called_once_with(
         service._topic_store, memory_id="memory-a", user_id="tenant-a"
     )
@@ -126,11 +134,4 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
     )
     service._youtube_store.delete_memory.assert_called_once_with(
         user_id="tenant-a", video_id="shared-video"
-    )
-    service._delete_sqlite_memory_rows.assert_called_once_with(
-        memory_id="memory-a",
-        user_id="tenant-a",
-        external_id="shared-video",
-        source_type="youtube",
-        delete_shared_capsule=False,
     )

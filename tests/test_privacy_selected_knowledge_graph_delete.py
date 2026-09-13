@@ -49,6 +49,7 @@ def test_privacy_delete_routes_graph_links_through_selected_boundary(tmp_path, m
     assert store.get(memory.memory_id, user_id="tenant-a") is None
 
 
-def test_sqlite_residual_cleanup_no_longer_bypasses_graph_backend():
-    source = inspect.getsource(PrivacyService._delete_sqlite_memory_rows)
+def test_legacy_sqlite_graph_cleanup_is_removed_from_privacy_service():
+    source = inspect.getsource(PrivacyService)
+    assert not hasattr(PrivacyService, "_delete_sqlite_memory_rows")
     assert "kg_memory_entities" not in source

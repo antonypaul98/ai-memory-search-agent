@@ -73,6 +73,22 @@ class SQLiteIngestArtifactStore:
                 (video_id, capsule_json, datetime.now(timezone.utc).isoformat()),
             )
 
+    def delete_capsule_json(self, *, user_id: str, video_id: str) -> None:
+        """Delete a legacy capsule through the selected artifact-store boundary.
+
+        The SQLite compatibility table is globally keyed by ``video_id``. Callers
+        must therefore perform the existing shared-reference check before invoking
+        this method; ``user_id`` remains required so the common interface never
+        drops tenant identity at the privacy boundary.
+        """
+        _required("user_id", user_id)
+        video_id = _required("video_id", video_id)
+        with get_connection(self._settings) as conn:
+            conn.execute(
+                "DELETE FROM memory_capsules_json WHERE video_id = ?",
+                (video_id,),
+            )
+
 
 def _required(name: str, value: str) -> str:
     normalized = value.strip()
