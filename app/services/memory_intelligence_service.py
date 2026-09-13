@@ -22,7 +22,7 @@ from app.db.intelligence_store import IntelligenceStore, normalize_topic
 from app.db.learning_edge_store_factory import get_learning_edge_store
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
-from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.capsule import MemoryCapsule
 from app.models.intelligence import (
     ConceptCapsule,
@@ -100,7 +100,7 @@ class MemoryIntelligenceService:
         intelligence_event_store: Any | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._store = store or IntelligenceStore(self._settings)
+        self._store = store
         self._topics = topic_store or (store if store is not None else get_topic_store(self._settings))
         self._edges = learning_edge_store or (
             store if store is not None else get_learning_edge_store(self._settings)
@@ -116,7 +116,7 @@ class MemoryIntelligenceService:
         )
         self._search = search or SearchService(settings=self._settings)
         self._artifacts = artifact_store or get_ingest_artifact_store(self._settings)
-        self._yt = YouTubeMemoryStore(self._settings)
+        self._yt = get_youtube_memory_store(self._settings)
         self._registry = get_video_registry(self._settings)
         self._dupes = YouTubeDuplicateDetector(self._yt)
 
