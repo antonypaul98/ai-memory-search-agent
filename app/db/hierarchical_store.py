@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
@@ -129,17 +127,3 @@ class HierarchicalStore:
             "sections": self._collection(self._settings.section_collection_name).count(),
             "evidence": self._collection(self._settings.chroma_collection_name).count(),
         }
-
-
-def store_capsule_json(settings: Settings, video_id: str, capsule: MemoryCapsule) -> None:
-    from app.db.schema import get_connection, migrate
-
-    migrate(settings)
-    with get_connection(settings) as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO memory_capsules_json (video_id, capsule_json, updated_at)
-            VALUES (?, ?, ?)
-            """,
-            (video_id, capsule.model_dump_json(), datetime.now(timezone.utc).isoformat()),
-        )
