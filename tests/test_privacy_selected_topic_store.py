@@ -54,7 +54,7 @@ def test_privacy_export_routes_topics_through_selected_store_without_sqlite_read
     def _forbid_sqlite(*args, **kwargs):
         raise AssertionError("privacy topic export must not open the legacy SQLite connection")
 
-    monkeypatch.setattr(privacy_module, "get_connection", _forbid_sqlite)
+    monkeypatch.setattr(privacy_module, "get_connection", _forbid_sqlite, raising=False)
 
     payload = service.export_user_data(user_id="tenant-a")
 
