@@ -1,10 +1,15 @@
 import os
+import sqlite3
 
 import pytest
 
 from app.config import Settings
+from app.db.concept_capsule_store_factory import get_concept_capsule_store
+from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.import_run_store_factory import get_import_run_store
 from app.db.knowledge_graph_store_factory import get_selected_knowledge_graph_store
+from app.db.postgres_concept_capsule_store import PostgresConceptCapsuleStore
+from app.db.postgres_content_url_index_store import PostgresContentUrlIndexStore
 from app.db.postgres_import_run_store import PostgresImportRunStore
 from app.db.postgres_knowledge_graph_store import PostgresKnowledgeGraphStore
 from scripts.validate_production_storage_profile import (
@@ -36,6 +41,24 @@ def test_production_profile_routes_inherited_relational_stores_to_postgres(monke
 
     assert isinstance(get_import_run_store(settings), PostgresImportRunStore)
     assert isinstance(get_selected_knowledge_graph_store(settings), PostgresKnowledgeGraphStore)
+
+
+def test_production_profile_inherited_store_bootstrap_never_opens_sqlite(monkeypatch):
+    test_dsn = os.getenv("MEMORY_AGENT_TEST_POSTGRES_DSN", "").strip()
+    if not test_dsn:
+        pytest.skip("MEMORY_AGENT_TEST_POSTGRES_DSN is required for zero-SQLite integration proof")
+    monkeypatch.setenv("DATABASE_URL", test_dsn)
+    settings = _production_settings(postgres_dsn_env="DATABASE_URL")
+
+    def reject_sqlite(*args, **kwargs):
+        raise AssertionError("production Postgres selector fanout must not open relational SQLite")
+
+    monkeypatch.setattr(sqlite3, "connect", reject_sqlite)
+
+    assert isinstance(get_import_run_store(settings), PostgresImportRunStore)
+    assert isinstance(get_selected_knowledge_graph_store(settings), PostgresKnowledgeGraphStore)
+    assert isinstance(get_concept_capsule_store(settings), PostgresConceptCapsuleStore)
+    assert isinstance(get_content_url_index_store(settings), PostgresContentUrlIndexStore)
 
 
 def test_production_storage_profile_reports_every_sqlite_backend_deterministically():
