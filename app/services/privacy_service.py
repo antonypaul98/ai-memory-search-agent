@@ -21,6 +21,7 @@ from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import bump_index_version, get_connection, migrate
+from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
@@ -123,6 +124,11 @@ class PrivacyService:
             memory_id=memory_id,
             user_id=user_id,
         )
+        delete_memory_topic_links(
+            self._topic_store,
+            memory_id=memory_id,
+            user_id=user_id,
+        )
         if not delete_canonical_memory(
             self._memory_store,
             memory_id=memory_id,
@@ -172,10 +178,6 @@ class PrivacyService:
         delete_shared_capsule: bool = True,
     ) -> None:
         with get_connection(self._settings) as conn:
-            conn.execute(
-                "DELETE FROM topic_memory_links WHERE memory_id = ? AND user_id = ?",
-                (memory_id, user_id),
-            )
             # Capsules are keyed only by video_id — never drop while another tenant
             # still references the same external id (bump_index_version invalidates cache).
             if delete_shared_capsule:
