@@ -146,7 +146,9 @@ def test_privacy_export_uses_selected_bookmark_store(monkeypatch):
             assert "FROM users" not in normalized
             return _Cursor(rows=[])
 
-    monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
+    monkeypatch.setattr(
+        privacy_module, "get_connection", lambda settings: _PrivacyConnection(), raising=False
+    )
 
     payload = service.export_user_data(user_id="tenant-a")
 
