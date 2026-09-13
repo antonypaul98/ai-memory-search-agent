@@ -14,6 +14,7 @@ from app.db.postgres_concept_capsule_store import PostgresConceptCapsuleStore
 from app.db.postgres_content_url_index_store import PostgresContentUrlIndexStore
 from app.db.postgres_import_run_store import PostgresImportRunStore
 from app.db.postgres_knowledge_graph_store import PostgresKnowledgeGraphStore
+from app.models.knowledge_graph import EntityType
 from scripts.validate_production_storage_profile import (
     RELATIONAL_STORE_BACKEND_FIELDS,
     production_storage_profile_errors,
@@ -103,6 +104,41 @@ def test_production_profile_import_run_round_trip_is_postgres_only_and_tenant_sc
     assert all(run["import_id"] != import_id for run in store.list(user_id=other_id, limit=100))
     with pytest.raises(KeyError, match="Import not found"):
         store.get(import_id=import_id, user_id=other_id, item_limit=10)
+
+
+def test_production_profile_graph_round_trip_is_postgres_only_and_tenant_scoped(monkeypatch):
+    test_dsn = os.getenv("MEMORY_AGENT_TEST_POSTGRES_DSN", "").strip()
+    if not test_dsn:
+        pytest.skip("MEMORY_AGENT_TEST_POSTGRES_DSN is required for Postgres graph runtime acceptance proof")
+    monkeypatch.setenv("DATABASE_URL", test_dsn)
+    settings = _production_settings(postgres_dsn_env="DATABASE_URL")
+
+    def reject_sqlite(*args, **kwargs):
+        raise AssertionError("production Postgres graph runtime must not open relational SQLite")
+
+    monkeypatch.setattr(sqlite3, "connect", reject_sqlite)
+
+    store = get_selected_knowledge_graph_store(settings)
+    assert isinstance(store, PostgresKnowledgeGraphStore)
+
+    nonce = uuid4().hex
+    owner_id = f"owner-{nonce}"
+    other_id = f"other-{nonce}"
+    name = f"P03 Graph Entity {nonce}"
+
+    entity = store.upsert_entity(
+        user_id=owner_id,
+        entity_type=EntityType.CONCEPT,
+        name=name,
+        aliases=[f"alias-{nonce}"],
+        metadata={"source": "p03-runtime-acceptance"},
+    )
+
+    assert entity.user_id == owner_id
+    assert store.get_entity(entity.entity_id, user_id=owner_id) == entity
+    assert store.get_entity(entity.entity_id, user_id=other_id) is None
+    assert any(item.entity_id == entity.entity_id for item in store.search_entities(user_id=owner_id, query=name, limit=10))
+    assert all(item.entity_id != entity.entity_id for item in store.search_entities(user_id=other_id, query=name, limit=10))
 
 
 def test_production_storage_profile_reports_every_sqlite_backend_deterministically():
