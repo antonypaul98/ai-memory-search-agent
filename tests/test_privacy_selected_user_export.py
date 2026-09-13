@@ -110,7 +110,9 @@ def test_privacy_export_routes_user_through_selected_auth_store(monkeypatch):
             assert tuple(params) == ("tenant-a",)
             return _Cursor(rows=[])
 
-    monkeypatch.setattr(privacy_module, "get_connection", lambda settings: _PrivacyConnection())
+    monkeypatch.setattr(
+        privacy_module, "get_connection", lambda settings: _PrivacyConnection(), raising=False
+    )
 
     payload = service.export_user_data(user_id="tenant-a")
 
