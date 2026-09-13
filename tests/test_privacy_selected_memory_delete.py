@@ -77,8 +77,9 @@ def test_unknown_canonical_memory_store_fails_closed():
         delete_canonical_memory(object(), memory_id="memory-1", user_id="tenant-a")
 
 
-def test_sqlite_residual_cleanup_no_longer_deletes_canonical_memory_tables():
-    source = inspect.getsource(PrivacyService._delete_sqlite_memory_rows)
+def test_legacy_sqlite_residual_cleanup_is_removed_from_privacy_service():
+    source = inspect.getsource(PrivacyService)
+    assert not hasattr(PrivacyService, "_delete_sqlite_memory_rows")
     for table in (
         "memory_records",
         "memory_lifecycle_events",
