@@ -34,7 +34,7 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
     assert service._fts is marker
 
 
-def test_privacy_delete_passes_exact_tenant_to_selected_fts(monkeypatch):
+def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_selected_cache(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
     service._settings = SimpleNamespace()
     service._memory_store = MagicMock()
@@ -51,13 +51,17 @@ def test_privacy_delete_passes_exact_tenant_to_selected_fts(monkeypatch):
     service._youtube_store = MagicMock()
     service._topic_store = MagicMock()
 
+    selected_cache = MagicMock()
+    cache_factory = MagicMock(return_value=selected_cache)
+    monkeypatch.setattr(privacy_module, "SemanticCache", cache_factory)
     monkeypatch.setattr(privacy_module, "delete_capsule_artifact", MagicMock())
     monkeypatch.setattr(privacy_module, "delete_memory_graph_links", MagicMock())
     monkeypatch.setattr(privacy_module, "delete_memory_topic_links", MagicMock())
     monkeypatch.setattr(privacy_module, "delete_canonical_memory", MagicMock(return_value=True))
-    monkeypatch.setattr(privacy_module, "bump_index_version", MagicMock())
 
     service.delete_memory(memory_id="memory-a", user_id="tenant-a")
 
     service._fts.delete_video.assert_called_once_with("doc-a", user_id="tenant-a")
     service._hstore.delete_video.assert_called_once_with("doc-a")
+    cache_factory.assert_called_once_with(service._settings)
+    selected_cache.bump_index_version_and_invalidate.assert_called_once_with()

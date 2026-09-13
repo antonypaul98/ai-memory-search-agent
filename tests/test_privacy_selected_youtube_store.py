@@ -167,11 +167,13 @@ def test_non_youtube_privacy_delete_does_not_touch_youtube_store(monkeypatch):
     capsule_delete = MagicMock()
     canonical_delete = MagicMock(return_value=True)
     topic_delete = MagicMock()
+    selected_cache = MagicMock()
+    cache_factory = MagicMock(return_value=selected_cache)
     monkeypatch.setattr(privacy_module, "delete_capsule_artifact", capsule_delete)
     monkeypatch.setattr(privacy_module, "delete_memory_graph_links", MagicMock())
     monkeypatch.setattr(privacy_module, "delete_memory_topic_links", topic_delete)
     monkeypatch.setattr(privacy_module, "delete_canonical_memory", canonical_delete)
-    monkeypatch.setattr(privacy_module, "bump_index_version", MagicMock())
+    monkeypatch.setattr(privacy_module, "SemanticCache", cache_factory)
 
     service.delete_memory(memory_id="memory-a", user_id="tenant-a")
 
@@ -188,3 +190,5 @@ def test_non_youtube_privacy_delete_does_not_touch_youtube_store(monkeypatch):
         service._memory_store, memory_id="memory-a", user_id="tenant-a"
     )
     service._youtube_store.delete_memory.assert_not_called()
+    cache_factory.assert_called_once_with(service._settings)
+    selected_cache.bump_index_version_and_invalidate.assert_called_once_with()
