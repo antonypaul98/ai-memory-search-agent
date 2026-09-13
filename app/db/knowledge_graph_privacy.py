@@ -100,7 +100,7 @@ def export_user_graph(
         def connection_factory():
             from app.db.schema import get_connection
 
-            return get_connection(settings)
+            return get_connection(selected._settings)
     else:
         raise RuntimeError("unsupported selected knowledge-graph privacy backend")
 
