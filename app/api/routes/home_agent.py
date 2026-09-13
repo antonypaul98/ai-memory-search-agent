@@ -52,6 +52,8 @@ class WhereIsResponse(BaseModel):
     confidence: float | None = None
     source_id: str | None = None
     evidence_id: str | None = None
+    conflicting_locations: list[str] = Field(default_factory=list)
+    history_truncated: bool = False
 
 
 class SightingResponse(BaseModel):
@@ -97,6 +99,8 @@ def where_is(
         confidence=answer.confidence,
         source_id=answer.source_id,
         evidence_id=answer.evidence_id,
+        conflicting_locations=list(answer.conflicting_locations),
+        history_truncated=answer.history_truncated,
     )
 
 

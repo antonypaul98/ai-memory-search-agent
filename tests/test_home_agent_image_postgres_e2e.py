@@ -63,6 +63,9 @@ def test_image_to_last_seen_with_restart_dedup_conflict_and_tenant_isolation():
             consent=ObservationConsent(owner, "second-camera", PHYSICAL_OBSERVATION_SCOPE, NOW))
         frames.append((owner, conflict["frame_id"]))
         assert len(query.history(user_id=owner, object_name="keys")) == 3
+        ambiguous = query.where_is(user_id=owner, object_name="keys")
+        assert ambiguous.conflicting_locations == ("entrance", "kitchen counter")
+        assert "uncertain" in ambiguous.text
         assert restarted.delete_image(user_id=owner, frame_id=conflict["frame_id"])
         assert restarted.delete_image(user_id=owner, frame_id=detail["frame_id"])
         assert query.where_is(user_id=owner, object_name="keys").location == "office desk"

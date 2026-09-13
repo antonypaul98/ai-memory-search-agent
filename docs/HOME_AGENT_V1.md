@@ -70,8 +70,9 @@ The upload/evidence HTTP endpoints are not yet implemented.
   deletion, conflicting observations, rollback and safe retry.
 - These fixtures do **not** certify trained-detector accuracy. A real checkpoint
   and representative household photographs must be exercised before V1 sign-off.
-- Same-time conflicting observations remain visible in history; the inherited
-  latest query selects deterministically. A conflict-aware response remains needed.
+- Same-time conflicting observations remain visible in history and in structured
+  `conflicting_locations`; answers explicitly preserve uncertainty. A full bounded
+  same-time history page reports `history_truncated` instead of implying uniqueness.
 - Aliases, user-confirmed instance identities, canonical location records/hierarchy,
   video extraction, automatic retention and camera/RTSP adapters remain open.
 - The text/API layer currently accepts an object class, not free-form natural language.
@@ -93,3 +94,36 @@ downloads a pinned public sample and model, stores two explicitly labeled demo
 locations, restarts storage, verifies last-seen/evidence/tenant isolation, and
 deletes only its randomly scoped fixture records. `Home vision smoke` CI runs
 this separately for relevant Home Agent PRs; ordinary tests need no model download.
+
+## V1 checklist accounting
+
+This is a conservative 15-item implementation checklist, not a claim of household
+accuracy or a replacement for the Memory Agent gate. PR #250 passed full CI and the
+trained Postgres smoke; 12/15 items are met (80%), with three partial:
+
+| Requirement | Status / evidence |
+| --- | --- |
+| Real image ingestion | JPEG/PNG decode and validation tests |
+| Actual detection | Local pinned OWL-ViT and trained smoke |
+| Canonical object storage | Partial: deterministic class IDs exist; aliases and confirmed instance identity remain |
+| Persistent observations | Real Postgres integration and restart test |
+| Timestamps | Timezone-aware, future rejection and ordering tests |
+| Room/location | Partial: explicit room strings work; canonical location records/mapping remain |
+| Evidence reference | Private frame, hash, observation linkage and ownership tests |
+| Confidence | Original detector score retained; not treated as calibrated certainty |
+| Where-is query | Partial: authenticated object-class API works; natural-language query normalization remains |
+| Last-seen retrieval | Real Postgres latest/history and conflict tests |
+| Tenant isolation | Cross-tenant read, evidence and deletion tests |
+| Integration test | Real image parsing, stored observations and query |
+| Reproducible demo | Pinned trained-detector Postgres smoke and local operator CLI |
+| Documentation | This file and CURRENT_BUILD_STATE.md |
+| CI green | Verify both CI and Home vision smoke on the exact PR head |
+
+Remaining beyond these partial items: authenticated image upload/evidence delivery,
+automatic retention policy, representative household/keys evaluation and the final
+V1 acceptance review. Voice/video/CCTV do not block the local still-image V1.
+
+Verified trained-smoke evidence: [run 34786095550](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34786095550)
+on PR #250 head `920941f339dd2f647ac14a35b407351aee324e53` passed with linked
+evidence, detected `cat`, latest `demo living room`, original model score 0.286885,
+653 ms detection / 720 ms ingestion. Full CI on that head: 1,046 passed.

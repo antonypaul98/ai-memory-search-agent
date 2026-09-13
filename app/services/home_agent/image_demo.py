@@ -45,7 +45,7 @@ def main():
     result["answer"] = asdict(answer) if answer else None
     if answer:
         result["provenance"] = store.describe_observation(user_id=args.tenant, observation_id=answer.evidence_id)
-        result["text"] = f"An object detected as {answer.object_name} was last seen at {answer.location} at {answer.observed_at}."
+        result["text"] = "Detected class: " + answer.text
     print(json.dumps(result, indent=2))
 
 

@@ -75,3 +75,26 @@ def test_history_preserves_tenant_scope_and_limits():
             "limit": 7,
         }
     ]
+
+
+
+def test_same_time_conflicting_locations_are_explicit_and_tenant_scoped():
+    from dataclasses import replace
+    latest = _sighting()
+    store = RecordingStore(latest)
+    def history(**kwargs):
+        assert kwargs == {"user_id": "tenant-a", "object_name": "keys", "min_confidence": .5, "limit": 100}
+        return [latest, replace(latest, location="kitchen", evidence_id="other-evidence")]
+    store.history = history
+    answer = HomeAgentQueryService(store).where_is(user_id="tenant-a", object_name="keys")
+    assert answer.conflicting_locations == ("entry table", "kitchen")
+    assert "uncertain" in answer.text
+    assert answer.confidence == .91
+
+
+def test_full_same_timestamp_history_preserves_uncertainty():
+    store = RecordingStore(_sighting())
+    store.history = lambda **kwargs: [_sighting()] * 100
+    answer = HomeAgentQueryService(store).where_is(user_id="tenant-a", object_name="keys")
+    assert answer.history_truncated is True
+    assert "additional simultaneous observations" in answer.text

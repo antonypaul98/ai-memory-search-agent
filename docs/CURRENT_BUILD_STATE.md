@@ -44,18 +44,39 @@ items are validated. Current user authorization permits this modular Home Agent
 foundation alongside unfinished Memory Agent work; this supersedes the historical
 blanket exclusion of vision below, without declaring the Jarvis transition complete.
 
-Home image continuation is tracked in PR #250. Local trained OWL-ViT inference
-on the pinned public sample detected two cats and a remote control in 486 ms
-after loading; this is not household/keys accuracy certification. A separate
-`Home vision smoke` workflow executes trained detection with real Postgres and
-last-seen retrieval; its current-head outcome must be verified before merge.
+Home image PR #250 merged as `25258d8b257ec4de1d9755813794acc4a1fce80b`.
+Its exact head `920941f339dd2f647ac14a35b407351aee324e53` passed
+[CI 34786095547](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34786095547):
+1,046 Python tests, extension tests and benchmark. The separate
+[trained smoke 34786095550](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34786095550)
+passed actual pinned OWL-ViT detection, two-location Postgres persistence,
+store restart, last-seen retrieval and tenant-isolated evidence access.
+CI sample detection took 653 ms and ingestion 720 ms; these are single-run
+measurements, not SLAs. Local inference also passed on the public sample.
+
 The image ingest gate is rechecked after inference so expired consent cannot
-retain private evidence. Acceptance documentation is in `HOME_AGENT_V1.md`.
+retain private evidence. The follow-up query implementation now exposes conflicting
+same-time locations and bounded-history uncertainty through API and CLI. Two
+focused conflict tests and the existing query/API suite passed locally (14 tests);
+PR checks provide the current full-suite validation record for this follow-up.
+
+**Home V1: 80% of the conservative 15-item checklist (12 met, three partial),
+not signed off.** Canonical classes need aliases/confirmed-instance support;
+explicit location strings need canonical location records/mapping; object-class
+queries need natural-language normalization. Authenticated image upload/evidence
+endpoints, automatic retention and representative household/keys evaluation also
+remain. See `HOME_AGENT_V1.md` for the full accounting and reproducible demo.
+
+End-of-run accounting: recorded Memory gate 2/29 → 2/29, with the complete
+29-item inventory still undefined. No invented checkpoint count or production
+migration. This run merged/reviewed graph runtime proof (#248), repaired privacy
+and consent (#249), added real image evidence/detection (#250), and continues
+with conflict-aware retrieval. Exact accepted revisions and CI are cited above.
 
 Next Memory execution: complete the updated relational runtime audit and remaining
 agent/event/OAuth/feedback paths, full ingest/worker failure/isolation execution,
 and deployment-specific migrated lexical parity. Next Home execution: validate
-trained detection with real household images, complete conflict-aware responses,
+trained detection with real household images,
 alias/instance/location metadata and authenticated image/evidence interfaces.
 
 ## Active continuation: P-03 artifact migration
