@@ -112,6 +112,21 @@ class PostgresIngestArtifactStore:
                 (user_id, video_id, capsule_json, now),
             )
 
+    def delete_capsule_json(self, *, user_id: str, video_id: str) -> None:
+        """Delete only the requested tenant's capsule while preserving transcript state."""
+        user_id = _required("user_id", user_id)
+        video_id = _required("video_id", video_id)
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE ingest_artifacts
+                SET capsule_json = NULL, updated_at = %s
+                WHERE user_id = %s AND video_id = %s
+                """,
+                (now, user_id, video_id),
+            )
+
 
 def _required(name: str, value: str) -> str:
     normalized = value.strip()
