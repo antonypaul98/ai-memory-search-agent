@@ -15,12 +15,13 @@ from app.db.bookmark_store_factory import get_bookmark_store
 from app.db.capture_store_factory import get_capture_store
 from app.db.content_url_index_store_factory import get_content_url_index_store
 from app.db.hierarchical_store import HierarchicalStore
+from app.db.ingest_artifact_store_factory import get_ingest_artifact_store
 from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
-from app.db.schema import bump_index_version, get_connection, migrate
+from app.db.schema import bump_index_version, migrate
 from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
@@ -44,6 +45,7 @@ class PrivacyService:
         self._memory_store = get_memory_store(self._settings)
         self._content_url_index = get_content_url_index_store(self._settings)
         self._youtube_store = get_youtube_memory_store(self._settings)
+        self._artifact_store = get_ingest_artifact_store(self._settings)
         self._capture_store = get_capture_store(self._settings)
         self._bookmark_store = get_bookmark_store(self._settings)
         self._topic_store = get_topic_store(self._settings)
@@ -99,7 +101,9 @@ class PrivacyService:
         # Vector evidence (user-scoped).
         self._repo.delete_item(external_id, user_id=user_id)
 
-        # Shared FTS / hierarchical / capsule indexes — only if no other tenant shares the id.
+        # Shared FTS / hierarchical / legacy capsule indexes — only if no other
+        # tenant shares the external id. Postgres capsule artifacts are tenant-keyed,
+        # but keeping the same guard preserves SQLite compatibility semantics.
         shared = self._registry.other_users_have_video(external_id, excluding_user_id=user_id)
         if not shared:
             try:
@@ -110,6 +114,10 @@ class PrivacyService:
                 self._hstore.delete_video(external_id)
             except Exception:
                 logger.debug("hierarchical delete skipped for %s", external_id, exc_info=True)
+            self._artifact_store.delete_capsule_json(
+                user_id=user_id,
+                video_id=external_id,
+            )
 
         self._registry.delete_video(external_id, user_id=user_id)
         self._content_url_index.delete_reference(
@@ -135,13 +143,6 @@ class PrivacyService:
             user_id=user_id,
         ):
             raise RuntimeError(f"Canonical memory deletion lost ownership: {memory_id}")
-        self._delete_sqlite_memory_rows(
-            memory_id=memory_id,
-            user_id=user_id,
-            external_id=external_id,
-            source_type=source_type,
-            delete_shared_capsule=not shared,
-        )
         bump_index_version(self._settings)
         logger.info(
             "memory_deleted memory_id=%s user_id=%s external_id=%s",
@@ -167,24 +168,6 @@ class PrivacyService:
             except Exception as exc:
                 errors.append(f"{memory.memory_id}: {exc}")
         return {"deleted_count": deleted, "errors": errors}
-
-    def _delete_sqlite_memory_rows(
-        self,
-        *,
-        memory_id: str,
-        user_id: str,
-        external_id: str,
-        source_type: str,
-        delete_shared_capsule: bool = True,
-    ) -> None:
-        with get_connection(self._settings) as conn:
-            # Capsules are keyed only by video_id — never drop while another tenant
-            # still references the same external id (bump_index_version invalidates cache).
-            if delete_shared_capsule:
-                conn.execute(
-                    "DELETE FROM memory_capsules_json WHERE video_id = ?",
-                    (external_id,),
-                )
 
 
 def dump_export_json(payload: dict[str, Any]) -> str:
