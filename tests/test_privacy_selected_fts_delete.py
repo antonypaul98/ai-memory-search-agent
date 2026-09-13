@@ -13,6 +13,7 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
     selected_fts = MagicMock(return_value=marker)
 
     monkeypatch.setattr(privacy_module, "migrate", MagicMock())
+    monkeypatch.setattr(privacy_module, "is_complete_postgres_profile", MagicMock(return_value=False))
     monkeypatch.setattr(privacy_module, "get_auth_store", MagicMock())
     monkeypatch.setattr(privacy_module, "get_memory_store", MagicMock())
     monkeypatch.setattr(privacy_module, "get_content_url_index_store", MagicMock())
