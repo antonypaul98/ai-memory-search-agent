@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from app.config import Settings
 from app.db.import_run_store_factory import get_import_run_store
 from app.db.knowledge_graph_store_factory import get_selected_knowledge_graph_store
@@ -24,7 +28,10 @@ def test_production_storage_profile_accepts_all_postgres_backends():
 
 
 def test_production_profile_routes_inherited_relational_stores_to_postgres(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://memory_agent:memory_agent@localhost:5432/memory_agent_test")
+    test_dsn = os.getenv("MEMORY_AGENT_TEST_POSTGRES_DSN", "").strip()
+    if not test_dsn:
+        pytest.skip("MEMORY_AGENT_TEST_POSTGRES_DSN is required for Postgres selector integration proof")
+    monkeypatch.setenv("DATABASE_URL", test_dsn)
     settings = _production_settings(postgres_dsn_env="DATABASE_URL")
 
     assert isinstance(get_import_run_store(settings), PostgresImportRunStore)
