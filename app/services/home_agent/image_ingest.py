@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -119,5 +119,8 @@ class HomeImageIngestService:
             user_id, frame_id, retained_bytes, digest, source_id, location.strip(), stamp,
             self._detector.detector_id, detections,
         )
+        commit_time = now + timedelta(seconds=perf_counter() - started)
+        if not consent.allows(user_id=user_id, source_id=source_id, now=commit_time):
+            raise PermissionError("physical observation consent expired during detection")
         result = self._store.store_image_batch(batch)
         return {**result, "detection_ms": detection_ms, "ingestion_ms": (perf_counter() - started) * 1000}

@@ -44,6 +44,14 @@ items are validated. Current user authorization permits this modular Home Agent
 foundation alongside unfinished Memory Agent work; this supersedes the historical
 blanket exclusion of vision below, without declaring the Jarvis transition complete.
 
+Home image continuation is tracked in PR #250. Local trained OWL-ViT inference
+on the pinned public sample detected two cats and a remote control in 486 ms
+after loading; this is not household/keys accuracy certification. A separate
+`Home vision smoke` workflow executes trained detection with real Postgres and
+last-seen retrieval; its current-head outcome must be verified before merge.
+The image ingest gate is rechecked after inference so expired consent cannot
+retain private evidence. Acceptance documentation is in `HOME_AGENT_V1.md`.
+
 Next Memory execution: complete the updated relational runtime audit and remaining
 agent/event/OAuth/feedback paths, full ingest/worker failure/isolation execution,
 and deployment-specific migrated lexical parity. Next Home execution: validate

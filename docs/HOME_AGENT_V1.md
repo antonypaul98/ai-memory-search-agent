@@ -6,7 +6,7 @@ Postgres physical-memory store and authenticated query routes, not a second data
 ## Implemented vertical slice
 
 `HomeImageIngestService` decodes a bounded local PNG/JPEG, requires active tenant/source
-consent and explicit location/time, invokes an `ImageDetector`, strips EXIF/GPS, and
+consent both before detection and before persistence, and explicit location/time, invokes an `ImageDetector`, strips EXIF/GPS, and
 stores evidence and observations atomically through `PostgresHomeImageStore`.
 
 `LocalOwlViTDetector` performs CPU inference with an already-downloaded OWL-ViT

@@ -92,3 +92,17 @@ def test_detector_failure_never_persists_evidence():
     with pytest.raises(RuntimeError):
         ingest.ingest(**inputs())
     store.store_image_batch.assert_not_called()
+
+
+
+def test_consent_expiring_during_detection_prevents_retention(monkeypatch):
+    from app.services.home_agent import image_ingest
+    ticks = iter([0, 0, 61, 61])
+    monkeypatch.setattr(image_ingest, "perf_counter", lambda: next(ticks))
+    ingest, store, detector = service()
+    grant = ObservationConsent("owner", "phone", PHYSICAL_OBSERVATION_SCOPE, NOW,
+                               NOW + timedelta(seconds=60))
+    with pytest.raises(PermissionError, match="expired during detection"):
+        ingest.ingest(**inputs(consent=grant))
+    detector.detect.assert_called_once()
+    store.store_image_batch.assert_not_called()
