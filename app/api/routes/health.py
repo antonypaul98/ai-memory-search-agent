@@ -2,7 +2,7 @@
 Health and lightweight observability routes.
 
 GET /api/v1/live — process liveness; no external dependency checks.
-GET /api/v1/ready — dependency readiness; verifies ChromaDB is reachable.
+GET /api/v1/ready — dependency readiness; verifies required storage dependencies.
 GET /api/v1/health — backward-compatible alias for readiness.
 GET /api/v1/metrics — Prometheus text exposition for single-node ops.
 GET /api/v1/metrics.json — backward-compatible process-local JSON snapshot.
@@ -11,7 +11,7 @@ GET /api/v1/metrics.json — backward-compatible process-local JSON snapshot.
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app.api.dependencies import get_health_service
-from app.core.exceptions import ChromaConnectionError
+from app.core.exceptions import ChromaConnectionError, DependencyReadinessError
 from app.middleware.observability import metrics_snapshot, prometheus_metrics_text
 from app.models.health import HealthResponse
 from app.services.health_service import HealthService
@@ -28,7 +28,7 @@ def liveness_check() -> dict[str, str]:
 def _dependency_health(service: HealthService) -> HealthResponse:
     try:
         return service.get_health_status()
-    except ChromaConnectionError as exc:
+    except (ChromaConnectionError, DependencyReadinessError) as exc:
         raise HTTPException(status_code=503, detail=exc.message) from exc
 
 
