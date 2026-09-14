@@ -1,8 +1,38 @@
 # Current Memory Search Build State
 
-Updated: 2026-09-13
+Updated: 2026-09-14
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
+
+## Verified continuation — 2026-09-14
+
+GitHub main was verified at `066fe45c52b59e0590c8b5e3e5499a98500c350f`.
+PRs #252, #253, #254, #256, #257 and #258 are merged. #258 exact head
+`1413f4206c59150de8316a53a3cfff32988d4fd2` passed
+[CI run 34800546701](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34800546701).
+These establish bounded real-Postgres lexical migration/parity, worker success,
+failure/retry and concurrent claims, plus real IngestService orchestration with
+external/vector/hierarchical dependencies isolated. They do not close P-03.
+
+The next runtime bypass found by the current audit is ReviewScheduleService:
+it unconditionally opened SQLite. Review metadata now follows the canonical
+`memory_store_backend`, fails closed through the environment-owned Postgres
+connection factory, and atomically increments counts under concurrent reviews.
+Regression acceptance covers tenant ownership, independent service instances,
+transaction rollback and safe retry with SQLite connections rejected. Real
+Postgres execution is required before accepting this slice.
+
+Remaining: legacy review metadata migration and privacy lifecycle, agent runtime/
+rules/status, EventBus, OAuth vault, feedback/model usage, and a refreshed complete
+runtime audit. Existing selected graph/intelligence/import stores must not be
+reimplemented based on the stale historical audit table. Deployment-specific
+lexical parity and full-profile zero-relational-SQLite acceptance remain open.
+
+**Jarvis Gate: 2/29 cleared — 27 remaining.** No full 29-item inventory exists;
+these regression slices do not create additional counted checkpoints. The current
+instruction requires strict Memory Search completion first. Preserve existing
+Home/Career work, but do not continue it ahead of the Memory Search gate. This
+supersedes the prior parallel Home authorization recorded below.
 
 ## Verified continuation — 2026-09-13
 

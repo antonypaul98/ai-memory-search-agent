@@ -48,3 +48,23 @@ a SQLite sentinel. It repairs shared-source lexical deletion and tests failure/r
 without losing canonical ownership. CI: 1,027 passed. Chroma is isolated in this
 proof; full multi-worker production acceptance remains open. The older table is
 a historical inventory and must be re-audited against current selected factories.
+
+## Runtime audit continuation — 2026-09-14
+
+Verified main: `066fe45c52b59e0590c8b5e3e5499a98500c350f` (#258).
+#252–#258 (excluding the unmerged Career PR #255) supply bounded lexical parity,
+worker and ingest success/failure/concurrency acceptance. The older table is not
+an instruction to rebuild selected graph, topic, edge, capsule, creator, event,
+import or privacy stores already merged.
+
+ReviewScheduleService still directly opened SQLite in this main revision. The
+current slice routes its metadata to Postgres with `memory_store_backend` and
+retains exact tenant/video identity and ownership checks. Counts use a single
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING` to avoid lost updates across
+workers, following [Postgres 16 INSERT semantics](https://www.postgresql.org/docs/16/sql-insert.html).
+No new dependency is needed. Regression tests require real Postgres for concurrent
+updates, rollback/retry and tenant isolation; missing-DSN failure runs locally.
+Legacy schedule migration and privacy export/delete remain acceptance work.
+AgentRuntime, IngestAgent, AgentStatusService, EventBus, OAuthTokenVault,
+FeedbackService and ModelRouter usage accounting still have direct SQLite paths.
+Full production-profile SQLite retirement is not claimed.
