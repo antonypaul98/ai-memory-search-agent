@@ -33,6 +33,8 @@ class _FakePostgres:
         values = tuple(params) if params is not None else None
         self.statements.append((sql, values))
         normalized = " ".join(sql.split()).lower()
+        if normalized.startswith("select 1 from video_registry"):
+            return type("OwnershipCursor", (), {"fetchone": lambda self: {"owned": 1}})()
         if normalized.startswith("insert into memory_review_schedule"):
             key = (values[0], values[1])
             if key in self.keys:
@@ -48,6 +50,8 @@ def _source_db(tmp_path) -> str:
     with sqlite3.connect(path) as conn:
         conn.executescript(
             """
+            CREATE TABLE video_registry(user_id TEXT, video_id TEXT);
+            INSERT INTO video_registry VALUES ('alice', 'shared-video'), ('bob', 'shared-video');
             CREATE TABLE memory_review_schedule (
                 user_id TEXT NOT NULL,
                 video_id TEXT NOT NULL,

@@ -1,17 +1,11 @@
-"""Safe, idempotent SQLite -> Postgres migration for review schedules.
-
-The SQLite source is opened read-only. Existing Postgres schedule rows are never
-overwritten, so target-side review progress remains authoritative on retries.
-Reports expose counts only; schedule timestamps/results, DSNs and credentials are
-never returned.
-"""
-
+"""Preview-first transfer of explicitly owned review schedules to Postgres."""
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from app.config import Settings, get_settings
 from app.db.postgres_job_repository import ConnectionFactory
@@ -38,93 +32,92 @@ class ReviewScheduleMigrationReport:
         return asdict(self)
 
 
-def preview_review_schedule_migration(
-    settings: Settings | None = None,
-    *,
-    user_id: str | None = None,
-) -> ReviewScheduleMigrationPreview:
-    """Return count-only source information without contacting Postgres."""
-    settings = settings or get_settings()
-    user_id = _normalize_user_id(user_id)
-    with _open_source_read_only(settings) as conn:
-        where, params = _tenant_filter(user_id)
-        schedules = int(
-            conn.execute(
-                f"SELECT COUNT(*) FROM memory_review_schedule{where}", params
-            ).fetchone()[0]
-        )
-        tenants = int(
-            conn.execute(
-                f"SELECT COUNT(DISTINCT user_id) FROM memory_review_schedule{where}",
-                params,
-            ).fetchone()[0]
-        )
-    return ReviewScheduleMigrationPreview(schedules=schedules, tenants=tenants)
+_COLUMNS = (
+    "user_id", "video_id", "last_reviewed_at", "next_review_at",
+    "review_count", "last_result", "updated_at",
+)
+
+
+def _source_rows(settings: Settings, user_id: str | None) -> list[tuple]:
+    if user_id is not None and (not isinstance(user_id, str) or not user_id.strip() or user_id != user_id.strip()):
+        raise ValueError("user_id must not be blank or padded")
+    source = Path(settings.sqlite_path).expanduser().resolve()
+    if not source.is_file():
+        raise FileNotFoundError("SQLite review source does not exist")
+    where, params = ("", ()) if user_id is None else (" WHERE user_id = ?", (user_id,))
+    # URI quoting matters: a filename containing '?' must not change read mode.
+    with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA query_only = ON")
+        conn.execute("BEGIN")
+        rows = conn.execute(
+            "SELECT " + ", ".join(_COLUMNS) +
+            f" FROM memory_review_schedule{where} ORDER BY user_id, video_id",
+            params,
+        ).fetchall()
+        seen = set()
+        for row in rows:
+            video = row["video_id"]
+            tenant = row["user_id"]
+            if not isinstance(tenant, str) or not tenant.strip() or tenant != tenant.strip():
+                raise ValueError("review source has invalid tenant identity")
+            if not isinstance(video, str) or not video.strip() or video != video.strip() or (tenant, video) in seen:
+                raise ValueError("review source has invalid or duplicate video identity")
+            seen.add((tenant, video))
+            if not conn.execute(
+                "SELECT 1 FROM video_registry WHERE user_id = ? AND video_id = ?",
+                (tenant, video),
+            ).fetchone():
+                raise ValueError("review source lacks exact tenant registry ownership")
+            if type(row["review_count"]) is not int or row["review_count"] < 1:
+                raise ValueError("review source has an invalid count")
+            if row["last_result"] not in {"again", "hard", "good", "easy"}:
+                raise ValueError("review source has an invalid outcome")
+            try:
+                times = [datetime.fromisoformat(row[key]) for key in (
+                    "last_reviewed_at", "next_review_at", "updated_at",
+                )]
+                if any(value.utcoffset() is None for value in times) or times[1] <= times[0]:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError("review source has invalid timestamps") from None
+        return [tuple(row[column] for column in _COLUMNS) for row in rows]
+
+
+def preview_review_schedule_migration(settings: Settings | None = None, *, user_id: str | None = None) -> ReviewScheduleMigrationPreview:
+    """Validate one read-only snapshot without connecting to Postgres."""
+    rows = _source_rows(settings or get_settings(), user_id)
+    return ReviewScheduleMigrationPreview(schedules=len(rows), tenants=len({row[0] for row in rows}))
 
 
 def migrate_review_schedules_to_postgres(
-    settings: Settings | None = None,
-    *,
-    user_id: str | None = None,
+    settings: Settings | None = None, *, user_id: str | None = None,
     connection_factory: ConnectionFactory | None = None,
 ) -> ReviewScheduleMigrationReport:
-    """Insert missing SQLite review schedules without overwriting target state."""
+    # Apply revalidates source ownership; a prior preview is not authorization
+    # to trust a changed source. Source validation precedes any target access.
     settings = settings or get_settings()
-    user_id = _normalize_user_id(user_id)
+    rows = _source_rows(settings, user_id)
     factory = connection_factory or get_postgres_connection_factory(settings)
     PostgresReviewScheduleStore(factory)
-
-    with _open_source_read_only(settings) as source:
-        where, params = _tenant_filter(user_id)
-        rows = source.execute(
-            "SELECT user_id, video_id, last_reviewed_at, next_review_at, "
-            "review_count, last_result, updated_at "
-            f"FROM memory_review_schedule{where} ORDER BY user_id, video_id",
-            params,
-        ).fetchall()
-
     inserted = 0
     with factory() as target:
         for row in rows:
-            cur = target.execute(
-                """
-                INSERT INTO memory_review_schedule (
-                    user_id, video_id, last_reviewed_at, next_review_at,
-                    review_count, last_result, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT(user_id, video_id) DO NOTHING
-                """,
-                tuple(row),
+            # Require the registry migration first. Do not retain orphaned
+            # derived data merely because a legacy tenant was supplied.
+            if not target.execute(
+                "SELECT 1 FROM video_registry WHERE user_id = %s AND video_id = %s FOR KEY SHARE",
+                row[:2],
+            ).fetchone():
+                raise ValueError("target lacks exact tenant registry ownership")
+            cursor = target.execute(
+                "INSERT INTO memory_review_schedule (" + ", ".join(_COLUMNS) + ") "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT(user_id, video_id) DO NOTHING",
+                row,
             )
-            inserted += max(int(cur.rowcount or 0), 0)
-
+            inserted += int(cursor.rowcount)
     return ReviewScheduleMigrationReport(
-        schedules_seen=len(rows),
-        schedules_inserted=inserted,
+        schedules_seen=len(rows), schedules_inserted=inserted,
         schedules_skipped_existing=len(rows) - inserted,
     )
-
-
-def _open_source_read_only(settings: Settings) -> sqlite3.Connection:
-    source_path = Path(settings.sqlite_path).expanduser().resolve()
-    if not source_path.is_file():
-        raise FileNotFoundError(f"SQLite migration source does not exist: {source_path}")
-    conn = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA query_only = ON")
-    return conn
-
-
-def _normalize_user_id(user_id: str | None) -> str | None:
-    if user_id is None:
-        return None
-    value = user_id.strip()
-    if not value:
-        raise ValueError("user_id must not be blank")
-    return value
-
-
-def _tenant_filter(user_id: str | None) -> tuple[str, tuple[Any, ...]]:
-    if user_id is None:
-        return "", ()
-    return " WHERE user_id = ?", (user_id,)

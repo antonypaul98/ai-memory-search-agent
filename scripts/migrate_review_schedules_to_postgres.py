@@ -39,14 +39,16 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _parser().parse_args()
-    settings = get_settings()
-    preview = preview_review_schedule_migration(settings, user_id=args.user_id)
-    if not args.apply:
-        print(json.dumps({"mode": "preview", **preview.to_dict()}, sort_keys=True))
-        return 0
-
-    report = migrate_review_schedules_to_postgres(settings, user_id=args.user_id)
-    print(json.dumps({"mode": "applied", **report.to_dict()}, sort_keys=True))
+    try:
+        settings = get_settings()
+        if args.apply:
+            report = migrate_review_schedules_to_postgres(settings, user_id=args.user_id)
+        else:
+            report = preview_review_schedule_migration(settings, user_id=args.user_id)
+    except Exception:
+        print("Review schedule migration failed; verify source ownership and target configuration.", file=sys.stderr)
+        return 2
+    print(json.dumps({"mode": "applied" if args.apply else "preview", **report.to_dict()}, sort_keys=True))
     return 0
 
 
