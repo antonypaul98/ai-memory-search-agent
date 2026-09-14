@@ -141,17 +141,16 @@ class PrivacyService:
                 logger.debug("fts delete skipped for %s", external_id, exc_info=True)
 
         # Current hierarchical vectors are tenant-owned, so exact-tenant deletion
-        # is safe even when another user saved the same external source. Legacy
+        # is safe even when another user saved the same external source. This is
+        # privacy-critical derived state: propagate failure before canonical
+        # ownership is removed so deletion can be retried safely. Historical
         # unscoped vectors are purged only when no other tenant owns that source.
-        try:
-            _delete_hierarchical_vectors(
-                self._hstore,
-                external_id=external_id,
-                user_id=user_id,
-                shared_external_id=shared,
-            )
-        except Exception:
-            logger.debug("hierarchical delete skipped for %s", external_id, exc_info=True)
+        _delete_hierarchical_vectors(
+            self._hstore,
+            external_id=external_id,
+            user_id=user_id,
+            shared_external_id=shared,
+        )
 
         delete_capsule_artifact(
             self._artifact_store,
