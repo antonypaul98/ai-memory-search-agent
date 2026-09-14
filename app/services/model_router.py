@@ -21,6 +21,9 @@ from typing import Any, Protocol
 import httpx
 
 from app.config import Settings, get_settings
+from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
+from app.db.postgres_runtime import get_postgres_connection_factory
+from app.db.production_storage_profile import is_complete_postgres_profile
 from app.models.model_router import (
     ModelCatalogItem,
     ModelCatalogResponse,
@@ -181,14 +184,25 @@ class HttpModelExecutor:
 
 
 class ModelUsageLedger:
-    """Durable tenant-scoped local accounting for provider free-tier budgets."""
+    """Durable tenant-scoped accounting for provider free-tier budgets.
+
+    Local/single-node profiles retain the historical SQLite ledger. The complete
+    production relational profile reuses the real-Postgres ledger so routing and
+    quota decisions cannot silently create or read a legacy SQLite usage table.
+    """
 
     def __init__(self, settings: Settings) -> None:
+        self._postgres: PostgresModelUsageLedger | None = None
         self._db_path = settings.sqlite_path
+        if is_complete_postgres_profile(settings):
+            self._postgres = PostgresModelUsageLedger(get_postgres_connection_factory(settings))
+            return
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._ensure_table()
 
     def _connect(self) -> sqlite3.Connection:
+        if self._postgres is not None:
+            raise RuntimeError("Postgres model usage accounting must not open SQLite")
         conn = sqlite3.connect(self._db_path)
         conn.row_factory = sqlite3.Row
         return conn
@@ -216,6 +230,8 @@ class ModelUsageLedger:
             )
 
     def today(self, *, user_id: str, route_id: str) -> tuple[int, int]:
+        if self._postgres is not None:
+            return self._postgres.today(user_id=user_id, route_id=route_id)
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         with self._connect() as conn:
             row = conn.execute(
@@ -229,6 +245,17 @@ class ModelUsageLedger:
         return int(row["requests"] or 0), int(row["tokens"] or 0)
 
     def record(self, *, user_id: str, profile: ModelProfile, usage: ModelTokenUsage) -> None:
+        if self._postgres is not None:
+            self._postgres.record(
+                user_id=user_id,
+                route_id=profile.route_id,
+                provider_id=profile.provider_id,
+                model_id=profile.model_id,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                total_tokens=usage.total_tokens,
+            )
+            return
         with self._connect() as conn:
             conn.execute(
                 """
