@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.db.postgres_agent_runtime_store import PostgresAgentRuntimeStore
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.schema import get_connection
 from app.db.video_registry import get_video_registry
 from app.models.agent_runtime import (
@@ -36,7 +38,13 @@ class AgentRuntime:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         self._events = EventBus(self._settings)
-        self._ensure_tables()
+        self._postgres: PostgresAgentRuntimeStore | None = None
+        if self._settings.memory_store_backend == "postgres":
+            self._postgres = PostgresAgentRuntimeStore(
+                get_postgres_connection_factory(self._settings)
+            )
+        else:
+            self._ensure_tables()
 
     def _ensure_tables(self) -> None:
         with get_connection(self._settings) as conn:
@@ -95,28 +103,43 @@ class AgentRuntime:
             status = AgentRunStatus.AWAITING_APPROVAL
             message = "Memory write requires write_memory policy and explicit approval."
 
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO agent_runs (
-                    run_id, user_id, agent_id, task, tool, arguments_json,
-                    policy_tier, status, message, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    run_id,
-                    user_id,
-                    request.agent_id,
-                    request.task,
-                    request.tool,
-                    json.dumps(request.arguments, sort_keys=True),
-                    request.policy_tier.value,
-                    status.value,
-                    message,
-                    now,
-                    now,
-                ),
+        arguments_json = json.dumps(request.arguments, sort_keys=True)
+        if self._postgres is not None:
+            self._postgres.create_run(
+                run_id=run_id,
+                user_id=user_id,
+                agent_id=request.agent_id,
+                task=request.task,
+                tool=request.tool,
+                arguments_json=arguments_json,
+                policy_tier=request.policy_tier.value,
+                status=status.value,
+                message=message,
+                created_at=now,
             )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO agent_runs (
+                        run_id, user_id, agent_id, task, tool, arguments_json,
+                        policy_tier, status, message, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        run_id,
+                        user_id,
+                        request.agent_id,
+                        request.task,
+                        request.tool,
+                        arguments_json,
+                        request.policy_tier.value,
+                        status.value,
+                        message,
+                        now,
+                        now,
+                    ),
+                )
 
         self._events.emit(
             user_id=user_id,
@@ -150,11 +173,17 @@ class AgentRuntime:
             AgentPolicyTier.ADMIN.value,
         }:
             raise PermissionError("run policy does not allow memory writes")
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                "UPDATE agent_runs SET status = ?, message = '', updated_at = ? WHERE run_id = ? AND user_id = ?",
-                (AgentRunStatus.RUNNING.value, datetime.now(timezone.utc).isoformat(), run_id, user_id),
+        updated_at = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            self._postgres.set_run_running(
+                user_id=user_id, run_id=run_id, updated_at=updated_at
             )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    "UPDATE agent_runs SET status = ?, message = '', updated_at = ? WHERE run_id = ? AND user_id = ?",
+                    (AgentRunStatus.RUNNING.value, updated_at, run_id, user_id),
+                )
         self._events.emit(
             user_id=user_id,
             event_type="agent.run.approved",
@@ -167,16 +196,19 @@ class AgentRuntime:
 
     def get_run(self, *, user_id: str, run_id: str) -> AgentRunResponse:
         row = self._get_run_row(user_id=user_id, run_id=run_id)
-        with get_connection(self._settings) as conn:
-            calls = conn.execute(
-                """
-                SELECT tool, status, arguments_json, result_json, error
-                FROM agent_tool_calls
-                WHERE run_id = ? AND user_id = ?
-                ORDER BY id ASC
-                """,
-                (run_id, user_id),
-            ).fetchall()
+        if self._postgres is not None:
+            calls = self._postgres.list_tool_calls(user_id=user_id, run_id=run_id)
+        else:
+            with get_connection(self._settings) as conn:
+                calls = conn.execute(
+                    """
+                    SELECT tool, status, arguments_json, result_json, error
+                    FROM agent_tool_calls
+                    WHERE run_id = ? AND user_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (run_id, user_id),
+                ).fetchall()
         tool_calls = [
             AgentToolCall(
                 tool=r["tool"],
@@ -203,17 +235,27 @@ class AgentRuntime:
         tool = row["tool"]
         args = json.loads(row["arguments_json"] or "{}")
         started = datetime.now(timezone.utc).isoformat()
+        arguments_json = json.dumps(args, sort_keys=True)
         call_id: int
-        with get_connection(self._settings) as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO agent_tool_calls (
-                    run_id, user_id, tool, status, arguments_json, created_at
-                ) VALUES (?, ?, ?, 'running', ?, ?)
-                """,
-                (run_id, user_id, tool, json.dumps(args, sort_keys=True), started),
+        if self._postgres is not None:
+            call_id = self._postgres.create_tool_call(
+                user_id=user_id,
+                run_id=run_id,
+                tool=tool,
+                arguments_json=arguments_json,
+                created_at=started,
             )
-            call_id = int(cur.lastrowid)
+        else:
+            with get_connection(self._settings) as conn:
+                cur = conn.execute(
+                    """
+                    INSERT INTO agent_tool_calls (
+                        run_id, user_id, tool, status, arguments_json, created_at
+                    ) VALUES (?, ?, ?, 'running', ?, ?)
+                    """,
+                    (run_id, user_id, tool, arguments_json, started),
+                )
+                call_id = int(cur.lastrowid)
 
         self._events.emit(
             user_id=user_id,
@@ -227,26 +269,30 @@ class AgentRuntime:
         try:
             result = self._invoke_tool(tool=tool, user_id=user_id, arguments=args)
         except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            with get_connection(self._settings) as conn:
-                conn.execute(
-                    "UPDATE agent_tool_calls SET status = 'failed', error = ? WHERE id = ?",
-                    (error[:1000], call_id),
+            error = f"{type(exc).__name__}: {exc}"[:1000]
+            updated_at = datetime.now(timezone.utc).isoformat()
+            if self._postgres is not None:
+                self._postgres.mark_failed(
+                    user_id=user_id,
+                    run_id=run_id,
+                    call_id=call_id,
+                    error=error,
+                    updated_at=updated_at,
                 )
-                conn.execute(
-                    """
-                    UPDATE agent_runs
-                    SET status = ?, message = ?, updated_at = ?
-                    WHERE run_id = ? AND user_id = ?
-                    """,
-                    (
-                        AgentRunStatus.FAILED.value,
-                        error[:1000],
-                        datetime.now(timezone.utc).isoformat(),
-                        run_id,
-                        user_id,
-                    ),
-                )
+            else:
+                with get_connection(self._settings) as conn:
+                    conn.execute(
+                        "UPDATE agent_tool_calls SET status = 'failed', error = ? WHERE id = ?",
+                        (error, call_id),
+                    )
+                    conn.execute(
+                        """
+                        UPDATE agent_runs
+                        SET status = ?, message = ?, updated_at = ?
+                        WHERE run_id = ? AND user_id = ?
+                        """,
+                        (AgentRunStatus.FAILED.value, error, updated_at, run_id, user_id),
+                    )
             self._events.emit(
                 user_id=user_id,
                 event_type="agent.run.failed",
@@ -258,26 +304,37 @@ class AgentRuntime:
             return self.get_run(user_id=user_id, run_id=run_id)
 
         result_json = json.dumps(result, sort_keys=True, default=str)
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                "UPDATE agent_tool_calls SET status = 'completed', result_json = ? WHERE id = ?",
-                (result_json, call_id),
+        updated_at = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            self._postgres.mark_completed(
+                user_id=user_id,
+                run_id=run_id,
+                call_id=call_id,
+                result_json=result_json,
+                message="Completed successfully.",
+                updated_at=updated_at,
             )
-            conn.execute(
-                """
-                UPDATE agent_runs
-                SET status = ?, result_json = ?, message = ?, updated_at = ?
-                WHERE run_id = ? AND user_id = ?
-                """,
-                (
-                    AgentRunStatus.COMPLETED.value,
-                    result_json,
-                    "Completed successfully.",
-                    datetime.now(timezone.utc).isoformat(),
-                    run_id,
-                    user_id,
-                ),
-            )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    "UPDATE agent_tool_calls SET status = 'completed', result_json = ? WHERE id = ?",
+                    (result_json, call_id),
+                )
+                conn.execute(
+                    """
+                    UPDATE agent_runs
+                    SET status = ?, result_json = ?, message = ?, updated_at = ?
+                    WHERE run_id = ? AND user_id = ?
+                    """,
+                    (
+                        AgentRunStatus.COMPLETED.value,
+                        result_json,
+                        "Completed successfully.",
+                        updated_at,
+                        run_id,
+                        user_id,
+                    ),
+                )
         self._events.emit(
             user_id=user_id,
             event_type="agent.run.completed",
@@ -338,11 +395,14 @@ class AgentRuntime:
     def _get_run_row(self, *, user_id: str, run_id: str):
         if not user_id or not run_id:
             raise ValueError("user_id and run_id are required")
-        with get_connection(self._settings) as conn:
-            row = conn.execute(
-                "SELECT * FROM agent_runs WHERE run_id = ? AND user_id = ?",
-                (run_id, user_id),
-            ).fetchone()
+        if self._postgres is not None:
+            row = self._postgres.get_run(user_id=user_id, run_id=run_id)
+        else:
+            with get_connection(self._settings) as conn:
+                row = conn.execute(
+                    "SELECT * FROM agent_runs WHERE run_id = ? AND user_id = ?",
+                    (run_id, user_id),
+                ).fetchone()
         if row is None:
             raise KeyError("agent run not found")
         return row
