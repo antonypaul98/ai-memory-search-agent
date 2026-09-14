@@ -21,6 +21,7 @@ from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
+from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_feedback_store import PostgresFeedbackStore
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import is_complete_postgres_profile
@@ -221,6 +222,15 @@ class PrivacyService:
                 deleted += 1
             except Exception as exc:
                 errors.append(f"{memory.memory_id}: {exc}")
+
+        if is_complete_postgres_profile(self._settings):
+            try:
+                delete_user_feedback_data(
+                    get_postgres_connection_factory(self._settings),
+                    user_id=user_id,
+                )
+            except Exception as exc:
+                errors.append(f"feedback_records: {exc}")
         return {"deleted_count": deleted, "errors": errors}
 
 
