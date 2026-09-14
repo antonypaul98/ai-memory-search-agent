@@ -16,6 +16,8 @@ from typing import Callable
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.config import Settings, get_settings
+from app.db.postgres_oauth_token_store import PostgresOAuthTokenStore
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.schema import get_connection
 from app.services.event_bus import EventBus
 
@@ -53,7 +55,13 @@ class OAuthTokenVault:
         self._settings = settings or get_settings()
         self._events = event_bus or EventBus(self._settings)
         self._fernet = fernet or Fernet(self._load_key())
-        self._ensure_table()
+        self._postgres: PostgresOAuthTokenStore | None = None
+        if self._settings.memory_store_backend == "postgres":
+            self._postgres = PostgresOAuthTokenStore(
+                get_postgres_connection_factory(self._settings)
+            )
+        else:
+            self._ensure_table()
 
     def _load_key(self) -> bytes:
         env_name = self._settings.connector_token_key_env
@@ -106,43 +114,49 @@ class OAuthTokenVault:
         encrypted = self._fernet.encrypt(payload)
         now = datetime.now(timezone.utc).isoformat()
         expiry = expires_at.astimezone(timezone.utc).isoformat() if expires_at else None
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO connector_oauth_tokens (
-                    user_id, connector_id, encrypted_payload, scopes_json,
-                    expires_at, enabled, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-                ON CONFLICT(user_id, connector_id) DO UPDATE SET
-                    encrypted_payload=excluded.encrypted_payload,
-                    scopes_json=excluded.scopes_json,
-                    expires_at=excluded.expires_at,
-                    enabled=1,
-                    updated_at=excluded.updated_at
-                """,
-                (
-                    user_id,
-                    connector_id,
-                    encrypted,
-                    json.dumps(normalized_scopes),
-                    expiry,
-                    now,
-                    now,
-                ),
+        scopes_json = json.dumps(normalized_scopes)
+        if self._postgres is not None:
+            self._postgres.put(
+                user_id=user_id,
+                connector_id=connector_id,
+                encrypted_payload=encrypted,
+                scopes_json=scopes_json,
+                expires_at=expiry,
+                now=now,
             )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO connector_oauth_tokens (
+                        user_id, connector_id, encrypted_payload, scopes_json,
+                        expires_at, enabled, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+                    ON CONFLICT(user_id, connector_id) DO UPDATE SET
+                        encrypted_payload=excluded.encrypted_payload,
+                        scopes_json=excluded.scopes_json,
+                        expires_at=excluded.expires_at,
+                        enabled=1,
+                        updated_at=excluded.updated_at
+                    """,
+                    (user_id, connector_id, encrypted, scopes_json, expiry, now, now),
+                )
         self._audit(user_id, connector_id, "connector.oauth.stored", {"scopes": len(normalized_scopes)})
 
     def get(self, *, user_id: str, connector_id: str, audit_use: bool = True) -> OAuthTokenRecord | None:
         user_id, connector_id = self._validate_identity(user_id, connector_id)
-        with get_connection(self._settings) as conn:
-            row = conn.execute(
-                """
-                SELECT encrypted_payload, scopes_json, expires_at, enabled
-                FROM connector_oauth_tokens
-                WHERE user_id=? AND connector_id=?
-                """,
-                (user_id, connector_id),
-            ).fetchone()
+        if self._postgres is not None:
+            row = self._postgres.get(user_id=user_id, connector_id=connector_id)
+        else:
+            with get_connection(self._settings) as conn:
+                row = conn.execute(
+                    """
+                    SELECT encrypted_payload, scopes_json, expires_at, enabled
+                    FROM connector_oauth_tokens
+                    WHERE user_id=? AND connector_id=?
+                    """,
+                    (user_id, connector_id),
+                ).fetchone()
         if not row:
             return None
         if not bool(row["enabled"]):
@@ -216,16 +230,25 @@ class OAuthTokenVault:
         """Disable and cryptographically erase stored credentials for one tenant."""
         user_id, connector_id = self._validate_identity(user_id, connector_id)
         tombstone = self._fernet.encrypt(b'{}')
-        with get_connection(self._settings) as conn:
-            cur = conn.execute(
-                """
-                UPDATE connector_oauth_tokens
-                SET encrypted_payload=?, enabled=0, expires_at=NULL, updated_at=?
-                WHERE user_id=? AND connector_id=? AND enabled=1
-                """,
-                (tombstone, datetime.now(timezone.utc).isoformat(), user_id, connector_id),
+        now = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            changed = self._postgres.revoke(
+                user_id=user_id,
+                connector_id=connector_id,
+                encrypted_payload=tombstone,
+                updated_at=now,
             )
-        changed = cur.rowcount > 0
+        else:
+            with get_connection(self._settings) as conn:
+                cur = conn.execute(
+                    """
+                    UPDATE connector_oauth_tokens
+                    SET encrypted_payload=?, enabled=0, expires_at=NULL, updated_at=?
+                    WHERE user_id=? AND connector_id=? AND enabled=1
+                    """,
+                    (tombstone, now, user_id, connector_id),
+                )
+            changed = cur.rowcount > 0
         if changed:
             self._audit(user_id, connector_id, "connector.oauth.revoked", {})
         return changed
