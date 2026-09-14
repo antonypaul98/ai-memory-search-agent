@@ -1,5 +1,21 @@
 # P-03 current runtime audit
 
+## Current authority — review after #282
+
+Verified main `c3ffdd8456036e8cfb5eb9f817e5bb7b2994dc4d`.
+[P03 final acceptance evidence](P03_FINAL_ACCEPTANCE_EVIDENCE.md) supersedes
+the older current/next-work table below. #273–#282 are merged, including
+tenant-scoped hierarchy APIs, YouTube ingest propagation, legacy purge tooling,
+privacy helper changes and production Postgres readiness.
+
+P-03 is still Partial: #284 addresses swallowed real vector deletion failures and
+overbroad legacy cleanup; #285 addresses omitted tenant IDs in generic connector
+hierarchy writes. Further acceptance must reconcile canonical vector-reference
+identities, fail-closed legacy inventory and operational privacy coverage.
+No full-runtime or live-production certification is inferred from green mocks.
+
+## Prior audit snapshot (superseded where noted above)
+
 Updated 2026-09-14; verified main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b`
 (PR #272). **P-03 remains Partial.** The historical inventory below is retained
 for traceability; this current table supersedes its next-work instructions.

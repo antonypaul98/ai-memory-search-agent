@@ -1,6 +1,19 @@
 # P-03 — Production-wide Postgres migration
 
-Status: **Partial**
+Status: **Partial — implementation acceptance still has confirmed gaps.**
+
+Current authority: [final acceptance evidence](P03_FINAL_ACCEPTANCE_EVIDENCE.md),
+reviewed against main `c3ffdd8456036e8cfb5eb9f817e5bb7b2994dc4d`.
+Readiness and hierarchy foundation slices through #282 are merged. Actual
+vector deletion failure handling and generic connector tenant propagation require
+#284/#285; canonical embedding references, legacy inventory failure handling and
+operational privacy still require acceptance. Preserve existing migration tools
+and target-authoritative/read-only-source policies below.
+
+Deployment-specific migration is a separate operator prerequisite requiring the
+actual environment, trustworthy ownership, preview review and any required
+maintenance approval. No live migration is claimed. Its absence alone is not
+used to invent an implementation defect or to discard existing CI acceptance.
 
 P-03 is intentionally being completed in small, test-gated slices. SQLite remains the safe local/self-host default until the entire production profile and migration path are validated.
 

@@ -1062,6 +1062,15 @@ flowchart TB
 
 ### GAP-02 — SQLite as System of Record
 
+**Current P-03 status (2026-09-14): Partial implementation acceptance.**
+Selected Postgres stores and runtime slices through #282 are implemented; the
+historical problem/plan below is not a rebuild instruction. Review of #283 found
+actual hierarchical deletion and generic connector tenant-propagation gaps (#284,
+#285), plus canonical vector-reference and legacy-inventory failure handling to
+reconcile. See `docs/P03_FINAL_ACCEPTANCE_EVIDENCE.md` for current proof and limits.
+Live deployment migration is a separate operator prerequisite, not CI evidence.
+
+
 | | |
 |---|---|
 | **Problem** | Auth, jobs, registry, FTS, cache in one SQLite file — single-writer bottleneck; no HA. |
