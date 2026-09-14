@@ -163,6 +163,41 @@ class HierarchicalStore:
             except Exception:
                 pass
 
+    def purge_legacy_unscoped_vectors(self) -> dict[str, int]:
+        """Delete capsule/section vectors that predate tenant metadata.
+
+        This is intentionally an explicit maintenance operation rather than an
+        automatic startup migration: legacy unscoped vectors have no provable
+        owner, so assigning them to a tenant would weaken isolation guarantees.
+        Tenant-scoped reads already ignore these rows once a user_id is supplied.
+        """
+        removed = {"capsules": 0, "sections": 0}
+        collections = (
+            ("capsules", self._settings.capsule_collection_name),
+            ("sections", self._settings.section_collection_name),
+        )
+        for label, name in collections:
+            coll = self._collection(name)
+            try:
+                records = coll.get(include=["metadatas"])
+            except Exception:
+                continue
+            ids = records.get("ids") or []
+            metadatas = records.get("metadatas") or []
+            legacy_ids = [
+                doc_id
+                for doc_id, metadata in zip(ids, metadatas)
+                if not (metadata or {}).get("user_id")
+            ]
+            if not legacy_ids:
+                continue
+            try:
+                coll.delete(ids=legacy_ids)
+            except Exception:
+                continue
+            removed[label] = len(legacy_ids)
+        return removed
+
     def count_vectors(self) -> dict[str, int]:
         return {
             "capsules": self._collection(self._settings.capsule_collection_name).count(),
