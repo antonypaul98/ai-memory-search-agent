@@ -19,6 +19,8 @@ from typing import Any
 import httpx
 
 from app.config import Settings, get_settings
+from app.db.postgres_event_store import PostgresEventStore
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.schema import get_connection
 from app.models.event import MemoryEvent, WebhookSubscription
 from app.services.ssrf_fetch import validate_public_http_url
@@ -61,10 +63,16 @@ class EventBus:
         self._settings = settings or get_settings()
         self._subscribers: dict[str, list[EventHandler]] = {}
         self._lock = threading.RLock()
-        self._ensure_table()
+        self._postgres: PostgresEventStore | None = None
+        if self._settings.memory_store_backend == "postgres":
+            self._postgres = PostgresEventStore(
+                get_postgres_connection_factory(self._settings)
+            )
+        else:
+            self._ensure_table()
 
     def _ensure_table(self) -> None:
-        """Create the Phase-4 audit and webhook tables idempotently."""
+        """Create the Phase-4 audit and webhook tables idempotently for local mode."""
         with get_connection(self._settings) as conn:
             conn.executescript(
                 """
@@ -125,8 +133,6 @@ class EventBus:
             raise ValueError("user_id is required")
         if len(event_type) > 120:
             raise ValueError("event_type is too long")
-        # Creation validates scheme/host/private literal without requiring a DNS
-        # lookup. Delivery revalidates DNS immediately before the outbound POST.
         safe_url = validate_public_http_url(url, resolve_dns=False)
         subscription = WebhookSubscription(
             subscription_id=str(uuid.uuid4()),
@@ -135,6 +141,15 @@ class EventBus:
             active=True,
             created_at=datetime.now(timezone.utc),
         )
+        if self._postgres is not None:
+            self._postgres.create_subscription(
+                subscription_id=subscription.subscription_id,
+                user_id=user_id,
+                event_type=subscription.event_type,
+                url=str(subscription.url),
+                created_at=subscription.created_at.isoformat(),
+            )
+            return subscription
         with get_connection(self._settings) as conn:
             conn.execute(
                 """
@@ -156,16 +171,19 @@ class EventBus:
         user_id = (user_id or "").strip()
         if not user_id:
             raise ValueError("user_id is required")
-        with get_connection(self._settings) as conn:
-            rows = conn.execute(
-                """
-                SELECT subscription_id, event_type, url, active, created_at
-                FROM webhook_subscriptions
-                WHERE user_id = ?
-                ORDER BY created_at ASC, subscription_id ASC
-                """,
-                (user_id,),
-            ).fetchall()
+        if self._postgres is not None:
+            rows = self._postgres.list_subscriptions(user_id=user_id)
+        else:
+            with get_connection(self._settings) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT subscription_id, event_type, url, active, created_at
+                    FROM webhook_subscriptions
+                    WHERE user_id = ?
+                    ORDER BY created_at ASC, subscription_id ASC
+                    """,
+                    (user_id,),
+                ).fetchall()
         return [
             WebhookSubscription(
                 subscription_id=row["subscription_id"],
@@ -184,6 +202,10 @@ class EventBus:
             raise ValueError("user_id is required")
         if not subscription_id:
             raise ValueError("subscription_id is required")
+        if self._postgres is not None:
+            return self._postgres.delete_subscription(
+                user_id=user_id, subscription_id=subscription_id
+            )
         with get_connection(self._settings) as conn:
             cursor = conn.execute(
                 "DELETE FROM webhook_subscriptions WHERE user_id = ? AND subscription_id = ?",
@@ -222,32 +244,44 @@ class EventBus:
             payload=_redact_payload(dict(payload or {})),
             created_at=datetime.now(timezone.utc),
         )
-
         try:
             payload_json = json.dumps(event.payload, sort_keys=True, separators=(",", ":"))
         except (TypeError, ValueError) as exc:
             raise ValueError("event payload must be JSON serializable") from exc
 
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO memory_events (
-                    event_id, user_id, event_type, aggregate_type, aggregate_id,
-                    actor, request_id, payload_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event.event_id,
-                    event.user_id,
-                    event.event_type,
-                    event.aggregate_type,
-                    event.aggregate_id,
-                    event.actor,
-                    event.request_id,
-                    payload_json,
-                    event.created_at.isoformat(),
-                ),
+        if self._postgres is not None:
+            self._postgres.insert_event(
+                event_id=event.event_id,
+                user_id=event.user_id,
+                event_type=event.event_type,
+                aggregate_type=event.aggregate_type,
+                aggregate_id=event.aggregate_id,
+                actor=event.actor,
+                request_id=event.request_id,
+                payload_json=payload_json,
+                created_at=event.created_at.isoformat(),
             )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO memory_events (
+                        event_id, user_id, event_type, aggregate_type, aggregate_id,
+                        actor, request_id, payload_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event.event_id,
+                        event.user_id,
+                        event.event_type,
+                        event.aggregate_type,
+                        event.aggregate_id,
+                        event.actor,
+                        event.request_id,
+                        payload_json,
+                        event.created_at.isoformat(),
+                    ),
+                )
 
         with self._lock:
             handlers = list(self._subscribers.get(event.event_type, ())) + list(
@@ -263,17 +297,23 @@ class EventBus:
         return event
 
     def _deliver_webhooks(self, event: MemoryEvent) -> None:
-        with get_connection(self._settings) as conn:
-            rows = conn.execute(
-                """
-                SELECT url
-                FROM webhook_subscriptions
-                WHERE user_id = ? AND active = 1 AND event_type IN ('*', ?)
-                ORDER BY created_at ASC, subscription_id ASC
-                """,
-                (event.user_id, event.event_type),
-            ).fetchall()
-        if not rows:
+        if self._postgres is not None:
+            urls = self._postgres.webhook_urls(
+                user_id=event.user_id, event_type=event.event_type
+            )
+        else:
+            with get_connection(self._settings) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT url
+                    FROM webhook_subscriptions
+                    WHERE user_id = ? AND active = 1 AND event_type IN ('*', ?)
+                    ORDER BY created_at ASC, subscription_id ASC
+                    """,
+                    (event.user_id, event.event_type),
+                ).fetchall()
+            urls = [str(row["url"]) for row in rows]
+        if not urls:
             return
 
         body = {
@@ -286,9 +326,9 @@ class EventBus:
             "payload": event.payload,
             "created_at": event.created_at.isoformat(),
         }
-        for row in rows:
+        for url in urls:
             try:
-                safe_url = validate_public_http_url(row["url"], resolve_dns=True)
+                safe_url = validate_public_http_url(url, resolve_dns=True)
                 with httpx.Client(timeout=5.0, follow_redirects=False) as client:
                     response = client.post(
                         safe_url,
@@ -297,8 +337,6 @@ class EventBus:
                     )
                     response.raise_for_status()
             except Exception:
-                # Webhooks are observability side effects. Never turn an already
-                # committed memory operation into a failure because delivery failed.
                 logger.exception("webhook delivery failed for event %s", event.event_id)
 
     def list_events(
@@ -314,33 +352,43 @@ class EventBus:
             raise ValueError("user_id is required")
         if limit < 1 or limit > 500:
             raise ValueError("limit must be between 1 and 500")
-        clauses = ["user_id = ?"]
-        params: list[Any] = [user_id]
-        if event_type:
-            clauses.append("event_type = ?")
-            params.append(event_type)
-        if request_id:
-            clauses.append("request_id = ?")
-            params.append(request_id)
-        if after_id is not None:
-            if after_id < 0:
-                raise ValueError("after_id must be non-negative")
-            clauses.append("id > ?")
-            params.append(after_id)
-        params.append(limit)
+        if after_id is not None and after_id < 0:
+            raise ValueError("after_id must be non-negative")
 
-        with get_connection(self._settings) as conn:
-            rows = conn.execute(
-                f"""
-                SELECT id, event_id, user_id, event_type, aggregate_type,
-                       aggregate_id, actor, request_id, payload_json, created_at
-                FROM memory_events
-                WHERE {' AND '.join(clauses)}
-                ORDER BY id ASC
-                LIMIT ?
-                """,
-                params,
-            ).fetchall()
+        if self._postgres is not None:
+            rows, next_after_id = self._postgres.list_events(
+                user_id=user_id,
+                event_type=event_type,
+                after_id=after_id,
+                request_id=request_id,
+                limit=limit,
+            )
+        else:
+            clauses = ["user_id = ?"]
+            params: list[Any] = [user_id]
+            if event_type:
+                clauses.append("event_type = ?")
+                params.append(event_type)
+            if request_id:
+                clauses.append("request_id = ?")
+                params.append(request_id)
+            if after_id is not None:
+                clauses.append("id > ?")
+                params.append(after_id)
+            params.append(limit)
+            with get_connection(self._settings) as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT id, event_id, user_id, event_type, aggregate_type,
+                           aggregate_id, actor, request_id, payload_json, created_at
+                    FROM memory_events
+                    WHERE {' AND '.join(clauses)}
+                    ORDER BY id ASC
+                    LIMIT ?
+                    """,
+                    params,
+                ).fetchall()
+            next_after_id = int(rows[-1]["id"]) if rows else after_id
 
         events = [
             MemoryEvent(
@@ -356,7 +404,6 @@ class EventBus:
             )
             for row in rows
         ]
-        next_after_id = int(rows[-1]["id"]) if rows else after_id
         return events, next_after_id
 
     def metrics(self, *, user_id: str) -> dict[str, int]:
@@ -364,6 +411,8 @@ class EventBus:
         user_id = (user_id or "").strip()
         if not user_id:
             raise ValueError("user_id is required")
+        if self._postgres is not None:
+            return self._postgres.metrics(user_id=user_id)
         with get_connection(self._settings) as conn:
             rows = conn.execute(
                 """
