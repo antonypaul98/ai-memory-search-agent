@@ -73,7 +73,7 @@ def test_selected_privacy_search_delete_is_sqlite_free_and_retryable(monkeypatch
         assert service._fts.search("lexical", user_id=owner, video_ids=[external_id])
 
         # Review deletion failures must also preserve ownership and review data
-        # for a later successful retry, even after lexical deletion succeeded.
+        # for a later successful retry, even after lexical/vector deletion succeeded.
         with monkeypatch.context() as patch:
             patch.setattr(service._review_schedule, "delete", MagicMock(side_effect=RuntimeError("review delete failure")))
             with pytest.raises(RuntimeError, match="review delete failure"):
@@ -92,7 +92,10 @@ def test_selected_privacy_search_delete_is_sqlite_free_and_retryable(monkeypatch
             assert service._memory_store.get(memories[other].memory_id, user_id=other)
             assert service._fts.search("lexical", user_id=other, video_ids=[external_id])
             assert service._review_schedule.get(user_id=other, video_id=external_id)["review_count"] == 1
-            service._hstore.delete_video.assert_not_called()
+            assert service._hstore.delete_video.call_args_list == [
+                ((external_id,), {"user_id": owner}),
+                ((external_id,), {"user_id": owner}),
+            ]
         exported = service.export_user_data(user_id=owner)
         assert not exported["memories"]
         assert not exported["video_registry"]
