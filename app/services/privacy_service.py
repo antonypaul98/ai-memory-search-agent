@@ -119,8 +119,9 @@ class PrivacyService:
             "knowledge_graph": knowledge_graph,
             "review_schedules": self._review_schedule.list_for_user(user_id=user_id),
         }
-        if self._feedback_store is not None:
-            payload["feedback_records"] = self._feedback_store.export_user_data(user_id=user_id)
+        feedback_store = getattr(self, "_feedback_store", None)
+        if feedback_store is not None:
+            payload["feedback_records"] = feedback_store.export_user_data(user_id=user_id)
         return payload
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
