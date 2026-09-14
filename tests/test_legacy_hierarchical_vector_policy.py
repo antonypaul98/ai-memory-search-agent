@@ -6,12 +6,15 @@ from app.db.hierarchical_store import HierarchicalStore
 
 
 class _Collection:
-    def __init__(self, ids, metadatas):
+    def __init__(self, ids, metadatas, *, fail_get=False):
         self._ids = list(ids)
         self._metadatas = list(metadatas)
+        self._fail_get = fail_get
         self.deleted_ids = []
 
     def get(self, **kwargs):
+        if self._fail_get:
+            raise RuntimeError("backend unavailable")
         return {"ids": list(self._ids), "metadatas": list(self._metadatas)}
 
     def delete(self, **kwargs):
@@ -72,6 +75,27 @@ def test_legacy_inventory_treats_missing_metadata_rows_as_unscoped():
         "capsules": ["capsule_metadata_missing"],
         "sections": [],
     }
+
+
+def test_legacy_inventory_fails_closed_when_any_collection_cannot_be_read():
+    capsules = _Collection(["capsule_old"], [{"video_id": "v1"}])
+    sections = _Collection([], [], fail_get=True)
+    store = HierarchicalStore.__new__(HierarchicalStore)
+    store._settings = SimpleNamespace(
+        capsule_collection_name="capsules",
+        section_collection_name="sections",
+        chroma_collection_name="evidence",
+    )
+    store._client = _Client({"capsules": capsules, "sections": sections})
+
+    with pytest.raises(RuntimeError, match="Legacy hierarchical vector inventory failed"):
+        store.legacy_unscoped_vector_ids()
+
+    with pytest.raises(RuntimeError, match="Legacy hierarchical vector inventory failed"):
+        store.purge_legacy_unscoped_vectors(confirm=True)
+
+    assert capsules.deleted_ids == []
+    assert sections.deleted_ids == []
 
 
 def test_purge_requires_explicit_confirmation_and_preserves_scoped_vectors():
