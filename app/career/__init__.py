@@ -7,6 +7,16 @@ from .application_answers import (
     generate_application_answer,
     generate_application_answers,
 )
+from .applications import (
+    ApplicationAnswerSnapshot,
+    ApplicationEvent,
+    ApplicationEventKind,
+    ApplicationRecord,
+    ApplicationRegistry,
+    ApplicationStatus,
+    JobDescriptionSnapshot,
+    SubmittedResumeSnapshot,
+)
 from .jobs import (
     JobImportResult,
     JobRegistry,
@@ -37,12 +47,19 @@ from .resume import (
 
 __all__ = [
     "AnswerStatus",
+    "ApplicationAnswerSnapshot",
+    "ApplicationEvent",
+    "ApplicationEventKind",
     "ApplicationQuestion",
+    "ApplicationRecord",
+    "ApplicationRegistry",
+    "ApplicationStatus",
     "CareerFact",
     "FactSensitivity",
     "FactSource",
     "FitScore",
     "GeneratedApplicationAnswer",
+    "JobDescriptionSnapshot",
     "JobImportResult",
     "JobRegistry",
     "JobRequirement",
@@ -54,6 +71,7 @@ __all__ = [
     "ResumeChange",
     "ResumeChangeKind",
     "RoleVariant",
+    "SubmittedResumeSnapshot",
     "TailoredResume",
     "canonicalize_job_url",
     "generate_application_answer",
