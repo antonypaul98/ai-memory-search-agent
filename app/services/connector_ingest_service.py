@@ -198,7 +198,7 @@ class ConnectorIngestService:
             )
 
             record(ProcessingStatus.INDEXED.value)
-            self._hstore.delete_video(metadata.video_id)
+            self._hstore.delete_video(metadata.video_id, user_id=user_id)
             self._fts.delete_video(metadata.video_id, user_id=user_id)
             chunk_count = self._repository.upsert_chunks(
                 video_id=metadata.video_id,
@@ -224,9 +224,9 @@ class ConnectorIngestService:
             )
 
             if self._settings.hierarchical_retrieval_enabled:
-                self._hstore.upsert_capsule(capsule, capsule_emb)
+                self._hstore.upsert_capsule(capsule, capsule_emb, user_id=user_id)
                 if capsule.sections:
-                    self._hstore.upsert_sections(metadata.video_id, capsule.sections, section_embs)
+                    self._hstore.upsert_sections(metadata.video_id, capsule.sections, section_embs, user_id=user_id)
                 self._artifact_store.store_capsule_json(
                     user_id=user_id, video_id=metadata.video_id, capsule_json=capsule.model_dump_json()
                 )

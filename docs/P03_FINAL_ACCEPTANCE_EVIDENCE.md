@@ -104,4 +104,20 @@ with 1,168 Python tests, extension checks and benchmark; merged as
 canonical/lifecycle/trust/graph finalization, tenant-scoped hierarchical retrieval,
 and section-write failure/retry against Postgres and Chroma, with only embeddings
 substituted and relational SQLite connections rejected. This supersedes the
-pending generic-connector item above. #284 must still pass independently.
+pending generic-connector item above. #284 subsequently passed independently.
+
+## Validated actual deletion follow-up
+
+PR #284 exact head `8f7cf3bbc8f9fface20da704c6249eaa03db5848` passed
+[CI #1098](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34872976874)
+with 1,172 Python tests, extension checks and benchmark; merged as
+`3cd303ec922bf066d1fa6efaee2fb0d9c3020296`. Actual Chroma deletion failures now
+propagate as sanitized errors; real Postgres ownership survives either collection's
+injected failure and retry succeeds. Legacy-only deletion preserves known vector
+owners regardless of the caller's registry-exclusivity view. These results
+supersede the pending #284/#285 statements in the chronological review above.
+
+**Next implementation checkpoint:** canonical embedding-reference integrity.
+Verify the canonical capsule, section and evidence IDs resolve to records owned by
+the same tenant. Then address fail-closed legacy inventory and finish operational
+privacy/final production acceptance. P-03 stays Partial; gate count unchanged.

@@ -45,7 +45,10 @@ def test_generic_ingest_uses_selected_stores_with_exact_tenant(tmp_path, monkeyp
     fts_factory.assert_called_once_with(settings)
     artifact_factory.assert_called_once_with(settings)
     fts.delete_video.assert_called_once_with('shared-doc', user_id=tenant)
+    deps['HierarchicalStore'].delete_video.assert_called_once_with('shared-doc', user_id=tenant)
     if hierarchy:
+        assert deps['HierarchicalStore'].upsert_capsule.call_args.kwargs['user_id'] == tenant
+        assert deps['HierarchicalStore'].upsert_sections.call_args.kwargs['user_id'] == tenant
         assert {c.kwargs['level'] for c in fts.upsert.call_args_list} == {'capsule', 'section', 'evidence'}
         assert all(c.kwargs['user_id'] == tenant for c in fts.upsert.call_args_list)
         artifacts.store_capsule_json.assert_called_once()

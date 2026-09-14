@@ -32,7 +32,13 @@ necessary maintenance approval remain operator prerequisites, separate from CI.
 extension checks and benchmark. Merged as
 `c971a07902c8e0ea3a093bd86dea28e20f9b4d70`. Generic connector hierarchy
 ownership, actual PDF finalization/retrieval and retry are accepted within that
-test boundary. #284 actual vector-delete failure acceptance remains pending.
+test boundary. #284 then passed exact-head CI #1098 / run 34872976874 with 1,172 Python tests,
+extension checks and benchmark, merging as
+`3cd303ec922bf066d1fa6efaee2fb0d9c3020296`. Actual vector-delete failures now
+preserve canonical ownership for retry and legacy cleanup preserves known owners.
+The preceding pending #284/#285 statements are historical review findings.
+Next: repair canonical embedding references to resolve to the tenant's actual
+stored vectors; then fail-closed legacy inventory and remaining privacy acceptance.
 
 ### Gate accounting
 
