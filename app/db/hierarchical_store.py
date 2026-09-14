@@ -20,24 +20,59 @@ class HierarchicalStore:
     def _collection(self, name: str):
         return self._client.get_or_create_collection(name=name)
 
-    def upsert_capsule(self, capsule: MemoryCapsule, embedding: list[float]) -> None:
+    @staticmethod
+    def _doc_id(level: str, video_id: str, *, user_id: str | None = None, index: int | None = None) -> str:
+        """Return a tenant-safe vector id while preserving legacy local ids when unscoped."""
+        parts = [level]
+        if user_id:
+            parts.append(user_id)
+        parts.append(video_id)
+        if index is not None:
+            parts.append(str(index))
+        return "_".join(parts)
+
+    @staticmethod
+    def _where(*, user_id: str | None = None, video_ids: list[str] | None = None, video_id: str | None = None):
+        clauses: list[dict[str, Any]] = []
+        if user_id:
+            clauses.append({"user_id": user_id})
+        if video_id:
+            clauses.append({"video_id": video_id})
+        elif video_ids:
+            clauses.append({"video_id": {"$in": video_ids}})
+        if not clauses:
+            return None
+        if len(clauses) == 1:
+            return clauses[0]
+        return {"$and": clauses}
+
+    def upsert_capsule(
+        self,
+        capsule: MemoryCapsule,
+        embedding: list[float],
+        *,
+        user_id: str | None = None,
+    ) -> None:
         coll = self._collection(self._settings.capsule_collection_name)
-        doc_id = f"capsule_{capsule.video_id}"
+        doc_id = self._doc_id("capsule", capsule.video_id, user_id=user_id)
         body = f"{capsule.title}. {capsule.short_summary}. {' '.join(capsule.topics)}"
+        metadata: dict[str, Any] = {
+            "video_id": capsule.video_id,
+            "level": "capsule",
+            "doc_id": doc_id,
+            "title": capsule.title,
+            "creator": capsule.creator,
+            "user_goal": capsule.user_goal,
+            "save_reason": capsule.save_reason,
+            "capsule_json": capsule.model_dump_json(),
+        }
+        if user_id:
+            metadata["user_id"] = user_id
         coll.upsert(
             ids=[doc_id],
             embeddings=[embedding],
             documents=[body],
-            metadatas=[{
-                "video_id": capsule.video_id,
-                "level": "capsule",
-                "doc_id": doc_id,
-                "title": capsule.title,
-                "creator": capsule.creator,
-                "user_goal": capsule.user_goal,
-                "save_reason": capsule.save_reason,
-                "capsule_json": capsule.model_dump_json(),
-            }],
+            metadatas=[metadata],
         )
 
     def upsert_sections(
@@ -45,6 +80,8 @@ class HierarchicalStore:
         video_id: str,
         sections: list[MemorySection],
         embeddings: list[list[float]],
+        *,
+        user_id: str | None = None,
     ) -> None:
         if not sections:
             return
@@ -53,10 +90,10 @@ class HierarchicalStore:
         docs = []
         metas = []
         for idx, (section, emb) in enumerate(zip(sections, embeddings)):
-            doc_id = f"section_{video_id}_{idx}"
+            doc_id = self._doc_id("section", video_id, user_id=user_id, index=idx)
             ids.append(doc_id)
             docs.append(f"{section.title}. {section.summary}")
-            metas.append({
+            metadata: dict[str, Any] = {
                 "video_id": video_id,
                 "level": "section",
                 "doc_id": doc_id,
@@ -64,7 +101,10 @@ class HierarchicalStore:
                 "title": section.title,
                 "start_time": section.start_time,
                 "end_time": section.end_time,
-            })
+            }
+            if user_id:
+                metadata["user_id"] = user_id
+            metas.append(metadata)
         coll.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metas)
 
     def search_level(
@@ -74,11 +114,12 @@ class HierarchicalStore:
         *,
         top_k: int,
         video_ids: list[str] | None = None,
+        user_id: str | None = None,
     ) -> list[dict[str, Any]]:
         coll = self._collection(collection_name)
         if coll.count() == 0:
             return []
-        where = {"video_id": {"$in": video_ids}} if video_ids else None
+        where = self._where(user_id=user_id, video_ids=video_ids)
         kwargs: dict[str, Any] = {
             "query_embeddings": [query_embedding],
             "n_results": min(top_k, coll.count()),
@@ -107,17 +148,18 @@ class HierarchicalStore:
                 "section_index": meta.get("section_index"),
                 "start_time": meta.get("start_time"),
                 "end_time": meta.get("end_time"),
+                "user_id": meta.get("user_id"),
             })
         return hits
 
-    def delete_video(self, video_id: str) -> None:
+    def delete_video(self, video_id: str, *, user_id: str | None = None) -> None:
         for name in (
             self._settings.capsule_collection_name,
             self._settings.section_collection_name,
         ):
             coll = self._collection(name)
             try:
-                coll.delete(where={"video_id": video_id})
+                coll.delete(where=self._where(user_id=user_id, video_id=video_id))
             except Exception:
                 pass
 
