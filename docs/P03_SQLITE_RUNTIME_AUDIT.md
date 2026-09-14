@@ -74,3 +74,11 @@ The privacy follow-up exports tenant-filtered schedules and deletes exact-tenant
 review metadata before canonical ownership. Injected deletion failure preserves
 ownership for retry. Legacy review migration still remains; this is not a full
 privacy inventory closeout or production SQLite retirement.
+
+#260 privacy acceptance passed CI with 1,058 Python tests. The review migration
+slice adds explicit-owner preview/apply with read-only source validation and
+transactional target inserts. Its exact-head PR CI is the acceptance authority.
+Next bounded runtime slice: EventBus, then dependent AgentRuntime/ingest rules
+and OAuth vault, followed by agent status and feedback/model-usage accounting.
+The final broad audit must also check direct registry adapters and selected
+factory callers; this list is not proof that no other bypass exists.

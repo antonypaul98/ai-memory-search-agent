@@ -196,3 +196,38 @@ PR #166, commit `99519a12af0af8d935c5336ca045ea5789754912`, passed [CI run 34494
 ## Safety boundary
 
 This milestone does not change vector storage, enable autonomous writes, weaken confirmation gates, add mandatory AI, or begin Jarvis voice/vision/gesture/spatial/holographic work.
+
+## Review schedule cutover
+
+Review scheduling follows `MEMORY_STORE_BACKEND`; #259 validates Postgres runtime
+persistence, concurrent increments and rollback/retry. #260 validates tenant-only
+review exports and deletion before canonical ownership is removed.
+
+With application writes paused for cutover, migrate the exact tenant's video
+registry first. Then preview review schedules from the configured legacy source:
+
+```bash
+python scripts/migrate_review_schedules_to_postgres.py --user-id <tenant-id>
+```
+
+After reviewing counts and provisioning the environment-owned target DSN:
+
+```bash
+python scripts/migrate_review_schedules_to_postgres.py --user-id <tenant-id> --apply
+```
+
+Omitting `--user-id` validates and transfers all explicitly identified source
+tenants; no tenant is inferred. Preview never connects to Postgres. Both preview and apply validate schedule
+identity, count, outcome, timestamps and exact-tenant source registry ownership
+inside one read-only SQLite snapshot. Source handles close on success or error.
+Apply revalidates independently, requires exact-tenant target registry ownership,
+and inserts only missing `(user_id, video_id)` rows. Existing target rows remain
+authoritative. All data inserts share one transaction; schema provisioning is a
+separate idempotent transaction. Errors abort transfer and CLI output never prints
+driver details, private rows or credentials. Success output contains mode/counts.
+Do not run this legacy restoration concurrently with privacy deletion.
+
+The migration regression suite includes real-Postgres rollback after an earlier
+insert, missing target ownership, safe retries, preservation of newer target
+state and isolation of another tenant with the same video IDs. This operator
+migration has not been executed against a live production database.

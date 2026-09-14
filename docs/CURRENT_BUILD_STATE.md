@@ -19,8 +19,8 @@ it unconditionally opened SQLite. Review metadata now follows the canonical
 `memory_store_backend`, fails closed through the environment-owned Postgres
 connection factory, and atomically increments counts under concurrent reviews.
 Regression acceptance covers tenant ownership, independent service instances,
-transaction rollback and safe retry with SQLite connections rejected. Real
-Postgres execution is required before accepting this slice.
+transaction rollback and safe retry with SQLite connections rejected; see the
+validated #259 evidence below.
 
 PR #259 passed [CI run 34803281371](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34803281371)
 with 1,056 Python tests, extension tests and benchmark, and merged as
@@ -29,12 +29,29 @@ counts and transactional rollback/retry are now accepted within this scope.
 
 The privacy follow-up includes exact-tenant review schedules in exports and removes
 them before canonical ownership deletion. Failure propagates so deletion remains
-retryable. Local acceptance: 59 passed, two real-Postgres cases await CI. This
+retryable. PR #260 passed [CI run 34803580006](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34803580006)
+with 1,058 Python tests, extension tests and benchmark, and merged as
+`a3b991a24c16862d6a39db4f52f738e3e698bf29`. This
 covers both selected backends, shared-source isolation and lossless Markdown
 export. Existing unit fixtures isolate the newly added schedule dependency while
 preserving their earlier assertions.
 
-Remaining: legacy review metadata migration, agent runtime/
+PR #261 was opened concurrently by another development run. Its existing
+dataclass API, optional exact-tenant filter, CLI and six regression tests are
+preserved. The ownership hardening adds preview-first, tenant-validated transfer from one
+read-only SQLite snapshot, validates source registry ownership before target
+access, requires target registry ownership, and preserves all existing target
+rows. Whole-batch rollback, retry and target preservation are exercised by
+`tests/test_postgres_review_schedule_migration_ownership.py`; verify PR #261's
+exact-head CI before accepting it. No live production migration was performed.
+
+Next implementation: route EventBus persistence through the canonical selected
+backend, preserving tenant-scoped audit events, payload redaction and explicit
+webhook subscription controls. AgentRuntime and OAuthTokenVault depend on this
+boundary, so migrate the event store before those callers. Preserve existing
+validated work and inspect current GitHub/CI before proceeding.
+
+Remaining: agent runtime/
 rules/status, EventBus, OAuth vault, feedback/model usage, and a refreshed complete
 runtime audit. Existing selected graph/intelligence/import stores must not be
 reimplemented based on the stale historical audit table. Deployment-specific
