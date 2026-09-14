@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from app.config import Settings, get_settings
+from app.db.postgres_ingest_agent_store import PostgresIngestAgentStore
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.schema import get_connection
 from app.models.ingest_agent import (
     IngestAgentDecision,
@@ -23,20 +25,19 @@ from app.services.sources import get_connector_registry
 
 
 class IngestAgent:
-    """Execute only explicitly approved, tenant-scoped auto-ingest rules.
-
-    Rules are intentionally deterministic. Candidate URLs are resolved through the
-    registered connector SDK, so connector URL validation/canonicalization remains
-    authoritative. Successful rule executions always reuse ``IngestService`` and
-    therefore preserve existing provenance, deduplication, evidence, and privacy
-    behavior.
-    """
+    """Execute only explicitly approved, tenant-scoped auto-ingest rules."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         self._events = EventBus(self._settings)
         self._connectors = get_connector_registry()
-        self._ensure_tables()
+        self._postgres: PostgresIngestAgentStore | None = None
+        if self._settings.memory_store_backend == "postgres":
+            self._postgres = PostgresIngestAgentStore(
+                get_postgres_connection_factory(self._settings)
+            )
+        else:
+            self._ensure_tables()
 
     def _ensure_tables(self) -> None:
         with get_connection(self._settings) as conn:
@@ -77,25 +78,31 @@ class IngestAgent:
             for key, value in request.match.items()
             if str(key).strip() and str(value).strip()
         }
-        with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO ingest_agent_rules (
-                    rule_id, user_id, name, connector_id, match_json, force_refresh,
-                    approved, enabled, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
-                """,
-                (
-                    rule_id,
-                    user_id,
-                    request.name.strip(),
-                    request.connector_id.strip(),
-                    json.dumps(normalized_match, sort_keys=True),
-                    int(request.force_refresh),
-                    now,
-                    now,
-                ),
+        match_json = json.dumps(normalized_match, sort_keys=True)
+        if self._postgres is not None:
+            self._postgres.create_rule(
+                rule_id=rule_id,
+                user_id=user_id,
+                name=request.name.strip(),
+                connector_id=request.connector_id.strip(),
+                match_json=match_json,
+                force_refresh=request.force_refresh,
+                created_at=now,
             )
+        else:
+            with get_connection(self._settings) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO ingest_agent_rules (
+                        rule_id, user_id, name, connector_id, match_json, force_refresh,
+                        approved, enabled, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+                    """,
+                    (
+                        rule_id, user_id, request.name.strip(), request.connector_id.strip(),
+                        match_json, int(request.force_refresh), now, now,
+                    ),
+                )
         self._events.emit(
             user_id=user_id,
             event_type="agent.ingest_rule.created",
@@ -109,17 +116,24 @@ class IngestAgent:
     def approve_rule(self, *, user_id: str, rule_id: str) -> IngestRule:
         user_id = self._require_user(user_id)
         now = datetime.now(timezone.utc).isoformat()
-        with get_connection(self._settings) as conn:
-            cur = conn.execute(
-                """
-                UPDATE ingest_agent_rules
-                SET approved = 1, enabled = 1, updated_at = ?
-                WHERE rule_id = ? AND user_id = ?
-                """,
-                (now, rule_id, user_id),
+        if self._postgres is not None:
+            changed = self._postgres.approve_rule(
+                user_id=user_id, rule_id=rule_id, updated_at=now
             )
-            if cur.rowcount != 1:
+            if not changed:
                 raise KeyError("ingest rule not found")
+        else:
+            with get_connection(self._settings) as conn:
+                cur = conn.execute(
+                    """
+                    UPDATE ingest_agent_rules
+                    SET approved = 1, enabled = 1, updated_at = ?
+                    WHERE rule_id = ? AND user_id = ?
+                    """,
+                    (now, rule_id, user_id),
+                )
+                if cur.rowcount != 1:
+                    raise KeyError("ingest rule not found")
         self._events.emit(
             user_id=user_id,
             event_type="agent.ingest_rule.approved",
@@ -132,26 +146,37 @@ class IngestAgent:
 
     def disable_rule(self, *, user_id: str, rule_id: str) -> IngestRule:
         user_id = self._require_user(user_id)
-        with get_connection(self._settings) as conn:
-            cur = conn.execute(
-                """
-                UPDATE ingest_agent_rules
-                SET enabled = 0, updated_at = ?
-                WHERE rule_id = ? AND user_id = ?
-                """,
-                (datetime.now(timezone.utc).isoformat(), rule_id, user_id),
+        now = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            changed = self._postgres.disable_rule(
+                user_id=user_id, rule_id=rule_id, updated_at=now
             )
-            if cur.rowcount != 1:
+            if not changed:
                 raise KeyError("ingest rule not found")
+        else:
+            with get_connection(self._settings) as conn:
+                cur = conn.execute(
+                    """
+                    UPDATE ingest_agent_rules
+                    SET enabled = 0, updated_at = ?
+                    WHERE rule_id = ? AND user_id = ?
+                    """,
+                    (now, rule_id, user_id),
+                )
+                if cur.rowcount != 1:
+                    raise KeyError("ingest rule not found")
         return self.get_rule(user_id=user_id, rule_id=rule_id)
 
     def get_rule(self, *, user_id: str, rule_id: str) -> IngestRule:
         user_id = self._require_user(user_id)
-        with get_connection(self._settings) as conn:
-            row = conn.execute(
-                "SELECT * FROM ingest_agent_rules WHERE rule_id = ? AND user_id = ?",
-                (rule_id, user_id),
-            ).fetchone()
+        if self._postgres is not None:
+            row = self._postgres.get_rule(user_id=user_id, rule_id=rule_id)
+        else:
+            with get_connection(self._settings) as conn:
+                row = conn.execute(
+                    "SELECT * FROM ingest_agent_rules WHERE rule_id = ? AND user_id = ?",
+                    (rule_id, user_id),
+                ).fetchone()
         if row is None:
             raise KeyError("ingest rule not found")
         return IngestRule(
@@ -185,13 +210,7 @@ class IngestAgent:
             original_url = candidate.url.strip()
             scheme = urlsplit(original_url).scheme.lower()
             if scheme not in {"http", "https"}:
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="rejected",
-                        reason="Unsupported or unsafe URL scheme.",
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="rejected", reason="Unsupported or unsafe URL scheme."))
                 continue
             try:
                 connector = self._connectors.resolve_for_url(original_url)
@@ -201,76 +220,32 @@ class IngestAgent:
                 if not canonical_url or canonical_scheme not in {"http", "https"}:
                     raise ValueError("connector returned an unsafe canonical URL")
             except Exception as exc:
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="rejected",
-                        reason=f"Unsupported or unsafe URL: {exc}",
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="rejected", reason=f"Unsupported or unsafe URL: {exc}"))
                 continue
 
             if connector.connector_id != rule.connector_id:
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="skipped",
-                        reason="Candidate connector does not match the approved rule.",
-                        canonical_url=canonical_url,
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="skipped", reason="Candidate connector does not match the approved rule.", canonical_url=canonical_url))
                 continue
-
             if any(candidate.attributes.get(key) != value for key, value in rule.match.items()):
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="skipped",
-                        reason="Candidate metadata does not match the approved rule.",
-                        canonical_url=canonical_url,
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="skipped", reason="Candidate metadata does not match the approved rule.", canonical_url=canonical_url))
                 continue
 
             claim_hash = hash_text(canonical_url)
             if not self._claim(user_id=user_id, rule_id=rule_id, canonical_hash=claim_hash):
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="duplicate",
-                        reason="This canonical URL was already claimed by the rule.",
-                        canonical_url=canonical_url,
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="duplicate", reason="This canonical URL was already claimed by the rule.", canonical_url=canonical_url))
                 continue
 
             try:
                 IngestService(self._settings).ingest_single_url(
-                    canonical_url,
-                    user_id=user_id,
-                    force_refresh=rule.force_refresh,
+                    canonical_url, user_id=user_id, force_refresh=rule.force_refresh
                 )
             except Exception as exc:
                 self._release_claim(user_id=user_id, rule_id=rule_id, canonical_hash=claim_hash)
-                decisions.append(
-                    IngestAgentDecision(
-                        index=index,
-                        decision="failed",
-                        reason=f"Ingest failed: {type(exc).__name__}",
-                        canonical_url=canonical_url,
-                    )
-                )
+                decisions.append(IngestAgentDecision(index=index, decision="failed", reason=f"Ingest failed: {type(exc).__name__}", canonical_url=canonical_url))
                 continue
 
             self._complete_claim(user_id=user_id, rule_id=rule_id, canonical_hash=claim_hash)
-            decisions.append(
-                IngestAgentDecision(
-                    index=index,
-                    decision="ingested",
-                    reason="Matched approved rule and was ingested through the canonical pipeline.",
-                    canonical_url=canonical_url,
-                )
-            )
+            decisions.append(IngestAgentDecision(index=index, decision="ingested", reason="Matched approved rule and was ingested through the canonical pipeline.", canonical_url=canonical_url))
 
         counts = {name: sum(d.decision == name for d in decisions) for name in (
             "ingested", "duplicate", "skipped", "rejected", "failed"
@@ -297,6 +272,13 @@ class IngestAgent:
 
     def _claim(self, *, user_id: str, rule_id: str, canonical_hash: str) -> bool:
         now = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            return self._postgres.claim(
+                user_id=user_id,
+                rule_id=rule_id,
+                canonical_hash=canonical_hash,
+                updated_at=now,
+            )
         with get_connection(self._settings) as conn:
             cur = conn.execute(
                 """
@@ -309,16 +291,30 @@ class IngestAgent:
             return cur.rowcount == 1
 
     def _complete_claim(self, *, user_id: str, rule_id: str, canonical_hash: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        if self._postgres is not None:
+            self._postgres.complete_claim(
+                user_id=user_id,
+                rule_id=rule_id,
+                canonical_hash=canonical_hash,
+                updated_at=now,
+            )
+            return
         with get_connection(self._settings) as conn:
             conn.execute(
                 """
                 UPDATE ingest_agent_claims SET status = 'completed', updated_at = ?
                 WHERE user_id = ? AND rule_id = ? AND canonical_hash = ?
                 """,
-                (datetime.now(timezone.utc).isoformat(), user_id, rule_id, canonical_hash),
+                (now, user_id, rule_id, canonical_hash),
             )
 
     def _release_claim(self, *, user_id: str, rule_id: str, canonical_hash: str) -> None:
+        if self._postgres is not None:
+            self._postgres.release_claim(
+                user_id=user_id, rule_id=rule_id, canonical_hash=canonical_hash
+            )
+            return
         with get_connection(self._settings) as conn:
             conn.execute(
                 """
