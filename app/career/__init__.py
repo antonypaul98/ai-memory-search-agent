@@ -21,6 +21,12 @@ from .models import (
     MasterCareerProfile,
     RoleVariant,
 )
+from .resume import (
+    ResumeChange,
+    ResumeChangeKind,
+    TailoredResume,
+    tailor_resume,
+)
 
 __all__ = [
     "CareerFact",
@@ -35,7 +41,11 @@ __all__ = [
     "NormalizedJob",
     "RequirementEvidence",
     "RequirementPriority",
+    "ResumeChange",
+    "ResumeChangeKind",
     "RoleVariant",
+    "TailoredResume",
     "canonicalize_job_url",
     "score_profile_fit",
+    "tailor_resume",
 ]
