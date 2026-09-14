@@ -42,6 +42,7 @@ def _stub_constructor_dependencies(monkeypatch) -> None:
         "get_capture_store",
         "get_bookmark_store",
         "get_topic_store",
+        "ReviewScheduleService",
         "MemoryRepository",
         "get_video_registry",
         "get_fts_index_for_exclusive_delete",

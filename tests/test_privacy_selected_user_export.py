@@ -76,6 +76,8 @@ def test_postgres_user_export_is_exact_tenant_scoped_and_excludes_secrets():
 
 def test_privacy_export_routes_user_through_selected_auth_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._auth_store = MagicMock()
     service._auth_store.get_user_for_export.return_value = {

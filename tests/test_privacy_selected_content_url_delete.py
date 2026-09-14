@@ -91,6 +91,8 @@ def test_postgres_content_url_delete_carries_full_tenant_identity():
 
 def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._memory_store = MagicMock()
     service._memory_store.get.return_value = SimpleNamespace(

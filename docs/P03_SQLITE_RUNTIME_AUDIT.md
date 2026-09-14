@@ -68,3 +68,9 @@ Legacy schedule migration and privacy export/delete remain acceptance work.
 AgentRuntime, IngestAgent, AgentStatusService, EventBus, OAuthTokenVault,
 FeedbackService and ModelRouter usage accounting still have direct SQLite paths.
 Full production-profile SQLite retirement is not claimed.
+
+Review schedule runtime routing passed real-Postgres CI in #259 (1,056 tests).
+The privacy follow-up exports tenant-filtered schedules and deletes exact-tenant
+review metadata before canonical ownership. Injected deletion failure preserves
+ownership for retry. Legacy review migration still remains; this is not a full
+privacy inventory closeout or production SQLite retirement.

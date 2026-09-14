@@ -68,6 +68,22 @@ def test_record_result_rejects_cross_tenant_memory(test_settings: Settings) -> N
         raise AssertionError("cross-tenant review write must be rejected")
 
 
+def test_review_export_and_delete_preserve_other_tenants(test_settings: Settings) -> None:
+    for tenant in ("owner", "other"):
+        _seed_memory(test_settings, user_id=tenant, video_id="shared")
+    service = ReviewScheduleService(test_settings)
+    for tenant in ("owner", "other"):
+        service.record_result(user_id=tenant, video_id="shared", result="good")
+    rows = service.list_for_user(user_id="owner")
+    assert len(rows) == 1
+    assert rows[0]["user_id"] == "owner"
+    assert rows[0]["video_id"] == "shared"
+    assert service.delete(user_id="owner", video_id="shared") == 1
+    assert service.delete(user_id="owner", video_id="shared") == 0
+    assert service.list_for_user(user_id="owner") == []
+    assert service.get(user_id="other", video_id="shared")["review_count"] == 1
+
+
 def test_agent_tool_requires_approval_before_review_metadata_write(test_settings: Settings) -> None:
     _seed_memory(test_settings, user_id="user-a", video_id="review-me")
     runtime = AgentRuntime(test_settings)

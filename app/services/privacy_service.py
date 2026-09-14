@@ -30,6 +30,7 @@ from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.services.fts_index_factory import get_fts_index_for_exclusive_delete
 from app.services.semantic_cache import SemanticCache
+from app.services.review_schedule_service import ReviewScheduleService
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class PrivacyService:
         self._capture_store = get_capture_store(self._settings)
         self._bookmark_store = get_bookmark_store(self._settings)
         self._topic_store = get_topic_store(self._settings)
+        self._review_schedule = ReviewScheduleService(self._settings)
         self._repo = MemoryRepository(self._settings)
         self._registry = get_video_registry(self._settings)
         self._fts = get_fts_index_for_exclusive_delete(self._settings)
@@ -88,6 +90,7 @@ class PrivacyService:
             "topics": topics,
             "video_registry": self._registry.list_videos(user_id=user_id),
             "knowledge_graph": knowledge_graph,
+            "review_schedules": self._review_schedule.list_for_user(user_id=user_id),
         }
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
@@ -129,6 +132,9 @@ class PrivacyService:
             shared_external_id=shared,
         )
 
+        # Remove derived review metadata before ownership; propagate failures so
+        # a retry can still locate the canonical memory and complete deletion.
+        self._review_schedule.delete(user_id=user_id, video_id=external_id)
         self._registry.delete_video(external_id, user_id=user_id)
         self._content_url_index.delete_reference(
             user_id=user_id,
