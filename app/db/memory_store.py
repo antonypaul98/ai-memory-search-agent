@@ -366,8 +366,14 @@ class MemoryStore:
 _STORES: dict[str, MemoryStore] = {}
 
 
-def get_memory_store(settings: Settings | None = None) -> MemoryStore:
+def get_memory_store(settings: Settings | None = None):
+    """Preserve legacy callers while honoring explicit production selection."""
     settings = settings or get_settings()
+    if settings.memory_store_backend == "postgres":
+        # Import lazily: the selected factory imports the local implementation.
+        from app.db.memory_store_factory import get_memory_store as selected_store
+
+        return selected_store(settings)
     key = settings.sqlite_path
     if key not in _STORES:
         _STORES[key] = MemoryStore(settings)

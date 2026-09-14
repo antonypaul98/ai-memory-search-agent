@@ -54,6 +54,8 @@ def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_pat
     monkeypatch.setattr(sqlite3, 'connect', reject)
     monkeypatch.setattr('app.services.ahme_engine.embed_query', lambda *a, **k: [1.0, 0.0, 0.0])
     service = SearchService(settings)
+    from app.db.memory_store_factory import get_memory_store as selected_store
+    assert service._memory_store is selected_store(settings)
     owner, other = 'search-' + uuid4().hex, 'search-' + uuid4().hex
     for user_id, title in ((owner, 'Owner evidence'), (other, 'Other evidence')):
         service._repository.upsert_chunks(
@@ -72,3 +74,21 @@ def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_pat
     assert service.search('evidence', user_id='unrelated-' + uuid4().hex).results == []
     assert attempts == []
     assert not (tmp_path / 'forbidden.db').exists()
+
+
+def test_legacy_canonical_helper_fails_closed_without_dsn(monkeypatch, tmp_path):
+    from app.db.memory_store import get_memory_store
+    monkeypatch.delenv('P03_CANONICAL_MISSING_DSN', raising=False)
+    attempts = []
+
+    def reject(*args, **kwargs):
+        attempts.append(True)
+        raise AssertionError('unexpected relational SQLite connection')
+
+    monkeypatch.setattr(sqlite3, 'connect', reject)
+    settings = Settings(_env_file=None, memory_store_backend='postgres',
+                        postgres_dsn_env='P03_CANONICAL_MISSING_DSN',
+                        sqlite_path=str(tmp_path / 'forbidden.db'))
+    with pytest.raises(PostgresConfigurationError):
+        get_memory_store(settings)
+    assert attempts == []
