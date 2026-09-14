@@ -158,8 +158,12 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                 event_type="acceptance.combined_privacy",
                 payload={"count": 1},
             )
-            assert events.list_events(user_id=owner.user_id)
-            assert events.list_events(user_id=other.user_id) == []
+            owner_events, owner_cursor = events.list_events(user_id=owner.user_id)
+            other_events, other_cursor = events.list_events(user_id=other.user_id)
+            assert owner_events
+            assert owner_cursor is None
+            assert other_events == []
+            assert other_cursor is None
 
             owner_export = privacy.export_user_data(user_id=owner.user_id)
             other_export = privacy.export_user_data(user_id=other.user_id)
