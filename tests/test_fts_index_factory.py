@@ -80,9 +80,11 @@ def test_postgres_backend_uses_environment_owned_runtime(monkeypatch):
 class _Store:
     def __init__(self):
         self.calls = 0
+        self.user_ids = []
 
-    def search_level(self, collection, embedding, *, top_k, video_ids=None):
+    def search_level(self, collection, embedding, *, top_k, video_ids=None, user_id=None):
         self.calls += 1
+        self.user_ids.append(user_id)
         if self.calls == 1:
             return [{"video_id": "video-a", "doc_id": "capsule_video-a", "relevance_score": 0.9}]
         return []
@@ -117,10 +119,11 @@ def test_ahme_forwards_tenant_to_lexical_search(tmp_path):
         semantic_cache_enabled=False,
     )
     fts = _RecordingFTS()
+    store = _Store()
     engine = AdaptiveHierarchicalMemoryEngine(
         settings=settings,
         repository=_Repository(),
-        store=_Store(),
+        store=store,
         fts=fts,
         cache=_Cache(),
     )
@@ -128,4 +131,5 @@ def test_ahme_forwards_tenant_to_lexical_search(tmp_path):
     with patch("app.services.ahme_engine.embed_query", return_value=[1.0, 0.0]):
         engine.retrieve("protein", user_id="tenant-a", top_k=3)
 
+    assert store.user_ids == ["tenant-a", "tenant-a"]
     assert fts.user_ids == ["tenant-a"]
