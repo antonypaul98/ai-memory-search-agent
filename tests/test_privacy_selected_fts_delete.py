@@ -3,6 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.services import privacy_service as privacy_module
 from app.services.privacy_service import PrivacyService
 
@@ -36,7 +38,7 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
     assert service._fts is marker
 
 
-def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_selected_cache(monkeypatch):
+def _service_for_delete(*, shared=False):
     service = PrivacyService.__new__(PrivacyService)
     service._review_schedule = MagicMock()
     service._review_schedule.list_for_user.return_value = []
@@ -47,13 +49,18 @@ def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_sele
     )
     service._repo = MagicMock()
     service._registry = MagicMock()
-    service._registry.other_users_have_video.return_value = False
+    service._registry.other_users_have_video.return_value = shared
     service._fts = MagicMock()
     service._hstore = MagicMock()
     service._artifact_store = MagicMock()
     service._content_url_index = MagicMock()
     service._youtube_store = MagicMock()
     service._topic_store = MagicMock()
+    return service
+
+
+def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_selected_cache(monkeypatch):
+    service = _service_for_delete(shared=False)
 
     selected_cache = MagicMock()
     cache_factory = MagicMock(return_value=selected_cache)
@@ -66,33 +73,41 @@ def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_sele
     service.delete_memory(memory_id="memory-a", user_id="tenant-a")
 
     service._fts.delete_video.assert_called_once_with("doc-a", user_id="tenant-a")
-    service._hstore.delete_video.assert_called_once_with("doc-a")
+    assert service._hstore.delete_video.call_args_list == [
+        (("doc-a",), {"user_id": "tenant-a"}),
+        (("doc-a",), {}),
+    ]
     cache_factory.assert_called_once_with(service._settings)
     selected_cache.bump_index_version_and_invalidate.assert_called_once_with()
 
 
-import pytest
-
-
 @pytest.mark.parametrize("shared", [False, True])
 def test_postgres_lexical_delete_failure_preserves_canonical_ownership(monkeypatch, shared):
-    service = PrivacyService.__new__(PrivacyService)
-    service._review_schedule = MagicMock()
-    service._review_schedule.list_for_user.return_value = []
+    service = _service_for_delete(shared=shared)
     service._settings = SimpleNamespace(fts_store_backend="postgres")
-    service._memory_store = MagicMock()
-    service._memory_store.get.return_value = SimpleNamespace(
-        memory_id="memory-a", external_id="doc-a", source_type="pdf"
-    )
-    service._repo = MagicMock()
-    service._registry = MagicMock()
-    service._registry.other_users_have_video.return_value = shared
-    service._fts = MagicMock()
     service._fts.delete_video.side_effect = RuntimeError("unavailable")
     canonical_delete = MagicMock()
     monkeypatch.setattr(privacy_module, "delete_canonical_memory", canonical_delete)
+
     with pytest.raises(RuntimeError, match="unavailable"):
         service.delete_memory(memory_id="memory-a", user_id="tenant-a")
+
     service._fts.delete_video.assert_called_once_with("doc-a", user_id="tenant-a")
+    canonical_delete.assert_not_called()
+    service._registry.delete_video.assert_not_called()
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_hierarchical_delete_failure_preserves_canonical_ownership(monkeypatch, shared):
+    service = _service_for_delete(shared=shared)
+    service._settings = SimpleNamespace(fts_store_backend="postgres")
+    service._hstore.delete_video.side_effect = RuntimeError("vector unavailable")
+    canonical_delete = MagicMock()
+    monkeypatch.setattr(privacy_module, "delete_canonical_memory", canonical_delete)
+
+    with pytest.raises(RuntimeError, match="vector unavailable"):
+        service.delete_memory(memory_id="memory-a", user_id="tenant-a")
+
+    service._hstore.delete_video.assert_called_once_with("doc-a", user_id="tenant-a")
     canonical_delete.assert_not_called()
     service._registry.delete_video.assert_not_called()
