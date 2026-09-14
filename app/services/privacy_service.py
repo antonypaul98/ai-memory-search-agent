@@ -21,6 +21,7 @@ from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
+from app.db.postgres_feedback_store import build_postgres_feedback_store
 from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import migrate
@@ -79,6 +80,11 @@ class PrivacyService:
         self._registry = get_video_registry(self._settings)
         self._fts = get_fts_index_for_exclusive_delete(self._settings)
         self._hstore = HierarchicalStore(self._settings)
+        self._feedback_store = (
+            build_postgres_feedback_store(self._settings)
+            if getattr(self._settings, "feedback_backend", "sqlite") == "postgres"
+            else None
+        )
 
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
         memories = self._memory_store.list_recent(user_id=user_id, limit=10_000)
@@ -98,7 +104,7 @@ class PrivacyService:
         )
         knowledge_graph = export_user_graph(self._settings, user_id=user_id)
 
-        return {
+        payload: dict[str, Any] = {
             "export_version": 1,
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "user": user_row if user_row else {"user_id": user_id},
@@ -112,6 +118,9 @@ class PrivacyService:
             "knowledge_graph": knowledge_graph,
             "review_schedules": self._review_schedule.list_for_user(user_id=user_id),
         }
+        if self._feedback_store is not None:
+            payload["feedback_records"] = self._feedback_store.export_user_data(user_id=user_id)
+        return payload
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
         memory = self._memory_store.get(memory_id, user_id=user_id)
@@ -282,6 +291,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
         ("topics", "Topics"),
         ("video_registry", "Video registry"),
         ("knowledge_graph", "Knowledge graph"),
+        ("feedback_records", "Feedback records"),
     )
     for key, label in collection_labels:
         value = payload.get(key) or []
