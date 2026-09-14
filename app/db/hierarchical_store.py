@@ -184,7 +184,8 @@ class HierarchicalStore:
                 continue
             ids = rows.get("ids") or []
             metadatas = rows.get("metadatas") or []
-            for vector_id, metadata in zip(ids, metadatas):
+            for index, vector_id in enumerate(ids):
+                metadata = metadatas[index] if index < len(metadatas) else None
                 owner = (metadata or {}).get("user_id")
                 if not isinstance(owner, str) or not owner.strip():
                     result[key].append(str(vector_id))

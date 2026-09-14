@@ -54,6 +54,26 @@ def test_legacy_inventory_reports_only_vectors_without_tenant_ownership():
     }
 
 
+def test_legacy_inventory_treats_missing_metadata_rows_as_unscoped():
+    capsules = _Collection(
+        ["capsule_scoped", "capsule_metadata_missing"],
+        [{"video_id": "v1", "user_id": "alice"}],
+    )
+    sections = _Collection([], [])
+    store = HierarchicalStore.__new__(HierarchicalStore)
+    store._settings = SimpleNamespace(
+        capsule_collection_name="capsules",
+        section_collection_name="sections",
+        chroma_collection_name="evidence",
+    )
+    store._client = _Client({"capsules": capsules, "sections": sections})
+
+    assert store.legacy_unscoped_vector_ids() == {
+        "capsules": ["capsule_metadata_missing"],
+        "sections": [],
+    }
+
+
 def test_purge_requires_explicit_confirmation_and_preserves_scoped_vectors():
     store, capsules, sections = _store()
 
