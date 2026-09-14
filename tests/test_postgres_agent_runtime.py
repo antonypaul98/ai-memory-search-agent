@@ -64,7 +64,7 @@ def pg_agent_runtime(monkeypatch, tmp_path):
         yield settings, runtime, factory, owner, other
     finally:
         with factory() as conn:
-            conn.execute("DELETE FROM event_bus_events WHERE user_id IN (%s, %s)", (owner, other))
+            conn.execute("DELETE FROM memory_events WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM agent_tool_calls WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM agent_runs WHERE user_id IN (%s, %s)", (owner, other))
         assert attempts == []
