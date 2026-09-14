@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 from app.config import Settings, get_settings
 from app.db.schema import get_connection
+from app.db.postgres_runtime import get_postgres_connection_factory
+from app.db.postgres_review_schedule_store import PostgresReviewScheduleStore
 from app.db.video_registry import get_video_registry
 
 _OUTCOME_INTERVAL_DAYS = {
@@ -25,7 +27,13 @@ class ReviewScheduleService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
-        self._ensure_table()
+        self._postgres = None
+        if self._settings.memory_store_backend == "postgres":
+            self._postgres = PostgresReviewScheduleStore(
+                get_postgres_connection_factory(self._settings)
+            )
+        else:
+            self._ensure_table()
 
     def _ensure_table(self) -> None:
         with get_connection(self._settings) as conn:
@@ -74,6 +82,19 @@ class ReviewScheduleService:
         reviewed_iso = reviewed.isoformat()
         next_iso = next_review.isoformat()
 
+        if self._postgres is not None:
+            count = self._postgres.record_result(
+                user_id=user_id, video_id=video_id, outcome=outcome,
+                reviewed_iso=reviewed_iso, next_iso=next_iso,
+            )
+            return {
+                "video_id": video_id,
+                "result": outcome,
+                "review_count": count,
+                "last_reviewed_at": reviewed_iso,
+                "next_review_at": next_iso,
+            }
+
         with get_connection(self._settings) as conn:
             existing = conn.execute(
                 "SELECT review_count FROM memory_review_schedule WHERE user_id = ? AND video_id = ?",
@@ -105,6 +126,8 @@ class ReviewScheduleService:
         }
 
     def get(self, *, user_id: str, video_id: str) -> dict[str, object] | None:
+        if self._postgres is not None:
+            return self._postgres.get(user_id=user_id, video_id=video_id)
         with get_connection(self._settings) as conn:
             row = conn.execute(
                 """
