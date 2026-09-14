@@ -153,15 +153,36 @@ class HierarchicalStore:
         return hits
 
     def delete_video(self, video_id: str, *, user_id: str | None = None) -> None:
+        if not isinstance(video_id, str) or not video_id.strip():
+            raise ValueError("video_id is required")
+        if user_id is not None and (not isinstance(user_id, str) or not user_id.strip()):
+            raise ValueError("user_id must be nonblank when supplied")
         for name in (
             self._settings.capsule_collection_name,
             self._settings.section_collection_name,
         ):
             coll = self._collection(name)
             try:
-                coll.delete(where=self._where(user_id=user_id, video_id=video_id))
+                if user_id is not None:
+                    coll.delete(where=self._where(user_id=user_id, video_id=video_id))
+                else:
+                    # No owner means legacy cleanup, never all tenants. Registry
+                    # exclusivity is not authority to delete another vector owner.
+                    rows = coll.get(where={"video_id": video_id}, include=["metadatas"])
+                    ids = rows.get("ids") or []
+                    metadatas = rows.get("metadatas") or []
+                    legacy = []
+                    for index, vector_id in enumerate(ids):
+                        metadata = metadatas[index] if index < len(metadatas) else None
+                        owner = (metadata or {}).get("user_id")
+                        if not isinstance(owner, str) or not owner.strip():
+                            legacy.append(vector_id)
+                    if legacy:
+                        coll.delete(ids=legacy)
             except Exception:
-                pass
+                # Privacy must retain canonical ownership for retry. Do not
+                # expose backend details or private vector payloads to callers.
+                raise RuntimeError("Hierarchical vector deletion failed") from None
 
     def legacy_unscoped_vector_ids(self) -> dict[str, list[str]]:
         """Return legacy capsule/section ids that have no trustworthy tenant owner.
