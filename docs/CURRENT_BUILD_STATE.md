@@ -26,6 +26,14 @@ operational privacy inventory and integrated production acceptance. See
 Environment-owned credentials, exact deployment ownership, preview review and any
 necessary maintenance approval remain operator prerequisites, separate from CI.
 
+### Validated follow-up
+
+#285 passed exact-head CI #1099 / run 34873132249: 1,168 Python tests,
+extension checks and benchmark. Merged as
+`c971a07902c8e0ea3a093bd86dea28e20f9b4d70`. Generic connector hierarchy
+ownership, actual PDF finalization/retrieval and retry are accepted within that
+test boundary. #284 actual vector-delete failure acceptance remains pending.
+
 ### Gate accounting
 
 **Jarvis Gate: 22/29 cleared — 7 remaining (historical continuity baseline).**

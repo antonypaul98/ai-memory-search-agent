@@ -94,3 +94,14 @@ If there is no live legacy production deployment to migrate, final P-03 reconcil
 Do not advance the historical top-level count merely because these bounded P-03 slices merged. P-03 remains Partial until its final implementation-vs-deployment accounting is reconciled in the canonical source-of-truth documents and all remaining planned Memory Search acceptance/stability items are validated.
 
 No Jarvis-specific voice, vision, gesture, spatial, holographic, or ambient physical-interface work is authorized by this evidence document.
+
+## Validated generic connector follow-up
+
+PR #285 exact head `85a3d5f3f86ac062fb9d9c2ee48866b5cefbe0ec` passed
+[CI #1099](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34873132249)
+with 1,168 Python tests, extension checks and benchmark; merged as
+`c971a07902c8e0ea3a093bd86dea28e20f9b4d70`. Its offline PDF acceptance runs actual
+canonical/lifecycle/trust/graph finalization, tenant-scoped hierarchical retrieval,
+and section-write failure/retry against Postgres and Chroma, with only embeddings
+substituted and relational SQLite connections rejected. This supersedes the
+pending generic-connector item above. #284 must still pass independently.
