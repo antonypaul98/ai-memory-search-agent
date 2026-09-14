@@ -59,7 +59,13 @@ class AdaptiveHierarchicalMemoryEngine:
 
         try:
             return self._hierarchical_retrieve(
-                query, top_k=top_k, video_filter=video_filter, metrics=metrics, t0=t0, user_id=owner
+                query,
+                top_k=top_k,
+                video_filter=video_filter,
+                metrics=metrics,
+                t0=t0,
+                user_id=owner,
+                vector_user_id=user_id,
             )
         except Exception:
             metrics.pipeline = "flat_fallback"
@@ -74,6 +80,7 @@ class AdaptiveHierarchicalMemoryEngine:
         metrics: SearchMetrics,
         t0: float,
         user_id: str,
+        vector_user_id: str | None,
     ) -> tuple[list[dict[str, Any]], SearchMetrics]:
         tr0 = time.perf_counter()
         route = route_query(query, settings=self._settings)
@@ -100,7 +107,7 @@ class AdaptiveHierarchicalMemoryEngine:
             embedding,
             top_k=self._settings.capsule_top_k,
             video_ids=video_filter,
-            user_id=user_id,
+            user_id=vector_user_id,
         )
         metrics.capsule_ms = (time.perf_counter() - tc0) * 1000
         metrics.videos_considered = len({h["video_id"] for h in capsule_hits if h.get("video_id")})
@@ -120,7 +127,7 @@ class AdaptiveHierarchicalMemoryEngine:
             embedding,
             top_k=route.section_top_k,
             video_ids=selected_videos or None,
-            user_id=user_id,
+            user_id=vector_user_id,
         )
         metrics.section_ms = (time.perf_counter() - ts0) * 1000
         metrics.sections_searched = len(section_hits)
