@@ -4,64 +4,52 @@ Updated: 2026-09-14
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
 
-## Verified continuation — 2026-09-14
+## Verified continuation — 2026-09-14 (current)
 
-GitHub main was verified at `066fe45c52b59e0590c8b5e3e5499a98500c350f`.
-PRs #252, #253, #254, #256, #257 and #258 are merged. #258 exact head
-`1413f4206c59150de8316a53a3cfff32988d4fd2` passed
-[CI run 34800546701](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34800546701).
-These establish bounded real-Postgres lexical migration/parity, worker success,
-failure/retry and concurrent claims, plus real IngestService orchestration with
-external/vector/hierarchical dependencies isolated. They do not close P-03.
+GitHub main is `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272).
+The former next-work list is stale: #258–#267 and #269–#272 are merged.
+Review schedule migration #261 passed CI 34804091352 and merged as 79a032a.
+EventBus, OAuth, agent runtime/rules/status, model usage and feedback are now
+Postgres-routed in their selected production boundary. Preserve those changes.
 
-The next runtime bypass found by the current audit is ReviewScheduleService:
-it unconditionally opened SQLite. Review metadata now follows the canonical
-`memory_store_backend`, fails closed through the environment-owned Postgres
-connection factory, and atomically increments counts under concurrent reviews.
-Regression acceptance covers tenant ownership, independent service instances,
-transaction rollback and safe retry with SQLite connections rejected; see the
-validated #259 evidence below.
+#272 exact head `e64a3e16c72f7d869203cb1720bf29e2129364b1` passed
+[CI 1068](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34836155411)
+and was merged after review. Its real privacy deletion test rejects Python
+relational SQLite connections, preserves another tenant with the same source,
+and uses actual Chroma. #271 supplies corresponding export acceptance.
 
-PR #259 passed [CI run 34803281371](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34803281371)
-with 1,056 Python tests, extension tests and benchmark, and merged as
-`d855e82eb7957f46c63b09e971712752ed604799`. Review schedule routing, concurrent
-counts and transactional rollback/retry are now accepted within this scope.
+Active PRs from this audit: #273 fixes skipped worker shutdown on lifespan errors
+and adds live-worker production lifecycle acceptance; #274 repairs SearchService's
+legacy YouTube-store bypass and scopes telemetry. Its CI exposed a second bypass
+in the legacy canonical helper, now delegated to the selected factory. #273
+first CI found a test schema-cache alias collision, repaired with unique aliases. Inspect exact-head CI before
+merging. Neither PR closes P-03 or adds a counted historical gate checkpoint.
 
-The privacy follow-up includes exact-tenant review schedules in exports and removes
-them before canonical ownership deletion. Failure propagates so deletion remains
-retryable. PR #260 passed [CI run 34803580006](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34803580006)
-with 1,058 Python tests, extension tests and benchmark, and merged as
-`a3b991a24c16862d6a39db4f52f738e3e698bf29`. This
-covers both selected backends, shared-source isolation and lossless Markdown
-export. Existing unit fixtures isolate the newly added schedule dependency while
-preserving their earlier assertions.
+Next confirmed defect: hierarchical capsule/section vectors use source-only IDs
+and unscoped retrieval. Repair tenant-scoped write/search/delete with a deliberate
+legacy policy. Also finish operational privacy inventory, selected-Postgres
+readiness and representative full orchestration/deployment parity. See
+[P03 runtime audit](P03_SQLITE_RUNTIME_AUDIT.md). No production deployment or data
+migration was performed; service-container CI is not deployment certification.
 
-PR #261 was opened concurrently by another development run. Its existing
-dataclass API, optional exact-tenant filter, CLI and six regression tests are
-preserved. The ownership hardening adds preview-first, tenant-validated transfer from one
-read-only SQLite snapshot, validates source registry ownership before target
-access, requires target registry ownership, and preserves all existing target
-rows. Whole-batch rollback, retry and target preservation are exercised by
-`tests/test_postgres_review_schedule_migration_ownership.py`; verify PR #261's
-exact-head CI before accepting it. No live production migration was performed.
+### Gate accounting
 
-Next implementation: route EventBus persistence through the canonical selected
-backend, preserving tenant-scoped audit events, payload redaction and explicit
-webhook subscription controls. AgentRuntime and OAuthTokenVault depend on this
-boundary, so migrate the event store before those callers. Preserve existing
-validated work and inspect current GitHub/CI before proceeding.
+**Jarvis Gate: 22/29 cleared — 7 remaining (historical continuity baseline).**
+The latest handoff explicitly requests preserving that baseline while reconciling
+accounting. It is not a fresh verified tally. Earlier 2/29 entries below counted a
+narrower continuation and are historical; no merged work is lost or reset.
+[Gate evidence ledger](JARVIS_GATE_LEDGER.md) contains exactly 29 explicitly new
+candidate acceptance groups with criteria, status, source revisions, tests and
+remaining work. It does not invent a mapping to the missing historical inventory.
+Do not replace the historical count by summing candidate rows until the all-version
+reconciliation is complete. U-03 briefing still lacks a dedicated implementation;
+optional P-07, deferred C-09 and Jarvis-specific U-05 are distinguished explicitly.
 
-Remaining: agent runtime/
-rules/status, EventBus, OAuth vault, feedback/model usage, and a refreshed complete
-runtime audit. Existing selected graph/intelligence/import stores must not be
-reimplemented based on the stale historical audit table. Deployment-specific
-lexical parity and full-profile zero-relational-SQLite acceptance remain open.
-
-**Jarvis Gate: 2/29 cleared — 27 remaining.** No full 29-item inventory exists;
-these regression slices do not create additional counted checkpoints. The current
-instruction requires strict Memory Search completion first. Preserve existing
-Home/Career work, but do not continue it ahead of the Memory Search gate. This
-supersedes the prior parallel Home authorization recorded below.
+Strict Memory Search-first sequencing applies. Preserve the Home/Career work
+already merged elsewhere (including #268), but do not advance it before all
+Memory acceptance and stability requirements pass. Open older Career/social
+branches do not displace P-03. Historical parallel-work authorization below is
+superseded by the current instruction.
 
 ## Verified continuation — 2026-09-13
 
