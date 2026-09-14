@@ -1,5 +1,12 @@
 """Career Agent domain package."""
 
+from .application_answers import (
+    AnswerStatus,
+    ApplicationQuestion,
+    GeneratedApplicationAnswer,
+    generate_application_answer,
+    generate_application_answers,
+)
 from .jobs import (
     JobImportResult,
     JobRegistry,
@@ -29,10 +36,13 @@ from .resume import (
 )
 
 __all__ = [
+    "AnswerStatus",
+    "ApplicationQuestion",
     "CareerFact",
     "FactSensitivity",
     "FactSource",
     "FitScore",
+    "GeneratedApplicationAnswer",
     "JobImportResult",
     "JobRegistry",
     "JobRequirement",
@@ -46,6 +56,8 @@ __all__ = [
     "RoleVariant",
     "TailoredResume",
     "canonicalize_job_url",
+    "generate_application_answer",
+    "generate_application_answers",
     "score_profile_fit",
     "tailor_resume",
 ]
