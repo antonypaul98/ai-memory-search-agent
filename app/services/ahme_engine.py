@@ -100,6 +100,7 @@ class AdaptiveHierarchicalMemoryEngine:
             embedding,
             top_k=self._settings.capsule_top_k,
             video_ids=video_filter,
+            user_id=user_id,
         )
         metrics.capsule_ms = (time.perf_counter() - tc0) * 1000
         metrics.videos_considered = len({h["video_id"] for h in capsule_hits if h.get("video_id")})
@@ -119,6 +120,7 @@ class AdaptiveHierarchicalMemoryEngine:
             embedding,
             top_k=route.section_top_k,
             video_ids=selected_videos or None,
+            user_id=user_id,
         )
         metrics.section_ms = (time.perf_counter() - ts0) * 1000
         metrics.sections_searched = len(section_hits)
