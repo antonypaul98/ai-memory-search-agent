@@ -7,6 +7,7 @@ class _Collection:
     def __init__(self):
         self.query_kwargs = None
         self.delete_kwargs = None
+        self.get_result = {"ids": [], "metadatas": []}
 
     def count(self):
         return 2
@@ -24,6 +25,9 @@ class _Collection:
             }]],
             "distances": [[0.1]],
         }
+
+    def get(self, **kwargs):
+        return self.get_result
 
     def delete(self, **kwargs):
         self.delete_kwargs = kwargs
@@ -92,3 +96,38 @@ def test_delete_video_is_tenant_scoped_when_owner_is_known():
             ]
         }
     }
+
+
+def test_purge_legacy_unscoped_vectors_removes_only_rows_without_owner():
+    collection = _Collection()
+    collection.get_result = {
+        "ids": ["legacy", "owned", "empty-meta"],
+        "metadatas": [
+            {"video_id": "shared-video"},
+            {"video_id": "shared-video", "user_id": "owner"},
+            None,
+        ],
+    }
+    store = _store(collection)
+
+    removed = store.purge_legacy_unscoped_vectors()
+
+    assert removed == {"capsules": 2, "sections": 2}
+    assert collection.delete_kwargs == {"ids": ["legacy", "empty-meta"]}
+
+
+def test_purge_legacy_unscoped_vectors_preserves_tenant_owned_rows():
+    collection = _Collection()
+    collection.get_result = {
+        "ids": ["owned-a", "owned-b"],
+        "metadatas": [
+            {"user_id": "alice"},
+            {"user_id": "bob"},
+        ],
+    }
+    store = _store(collection)
+
+    removed = store.purge_legacy_unscoped_vectors()
+
+    assert removed == {"capsules": 0, "sections": 0}
+    assert collection.delete_kwargs is None
