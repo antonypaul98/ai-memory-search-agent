@@ -163,6 +163,51 @@ class HierarchicalStore:
             except Exception:
                 pass
 
+    def legacy_unscoped_vector_ids(self) -> dict[str, list[str]]:
+        """Return legacy capsule/section ids that have no trustworthy tenant owner.
+
+        Older hierarchical vectors predate tenant metadata. They must never be
+        auto-attributed to a tenant because the vector record itself contains no
+        ownership proof. Callers can preview this inventory and either leave it
+        untouched or explicitly purge it before regenerating vectors from
+        tenant-owned canonical data.
+        """
+        result: dict[str, list[str]] = {"capsules": [], "sections": []}
+        for key, name in (
+            ("capsules", self._settings.capsule_collection_name),
+            ("sections", self._settings.section_collection_name),
+        ):
+            coll = self._collection(name)
+            try:
+                rows = coll.get(include=["metadatas"])
+            except Exception:
+                continue
+            ids = rows.get("ids") or []
+            metadatas = rows.get("metadatas") or []
+            for vector_id, metadata in zip(ids, metadatas):
+                owner = (metadata or {}).get("user_id")
+                if not isinstance(owner, str) or not owner.strip():
+                    result[key].append(str(vector_id))
+        return result
+
+    def purge_legacy_unscoped_vectors(self, *, confirm: bool = False) -> dict[str, int]:
+        """Delete only legacy unscoped capsule/section vectors after confirmation."""
+        if not confirm:
+            raise ValueError("explicit confirm=True is required to purge legacy unscoped vectors")
+
+        legacy = self.legacy_unscoped_vector_ids()
+        deleted: dict[str, int] = {"capsules": 0, "sections": 0}
+        for key, name in (
+            ("capsules", self._settings.capsule_collection_name),
+            ("sections", self._settings.section_collection_name),
+        ):
+            ids = legacy[key]
+            if not ids:
+                continue
+            self._collection(name).delete(ids=ids)
+            deleted[key] = len(ids)
+        return deleted
+
     def count_vectors(self) -> dict[str, int]:
         return {
             "capsules": self._collection(self._settings.capsule_collection_name).count(),
