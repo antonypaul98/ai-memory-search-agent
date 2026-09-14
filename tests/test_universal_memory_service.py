@@ -96,6 +96,13 @@ class TestUniversalMemoryService:
         assert memory.trust is not None
         assert memory.trust.overall > 0
         assert memory.embedding_refs.chunk_count == 4
+        assert memory.embedding_refs.capsule_doc_id == "capsule_user-a_brainvid12345"
+        assert memory.embedding_refs.section_doc_ids == [
+            "section_user-a_brainvid12345_0"
+        ]
+        assert memory.embedding_refs.evidence_doc_ids == [
+            f"youtube_user-a_brainvid12345_{idx}" for idx in range(4)
+        ]
         assert memory.relationship_summary.get("concept", 0) >= 1
 
         store = MemoryStore(test_settings)
@@ -126,6 +133,41 @@ class TestUniversalMemoryService:
         assert metadata.title not in persisted
         assert capsule.short_summary not in persisted
         assert reflection.goal not in persisted
+
+    def test_embedding_refs_are_tenant_distinct_for_same_source(
+        self, test_settings
+    ) -> None:
+        metadata = _metadata()
+        capsule = _capsule()
+        first = UniversalMemoryService(settings=test_settings).finalize_ingest(
+            user_id="tenant-a",
+            metadata=metadata,
+            capsule=capsule,
+            reflection=None,
+            chunk_count=2,
+            embedding_model="test-model",
+            transcript_source="manual_captions",
+            has_capsule=True,
+        )
+        second = UniversalMemoryService(settings=test_settings).finalize_ingest(
+            user_id="tenant-b",
+            metadata=metadata,
+            capsule=capsule,
+            reflection=None,
+            chunk_count=2,
+            embedding_model="test-model",
+            transcript_source="manual_captions",
+            has_capsule=True,
+        )
+
+        assert first.embedding_refs.capsule_doc_id == "capsule_tenant-a_brainvid12345"
+        assert second.embedding_refs.capsule_doc_id == "capsule_tenant-b_brainvid12345"
+        assert set(first.embedding_refs.section_doc_ids).isdisjoint(
+            second.embedding_refs.section_doc_ids
+        )
+        assert set(first.embedding_refs.evidence_doc_ids).isdisjoint(
+            second.embedding_refs.evidence_doc_ids
+        )
 
     def test_mark_existing_indexed(self, memory_os: UniversalMemoryService, test_settings) -> None:
         private_url = "https://youtu.be/private-skip"
