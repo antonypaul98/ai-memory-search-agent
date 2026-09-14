@@ -33,10 +33,12 @@ async def lifespan(app: FastAPI):
     validate_runtime_topology(runtime_settings)
     if not is_complete_postgres_profile(runtime_settings):
         migrate(runtime_settings)
-    if should_start_job_worker(runtime_settings):
-        start_job_worker(runtime_settings)
-    yield
-    stop_job_worker()
+    try:
+        if should_start_job_worker(runtime_settings):
+            start_job_worker(runtime_settings)
+        yield
+    finally:
+        stop_job_worker()
 
 
 app = FastAPI(
