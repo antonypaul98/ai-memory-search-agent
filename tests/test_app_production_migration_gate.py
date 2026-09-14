@@ -3,6 +3,8 @@
 import asyncio
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.config import Settings
 import app.main as main_module
 
@@ -56,3 +58,23 @@ def test_mixed_profile_keeps_app_sqlite_migration(tmp_path, monkeypatch) -> None
     settings = _settings(tmp_path, fts_store_backend="sqlite")
     _run_lifespan(monkeypatch, settings, migrate)
     migrate.assert_called_once_with(settings)
+
+
+@pytest.mark.parametrize("failure_at_start", [False, True])
+def test_lifespan_always_stops_workers_on_failure(tmp_path, monkeypatch, failure_at_start):
+    settings = _settings(tmp_path)
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "should_start_job_worker", lambda _: True)
+    start = MagicMock(side_effect=RuntimeError("startup failure") if failure_at_start else None)
+    stop = MagicMock()
+    monkeypatch.setattr(main_module, "start_job_worker", start)
+    monkeypatch.setattr(main_module, "stop_job_worker", stop)
+
+    async def run():
+        async with main_module.lifespan(main_module.app):
+            raise RuntimeError("lifespan failure")
+
+    with pytest.raises(RuntimeError, match="failure"):
+        asyncio.run(run())
+    start.assert_called_once_with(settings)
+    stop.assert_called_once()
