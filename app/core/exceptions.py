@@ -30,5 +30,9 @@ class ChromaConnectionError(AppError):
     """Raised when ChromaDB cannot be reached or the collection is inaccessible."""
 
 
+class DependencyReadinessError(AppError):
+    """Raised when a required production dependency is not ready."""
+
+
 class MetadataFetchError(AppError):
     """Raised when platform metadata cannot be fetched."""
