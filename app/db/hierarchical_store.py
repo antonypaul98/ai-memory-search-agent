@@ -46,43 +46,21 @@ class HierarchicalStore:
             return clauses[0]
         return {"$and": clauses}
 
-    def upsert_capsule(
-        self,
-        capsule: MemoryCapsule,
-        embedding: list[float],
-        *,
-        user_id: str | None = None,
-    ) -> None:
+    def upsert_capsule(self, capsule: MemoryCapsule, embedding: list[float], *, user_id: str | None = None) -> None:
         coll = self._collection(self._settings.capsule_collection_name)
         doc_id = self._doc_id("capsule", capsule.video_id, user_id=user_id)
         body = f"{capsule.title}. {capsule.short_summary}. {' '.join(capsule.topics)}"
         metadata: dict[str, Any] = {
-            "video_id": capsule.video_id,
-            "level": "capsule",
-            "doc_id": doc_id,
-            "title": capsule.title,
-            "creator": capsule.creator,
-            "user_goal": capsule.user_goal,
-            "save_reason": capsule.save_reason,
+            "video_id": capsule.video_id, "level": "capsule", "doc_id": doc_id,
+            "title": capsule.title, "creator": capsule.creator,
+            "user_goal": capsule.user_goal, "save_reason": capsule.save_reason,
             "capsule_json": capsule.model_dump_json(),
         }
         if user_id:
             metadata["user_id"] = user_id
-        coll.upsert(
-            ids=[doc_id],
-            embeddings=[embedding],
-            documents=[body],
-            metadatas=[metadata],
-        )
+        coll.upsert(ids=[doc_id], embeddings=[embedding], documents=[body], metadatas=[metadata])
 
-    def upsert_sections(
-        self,
-        video_id: str,
-        sections: list[MemorySection],
-        embeddings: list[list[float]],
-        *,
-        user_id: str | None = None,
-    ) -> None:
+    def upsert_sections(self, video_id: str, sections: list[MemorySection], embeddings: list[list[float]], *, user_id: str | None = None) -> None:
         if not sections:
             return
         coll = self._collection(self._settings.section_collection_name)
@@ -94,35 +72,22 @@ class HierarchicalStore:
             ids.append(doc_id)
             docs.append(f"{section.title}. {section.summary}")
             metadata: dict[str, Any] = {
-                "video_id": video_id,
-                "level": "section",
-                "doc_id": doc_id,
-                "section_index": idx,
-                "title": section.title,
-                "start_time": section.start_time,
-                "end_time": section.end_time,
+                "video_id": video_id, "level": "section", "doc_id": doc_id,
+                "section_index": idx, "title": section.title,
+                "start_time": section.start_time, "end_time": section.end_time,
             }
             if user_id:
                 metadata["user_id"] = user_id
             metas.append(metadata)
         coll.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metas)
 
-    def search_level(
-        self,
-        collection_name: str,
-        query_embedding: list[float],
-        *,
-        top_k: int,
-        video_ids: list[str] | None = None,
-        user_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    def search_level(self, collection_name: str, query_embedding: list[float], *, top_k: int, video_ids: list[str] | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
         coll = self._collection(collection_name)
         if coll.count() == 0:
             return []
         where = self._where(user_id=user_id, video_ids=video_ids)
         kwargs: dict[str, Any] = {
-            "query_embeddings": [query_embedding],
-            "n_results": min(top_k, coll.count()),
+            "query_embeddings": [query_embedding], "n_results": min(top_k, coll.count()),
             "include": ["documents", "metadatas", "distances"],
         }
         if where:
@@ -139,16 +104,11 @@ class HierarchicalStore:
             if not meta:
                 continue
             hits.append({
-                "matched_text": doc or "",
-                "video_id": meta.get("video_id", ""),
-                "title": meta.get("title", ""),
-                "relevance_score": max(0.0, 1.0 - float(dist)),
-                "level": meta.get("level", ""),
-                "doc_id": meta.get("doc_id") or "",
-                "section_index": meta.get("section_index"),
-                "start_time": meta.get("start_time"),
-                "end_time": meta.get("end_time"),
-                "user_id": meta.get("user_id"),
+                "matched_text": doc or "", "video_id": meta.get("video_id", ""),
+                "title": meta.get("title", ""), "relevance_score": max(0.0, 1.0 - float(dist)),
+                "level": meta.get("level", ""), "doc_id": meta.get("doc_id") or "",
+                "section_index": meta.get("section_index"), "start_time": meta.get("start_time"),
+                "end_time": meta.get("end_time"), "user_id": meta.get("user_id"),
             })
         return hits
 
@@ -157,17 +117,12 @@ class HierarchicalStore:
             raise ValueError("video_id is required")
         if user_id is not None and (not isinstance(user_id, str) or not user_id.strip()):
             raise ValueError("user_id must be nonblank when supplied")
-        for name in (
-            self._settings.capsule_collection_name,
-            self._settings.section_collection_name,
-        ):
+        for name in (self._settings.capsule_collection_name, self._settings.section_collection_name):
             coll = self._collection(name)
             try:
                 if user_id is not None:
                     coll.delete(where=self._where(user_id=user_id, video_id=video_id))
                 else:
-                    # No owner means legacy cleanup, never all tenants. Registry
-                    # exclusivity is not authority to delete another vector owner.
                     rows = coll.get(where={"video_id": video_id}, include=["metadatas"])
                     ids = rows.get("ids") or []
                     metadatas = rows.get("metadatas") or []
@@ -180,19 +135,10 @@ class HierarchicalStore:
                     if legacy:
                         coll.delete(ids=legacy)
             except Exception:
-                # Privacy must retain canonical ownership for retry. Do not
-                # expose backend details or private vector payloads to callers.
                 raise RuntimeError("Hierarchical vector deletion failed") from None
 
     def legacy_unscoped_vector_ids(self) -> dict[str, list[str]]:
-        """Return legacy capsule/section ids that have no trustworthy tenant owner.
-
-        Older hierarchical vectors predate tenant metadata. They must never be
-        auto-attributed to a tenant because the vector record itself contains no
-        ownership proof. Callers can preview this inventory and either leave it
-        untouched or explicitly purge it before regenerating vectors from
-        tenant-owned canonical data.
-        """
+        """Return unscoped legacy IDs, failing closed if inventory cannot be proven."""
         result: dict[str, list[str]] = {"capsules": [], "sections": []}
         for key, name in (
             ("capsules", self._settings.capsule_collection_name),
@@ -202,7 +148,10 @@ class HierarchicalStore:
             try:
                 rows = coll.get(include=["metadatas"])
             except Exception:
-                continue
+                # An unavailable collection is not equivalent to an empty
+                # inventory. Cutover preview/purge must stop rather than report
+                # a false-safe zero count.
+                raise RuntimeError("Legacy hierarchical vector inventory failed") from None
             ids = rows.get("ids") or []
             metadatas = rows.get("metadatas") or []
             for index, vector_id in enumerate(ids):
@@ -213,10 +162,8 @@ class HierarchicalStore:
         return result
 
     def purge_legacy_unscoped_vectors(self, *, confirm: bool = False) -> dict[str, int]:
-        """Delete only legacy unscoped capsule/section vectors after confirmation."""
         if not confirm:
             raise ValueError("explicit confirm=True is required to purge legacy unscoped vectors")
-
         legacy = self.legacy_unscoped_vector_ids()
         deleted: dict[str, int] = {"capsules": 0, "sections": 0}
         for key, name in (
