@@ -403,7 +403,7 @@ class IngestService:
             )
 
             record(IngestStage.STORING)
-            self._hstore.delete_video(metadata.video_id)
+            self._hstore.delete_video(metadata.video_id, user_id=owner_id)
             self._fts.delete_video(metadata.video_id, user_id=owner_id)
             chunk_count = self._repository.upsert_chunks(
                 video_id=metadata.video_id, user_id=owner_id, url=metadata.webpage_url,
@@ -418,9 +418,11 @@ class IngestService:
             )
 
             if self._settings.hierarchical_retrieval_enabled:
-                self._hstore.upsert_capsule(capsule, capsule_emb)
+                self._hstore.upsert_capsule(capsule, capsule_emb, user_id=owner_id)
                 if capsule.sections:
-                    self._hstore.upsert_sections(metadata.video_id, capsule.sections, section_embs)
+                    self._hstore.upsert_sections(
+                        metadata.video_id, capsule.sections, section_embs, user_id=owner_id
+                    )
                 self._artifact_store.store_capsule_json(
                     user_id=owner_id,
                     video_id=metadata.video_id,
