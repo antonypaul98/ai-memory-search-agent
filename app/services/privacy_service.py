@@ -39,6 +39,26 @@ _EXPORT_PAYLOAD_END = ":AI_MEMORY_EXPORT_JSON_V1 -->"
 _MAX_MARKDOWN_IMPORT_BYTES = 50_000_000
 
 
+def _delete_hierarchical_vectors(
+    store: HierarchicalStore,
+    *,
+    external_id: str,
+    user_id: str,
+    shared_external_id: bool,
+) -> None:
+    """Delete exact-tenant vectors and only purge unscoped legacy vectors when exclusive.
+
+    Tenant-scoped capsule/section vectors can always be removed for the deleting
+    owner, even when another tenant saved the same source. Historical unscoped
+    vectors have no trustworthy ownership and therefore are removed only when
+    the source is not shared by another tenant.
+    """
+
+    store.delete_video(external_id, user_id=user_id)
+    if not shared_external_id:
+        store.delete_video(external_id)
+
+
 class PrivacyService:
     """User-scoped export and deletion for store / GDPR-style controls."""
 
@@ -114,16 +134,23 @@ class PrivacyService:
         # source guard because its legacy index has no tenant column.
         if getattr(self._settings, "fts_store_backend", "sqlite") == "postgres":
             self._fts.delete_video(external_id, user_id=user_id)
-        if not shared:
-            if getattr(self._settings, "fts_store_backend", "sqlite") != "postgres":
-                try:
-                    self._fts.delete_video(external_id, user_id=user_id)
-                except Exception:
-                    logger.debug("fts delete skipped for %s", external_id, exc_info=True)
+        if not shared and getattr(self._settings, "fts_store_backend", "sqlite") != "postgres":
             try:
-                self._hstore.delete_video(external_id)
+                self._fts.delete_video(external_id, user_id=user_id)
             except Exception:
-                logger.debug("hierarchical delete skipped for %s", external_id, exc_info=True)
+                logger.debug("fts delete skipped for %s", external_id, exc_info=True)
+
+        # Current hierarchical vectors are tenant-owned, so exact-tenant deletion
+        # is safe even when another user saved the same external source. This is
+        # privacy-critical derived state: propagate failure before canonical
+        # ownership is removed so deletion can be retried safely. Historical
+        # unscoped vectors are purged only when no other tenant owns that source.
+        _delete_hierarchical_vectors(
+            self._hstore,
+            external_id=external_id,
+            user_id=user_id,
+            shared_external_id=shared,
+        )
 
         delete_capsule_artifact(
             self._artifact_store,
