@@ -21,7 +21,8 @@ from app.db.job_store_factory import list_jobs_for_user
 from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_user_graph
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
-from app.db.postgres_feedback_store import build_postgres_feedback_store
+from app.db.postgres_feedback_store import PostgresFeedbackStore
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.schema import migrate
@@ -81,8 +82,8 @@ class PrivacyService:
         self._fts = get_fts_index_for_exclusive_delete(self._settings)
         self._hstore = HierarchicalStore(self._settings)
         self._feedback_store = (
-            build_postgres_feedback_store(self._settings)
-            if getattr(self._settings, "feedback_backend", "sqlite") == "postgres"
+            PostgresFeedbackStore(get_postgres_connection_factory(self._settings))
+            if is_complete_postgres_profile(self._settings)
             else None
         )
 
