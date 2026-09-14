@@ -231,3 +231,13 @@ The migration regression suite includes real-Postgres rollback after an earlier
 insert, missing target ownership, safe retries, preservation of newer target
 state and isolation of another tenant with the same video IDs. This operator
 migration has not been executed against a live production database.
+
+## 2026-09-14 current runtime boundary
+
+Main through #272 now includes selected EventBus/OAuth/agent/status/usage/feedback
+routing and real privacy export/delete acceptance. The current next-work authority
+is [P03 runtime audit](P03_SQLITE_RUNTIME_AUDIT.md), not its retained historical
+SQLite table. P-03 stays Partial: hierarchical vector ownership, remaining privacy
+families, selected dependency readiness and deployment parity/rollback are still
+open. #273/#274 are bounded lifecycle/search acceptance PRs requiring exact-head
+CI. No live production migration or all-runtime zero-write certification is claimed.

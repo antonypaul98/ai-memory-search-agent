@@ -1,4 +1,46 @@
-# P-03 remaining relational SQLite audit
+# P-03 current runtime audit
+
+Updated 2026-09-14; verified main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b`
+(PR #272). **P-03 remains Partial.** The historical inventory below is retained
+for traceability; this current table supersedes its next-work instructions.
+
+| Runtime surface | Current evidence and remaining boundary |
+| --- | --- |
+| Startup / IngestService migration | Complete-profile gates merged #243/#245; #257/#258 exercise real ingest orchestration with external/vector dependencies isolated. PR #273 adds actual lifespan/live polling worker acceptance and shutdown-on-exception repair; CI must validate its exact head. |
+| SearchService | Fresh audit found direct legacy YouTubeMemoryStore construction. PR #274 routes through the selected store and forwards tenant identity to telemetry. Its first CI also caught the legacy canonical get_memory_store helper returning SQLite; the follow-up delegates explicit Postgres to the existing factory for all legacy callers. Actual flat AHME/Chroma search is tested with deterministic external embeddings; exact-head CI remains required. |
+| HierarchicalStore / AHME | Capsules and sections currently have source-only vector IDs, no tenant metadata/query filter; AHME calls search_level without owner. This is a concrete isolation gap. Add tenant-scoped writes/search/delete and legacy ownership policy before claiming full search/privacy acceptance. It is outside relational SQLite accounting but inside the Memory transition gate. |
+| Auth/canonical/registry/capture/bookmarks/imports/jobs/YouTube/FTS/cache/artifacts/content URL index | Existing selected factories and migrations remain authoritative. Do not rebuild from the old table. Real-Postgres bounded tests include #247, #249, #252–258. Whole-profile production/operator acceptance remains open. |
+| Graph and intelligence | Selected graph/topic/edge/capsule/creator/event stores already exist; #248 covers graph runtime. Historical direct-SQLite claims below are obsolete. |
+| Review schedules | #259 runtime atomic updates/concurrency, #260 privacy, #261 read-only ownership-validated migration. #261 exact-head CI 34804091352 passed; merge 79a032a. Live legacy deployment transfer not executed. |
+| EventBus / OAuth / agents / status | #262/#263/#264/#265/#266 route EventBus, encrypted tokens, runtime state, ingest rules/claims and search activity to Postgres through memory_store_backend. Local branches remain intentional. |
+| Model usage / feedback | #267/#269/#270 supply Postgres ledger and runtime routing when the complete production profile is selected. Mixed/local profiles retain their documented SQLite behavior. Audit new records against privacy retention/export requirements. |
+| PrivacyService | #271 export and #272 deletion execute real selected stores and Chroma with relational sqlite3.connect rejected. #272 CI 34836155411 is green. These fixtures do not certify every derived/operational data family; export/delete inventory and hierarchical vector ownership remain open. |
+| Explicit local SQLite adapters | sqlite_client has no application consumer in the inspected tree; its tests use it as an explicit local adapter. Local store classes, schema helpers and read-only migration sources are not by themselves production bypasses. |
+| Health/readiness | HealthService probes Chroma only. Validate selected relational dependency readiness before production acceptance; process liveness must remain independent. |
+
+## Current next work
+
+1. Finish exact-head validation/merge of #273 and #274; fix failures first.
+2. Repair hierarchical vector tenant identity across every write/read/delete caller,
+   with two-tenant shared-source regression tests and explicit legacy behavior.
+3. Reconcile privacy export/delete/retention of newly selected operational stores,
+   and verify representative integrated ingest/search/failure/retry while workers run.
+4. Complete deployment-specific migration/parity/rollback and readiness validation;
+   no operator deployment or production credentials were used in this audit.
+
+The Python sqlite3.connect sentinel detects Python relational SQLite access in
+executed paths; Chroma native vector persistence is a separate boundary. It is
+not a filesystem-wide proof that no SQLite-format vector files exist.
+
+Research check: [Postgres 16 locking documentation](https://www.postgresql.org/docs/16/sql-select.html#SQL-FOR-UPDATE-SHARE)
+confirms SKIP LOCKED is appropriate for competing queue consumers but does not
+provide a complete consistent view. Keep exclusive-claim/retry tests and avoid
+using queue polling as proof of global job inventory completeness. No framework
+or dependency added.
+
+## Historical inventory (superseded)
+
+### Original P-03 relational SQLite audit
 
 Audit baseline: `e205873cccc8bd973dfed37c4b811540240e3b80` (PR #166), 2026-09-10. P-03 remains **Partial**.
 
