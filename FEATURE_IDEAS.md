@@ -104,7 +104,7 @@
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
 | P-01 | Readiness vs liveness probes | **Complete** | P0 | S | M | GAP-08 | K8s-ready health split |
 | P-02 | Rate limiting | **Complete (V1)** | P1 | M | M | F-19 | 429 per user/IP |
-| P-03 | Postgres migration | Planned | P2 | XL | M | GAP-02 | Production-wide Postgres profile |
+| P-03 | Postgres migration | **Partial — implementation acceptance** | P2 | XL | M | GAP-02 | Production-wide Postgres profile |
 | P-04 | Structured metrics (Prometheus) | **Complete** | P1 | M | L | F-34 | `/metrics` endpoint |
 | P-05 | CI pipeline | **Complete (V1-9)** | P0 | S | L | tests | pytest -q on every PR (`.github/workflows/ci.yml`) |
 | P-06 | Schema tenant keys | **Complete (v9)** | P0 | L | H | F-31 | Registry composite PK + tests |

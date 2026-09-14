@@ -4,33 +4,27 @@ Updated: 2026-09-14
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
 
-## Verified continuation — 2026-09-14 (current)
+## Verified continuation — 2026-09-14 (review of #283)
 
-GitHub main is `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272).
-The former next-work list is stale: #258–#267 and #269–#272 are merged.
-Review schedule migration #261 passed CI 34804091352 and merged as 79a032a.
-EventBus, OAuth, agent runtime/rules/status, model usage and feedback are now
-Postgres-routed in their selected production boundary. Preserve those changes.
+GitHub main was verified at `c3ffdd8456036e8cfb5eb9f817e5bb7b2994dc4d`
+(#282); main CI run 34872101043 passed. #273–#282 are merged; do not rebuild
+their accepted slices. #283 original head `0d188a63842466a3f723fcd240961276ae2a66a6`
+passed CI #1097 / run 34872219540 with 1,167 Python tests, extension tests and
+benchmark, but its broad closure claim did not survive code review.
 
-#272 exact head `e64a3e16c72f7d869203cb1720bf29e2129364b1` passed
-[CI 1068](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34836155411)
-and was merged after review. Its real privacy deletion test rejects Python
-relational SQLite connections, preserves another tenant with the same source,
-and uses actual Chroma. #271 supplies corresponding export acceptance.
+P-03 stays **Partial for implementation**, not merely pending operator deployment.
+Real HierarchicalStore deletion still swallowed backend failures and unscoped
+cleanup could remove owned vectors. Generic connector hierarchy calls still
+omitted the tenant. #284/#285 repair these separate defects and require exact-head
+CI before merge. Their acceptance executes actual Chroma/selected Postgres stores,
+rather than inferring runtime safety from helper mocks or source-text assertions.
 
-Active PRs from this audit: #273 fixes skipped worker shutdown on lifespan errors
-and adds live-worker production lifecycle acceptance; #274 repairs SearchService's
-legacy YouTube-store bypass and scopes telemetry. Its CI exposed a second bypass
-in the legacy canonical helper, now delegated to the selected factory. #273
-first CI found a test schema-cache alias collision, repaired with unique aliases. Inspect exact-head CI before
-merging. Neither PR closes P-03 or adds a counted historical gate checkpoint.
-
-Next confirmed defect: hierarchical capsule/section vectors use source-only IDs
-and unscoped retrieval. Repair tenant-scoped write/search/delete with a deliberate
-legacy policy. Also finish operational privacy inventory, selected-Postgres
-readiness and representative full orchestration/deployment parity. See
-[P03 runtime audit](P03_SQLITE_RUNTIME_AUDIT.md). No production deployment or data
-migration was performed; service-container CI is not deployment certification.
+Next after these repairs: canonical embedding references must match tenant-scoped
+stored vector IDs; legacy inventory failures must fail closed; complete the
+operational privacy inventory and integrated production acceptance. See
+[P03 evidence](P03_FINAL_ACCEPTANCE_EVIDENCE.md). No live data migration occurred.
+Environment-owned credentials, exact deployment ownership, preview review and any
+necessary maintenance approval remain operator prerequisites, separate from CI.
 
 ### Gate accounting
 

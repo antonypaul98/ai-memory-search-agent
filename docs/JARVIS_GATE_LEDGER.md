@@ -2,6 +2,15 @@
 
 Updated 2026-09-14. **Reconciliation in progress.**
 
+Current P-03 review: main through #282 includes the hierarchy/readiness slices,
+but #283 review found swallowed actual vector-delete errors and unscoped generic
+connector writes. #284/#285 require exact-head acceptance. G02/G15/G26/G29 remain
+Partial; canonical embedding references, legacy inventory failure handling and
+operational privacy still require review. See `P03_FINAL_ACCEPTANCE_EVIDENCE.md`.
+The older per-row remaining-work notes below are historical evidence snapshots;
+this current review supersedes instructions to redo already merged #273–#282.
+
+
 **Jarvis Gate: 22/29 cleared — 7 remaining** is the historical continuity baseline requested in the latest handoff. It is not a newly verified count. Older 2/29 entries counted a narrower continuation and do not mean merged features disappeared. Neither historical tally has a recoverable original 29-item mapping in the inspected repository.
 
 The 29 G-rows below are an explicitly **new candidate normalization** of named repository acceptance areas, not invented historical checkpoint identities. Their statuses describe source-backed scoped feature acceptance; do not sum them into a replacement gate count until the all-version reconciliation is complete. Partial does not discard accepted subfeatures. Cross-cutting production, privacy and stability requirements intentionally remain open even where feature-level closeouts are Complete.
