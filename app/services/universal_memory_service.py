@@ -109,13 +109,20 @@ class UniversalMemoryService:
             reason="metadata_transcript_capsule_ready",
         )
 
+        # Canonical embedding references must resolve to the exact tenant-owned
+        # Chroma IDs written by MemoryRepository and HierarchicalStore. A
+        # source-only reference is ambiguous when two tenants save the same item.
         evidence_ids = [
-            f"{metadata.source_type.value}_{metadata.video_id}_{idx}" for idx in range(chunk_count)
+            f"{metadata.source_type.value}_{user_id}_{metadata.video_id}_{idx}"
+            for idx in range(chunk_count)
         ]
         embedding_refs = MemoryEmbeddingRefs(
-            capsule_doc_id=f"capsule_{metadata.video_id}" if has_capsule else None,
+            capsule_doc_id=(
+                f"capsule_{user_id}_{metadata.video_id}" if has_capsule else None
+            ),
             section_doc_ids=[
-                f"section_{metadata.video_id}_{idx}" for idx in range(len(capsule.sections))
+                f"section_{user_id}_{metadata.video_id}_{idx}"
+                for idx in range(len(capsule.sections))
             ],
             evidence_doc_ids=evidence_ids,
             embedding_model=embedding_model,
