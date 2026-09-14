@@ -77,7 +77,7 @@ def test_postgres_ingest_agent_rule_round_trip_and_tenant_isolation(pg_ingest_ag
         user_id=owner,
         request=IngestRuleCreate(
             name="YouTube saves",
-            connector_id="youtube",
+            connector_id="youtube.v1",
             match={"goal": "postgres"},
             force_refresh=True,
         ),
@@ -98,7 +98,7 @@ def test_postgres_ingest_agent_claims_deduplicate_and_failed_ingest_is_retryable
     _, agent, _, owner, _ = pg_ingest_agent
     rule = agent.create_rule(
         user_id=owner,
-        request=IngestRuleCreate(name="YouTube", connector_id="youtube"),
+        request=IngestRuleCreate(name="YouTube", connector_id="youtube.v1"),
     )
     agent.approve_rule(user_id=owner, rule_id=rule.rule_id)
     candidate = IngestCandidate(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -114,7 +114,7 @@ def test_postgres_ingest_agent_claims_deduplicate_and_failed_ingest_is_retryable
 
     retry_rule = agent.create_rule(
         user_id=owner,
-        request=IngestRuleCreate(name="Retry", connector_id="youtube"),
+        request=IngestRuleCreate(name="Retry", connector_id="youtube.v1"),
     )
     agent.approve_rule(user_id=owner, rule_id=retry_rule.rule_id)
     with patch("app.services.ingest_agent.IngestService") as ingest:
