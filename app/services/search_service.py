@@ -12,7 +12,7 @@ from app.config import Settings, get_settings
 from app.db.memory_store import MemoryStore, get_memory_store
 from app.db.repositories.memory_repository import MemoryRepository
 from app.db.video_registry import VideoRegistry, get_video_registry
-from app.db.youtube_memory_store import YouTubeMemoryStore
+from app.db.youtube_memory_store_factory import get_youtube_memory_store
 from app.models.metrics import SearchMetrics
 from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.models.video import SearchFilters, SearchResponse, SearchResultItem
@@ -45,7 +45,7 @@ class SearchService:
         self._repository = repository or MemoryRepository(self._settings)
         self._registry = registry or get_video_registry(self._settings)
         self._memory_store = memory_store or get_memory_store(self._settings)
-        self._yt_store = YouTubeMemoryStore(self._settings)
+        self._yt_store = get_youtube_memory_store(self._settings)
         self._ahme = AdaptiveHierarchicalMemoryEngine(
             settings=self._settings,
             repository=self._repository,
@@ -135,7 +135,7 @@ class SearchService:
 
         latency = round((time.perf_counter() - started) * 1000, 1)
         try:
-            self._yt_store.record_search_latency(latency)
+            self._yt_store.record_search_latency(latency, user_id=owner)
         except Exception:
             pass
 
@@ -164,7 +164,7 @@ def _to_search_result_item(
     hit: dict,
     query: str,
     registry: VideoRegistry,
-    yt_store: YouTubeMemoryStore,
+    yt_store,
     memory_store: MemoryStore,
     user_id: str | None,
     reflection_signals: list[str] | None = None,
