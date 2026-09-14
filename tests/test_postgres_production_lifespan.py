@@ -35,12 +35,16 @@ def test_complete_postgres_lifespan_and_populated_tenant_operations(monkeypatch,
     base_dsn = os.environ["MEMORY_AGENT_TEST_POSTGRES_DSN"]
     with psycopg.connect(base_dsn) as conn:
         conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-    monkeypatch.setenv("P03_LIFESPAN_DSN", make_conninfo(base_dsn, options=f"-c search_path={schema}"))
+    # Selected-store caches are keyed by the environment alias. Give each
+    # isolated database schema its own alias so parametrized cases cannot reuse
+    # a connection factory captured for a schema already dropped by cleanup.
+    dsn_alias = "P03_LIFESPAN_DSN_" + uuid4().hex
+    monkeypatch.setenv(dsn_alias, make_conninfo(base_dsn, options=f"-c search_path={schema}"))
     monkeypatch.setenv("P03_LIFESPAN_AUTH_SECRET", uuid4().hex)
     settings = Settings(
         _env_file=None,
         **{field: "postgres" for field in RELATIONAL_STORE_BACKEND_FIELDS},
-        postgres_dsn_env="P03_LIFESPAN_DSN", auth_secret_env="P03_LIFESPAN_AUTH_SECRET",
+        postgres_dsn_env=dsn_alias, auth_secret_env="P03_LIFESPAN_AUTH_SECRET",
         sqlite_path=str(tmp_path / "forbidden.db"), chroma_persist_dir=str(tmp_path / "chroma"),
         jobs_enabled=True, worker_mode="all", job_worker_concurrency=2,
         job_poll_interval_sec=0.05, auth_enabled=True, local_demo_mode=False,
