@@ -65,3 +65,21 @@ class PostgresReviewScheduleStore:
                 (user_id, video_id),
             ).fetchone()
         return dict(row) if row else None
+
+    def list_for_user(self, *, user_id: str) -> list[dict[str, object]]:
+        with self._connection_factory() as conn:
+            rows = conn.execute(
+                "SELECT user_id, video_id, last_reviewed_at, next_review_at, "
+                "review_count, last_result FROM memory_review_schedule "
+                "WHERE user_id = %s ORDER BY video_id",
+                (user_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete(self, *, user_id: str, video_id: str) -> int:
+        with self._connection_factory() as conn:
+            cursor = conn.execute(
+                "DELETE FROM memory_review_schedule WHERE user_id = %s AND video_id = %s",
+                (user_id, video_id),
+            )
+        return int(cursor.rowcount)

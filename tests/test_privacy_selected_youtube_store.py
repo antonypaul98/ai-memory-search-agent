@@ -93,6 +93,8 @@ def test_postgres_youtube_delete_carries_exact_tenant_identity():
 
 def test_privacy_export_uses_selected_youtube_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._auth_store = MagicMock()
     service._auth_store.get_user_for_export.return_value = {
@@ -150,6 +152,8 @@ def test_privacy_export_uses_selected_youtube_store(monkeypatch):
 
 def test_non_youtube_privacy_delete_does_not_touch_youtube_store(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._memory_store = MagicMock()
     service._memory_store.get.return_value = SimpleNamespace(

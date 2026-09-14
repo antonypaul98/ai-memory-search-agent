@@ -27,6 +27,8 @@ def _topic_payload(topic_id: str, user_id: str) -> SimpleNamespace:
 
 def test_privacy_export_routes_topics_through_selected_store_without_sqlite_read(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._auth_store = MagicMock()
     service._auth_store.get_user_for_export.return_value = {

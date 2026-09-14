@@ -139,3 +139,25 @@ class ReviewScheduleService:
                 (user_id, video_id),
             ).fetchone()
         return dict(row) if row else None
+
+    def list_for_user(self, *, user_id: str) -> list[dict[str, object]]:
+        if self._postgres is not None:
+            return self._postgres.list_for_user(user_id=user_id)
+        with get_connection(self._settings) as conn:
+            rows = conn.execute(
+                "SELECT user_id, video_id, last_reviewed_at, next_review_at, "
+                "review_count, last_result FROM memory_review_schedule "
+                "WHERE user_id = ? ORDER BY video_id",
+                (user_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete(self, *, user_id: str, video_id: str) -> int:
+        if self._postgres is not None:
+            return self._postgres.delete(user_id=user_id, video_id=video_id)
+        with get_connection(self._settings) as conn:
+            cursor = conn.execute(
+                "DELETE FROM memory_review_schedule WHERE user_id = ? AND video_id = ?",
+                (user_id, video_id),
+            )
+        return int(cursor.rowcount)

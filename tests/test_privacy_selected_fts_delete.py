@@ -22,6 +22,7 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
     monkeypatch.setattr(privacy_module, "get_capture_store", MagicMock())
     monkeypatch.setattr(privacy_module, "get_bookmark_store", MagicMock())
     monkeypatch.setattr(privacy_module, "get_topic_store", MagicMock())
+    monkeypatch.setattr(privacy_module, "ReviewScheduleService", MagicMock())
     monkeypatch.setattr(privacy_module, "MemoryRepository", MagicMock())
     monkeypatch.setattr(privacy_module, "get_video_registry", MagicMock())
     monkeypatch.setattr(
@@ -37,6 +38,8 @@ def test_privacy_service_initializes_fts_through_selected_factory(monkeypatch):
 
 def test_privacy_delete_passes_exact_tenant_to_selected_fts_and_invalidates_selected_cache(monkeypatch):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace()
     service._memory_store = MagicMock()
     service._memory_store.get.return_value = SimpleNamespace(
@@ -74,6 +77,8 @@ import pytest
 @pytest.mark.parametrize("shared", [False, True])
 def test_postgres_lexical_delete_failure_preserves_canonical_ownership(monkeypatch, shared):
     service = PrivacyService.__new__(PrivacyService)
+    service._review_schedule = MagicMock()
+    service._review_schedule.list_for_user.return_value = []
     service._settings = SimpleNamespace(fts_store_backend="postgres")
     service._memory_store = MagicMock()
     service._memory_store.get.return_value = SimpleNamespace(

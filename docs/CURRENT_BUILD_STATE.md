@@ -22,7 +22,19 @@ Regression acceptance covers tenant ownership, independent service instances,
 transaction rollback and safe retry with SQLite connections rejected. Real
 Postgres execution is required before accepting this slice.
 
-Remaining: legacy review metadata migration and privacy lifecycle, agent runtime/
+PR #259 passed [CI run 34803281371](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34803281371)
+with 1,056 Python tests, extension tests and benchmark, and merged as
+`d855e82eb7957f46c63b09e971712752ed604799`. Review schedule routing, concurrent
+counts and transactional rollback/retry are now accepted within this scope.
+
+The privacy follow-up includes exact-tenant review schedules in exports and removes
+them before canonical ownership deletion. Failure propagates so deletion remains
+retryable. Local acceptance: 59 passed, two real-Postgres cases await CI. This
+covers both selected backends, shared-source isolation and lossless Markdown
+export. Existing unit fixtures isolate the newly added schedule dependency while
+preserving their earlier assertions.
+
+Remaining: legacy review metadata migration, agent runtime/
 rules/status, EventBus, OAuth vault, feedback/model usage, and a refreshed complete
 runtime audit. Existing selected graph/intelligence/import stores must not be
 reimplemented based on the stale historical audit table. Deployment-specific
