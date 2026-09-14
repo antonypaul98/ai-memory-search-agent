@@ -285,3 +285,33 @@ class PostgresFeedbackStore:
                 (user_id,),
             ).fetchall()
         return list(preference_rows), list(feedback_rows)
+
+    def export_user_data(self, *, user_id: str) -> dict[str, list[dict]]:
+        """Return all feedback-domain records owned by one tenant.
+
+        Every query is scoped by ``user_id`` so privacy export cannot leak records
+        from another tenant even when interaction identifiers overlap externally.
+        """
+        with self._connection_factory() as conn:
+            interactions = conn.execute(
+                "SELECT * FROM answer_interactions WHERE user_id = %s ORDER BY created_at, interaction_id",
+                (user_id,),
+            ).fetchall()
+            feedback = conn.execute(
+                "SELECT * FROM answer_feedback WHERE user_id = %s ORDER BY created_at, id",
+                (user_id,),
+            ).fetchall()
+            credits = conn.execute(
+                "SELECT * FROM feedback_credit_ledger WHERE user_id = %s ORDER BY created_at, id",
+                (user_id,),
+            ).fetchall()
+            preferences = conn.execute(
+                "SELECT * FROM output_preferences WHERE user_id = %s ORDER BY task_type",
+                (user_id,),
+            ).fetchall()
+        return {
+            "interactions": [dict(row) for row in interactions],
+            "feedback": [dict(row) for row in feedback],
+            "credit_ledger": [dict(row) for row in credits],
+            "output_preferences": [dict(row) for row in preferences],
+        }
