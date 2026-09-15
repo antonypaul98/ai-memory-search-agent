@@ -121,3 +121,25 @@ supersede the pending #284/#285 statements in the chronological review above.
 Verify the canonical capsule, section and evidence IDs resolve to records owned by
 the same tenant. Then address fail-closed legacy inventory and finish operational
 privacy/final production acceptance. P-03 stays Partial; gate count unchanged.
+
+## Model usage privacy integration — 2026-09-15
+
+#295 merged as `4f4ed118749447af730b19b1cd211e6366b3f5f5` after CI #1125.
+The follow-up wires its exact-tenant primitives through the initialized Postgres
+ledger into JSON/Markdown export and production erasure. The existing combined
+production acceptance now checks empty-account export, two tenants' usage rows,
+logical erasure, neighbor preservation, and a database-triggered failure/retry
+while two workers poll and Python relational SQLite access is rejected. CI on
+the follow-up head is required before claiming this additional acceptance.
+
+A failed usage deletion propagates; earlier memory/feedback deletions may already
+be committed. Retrying the same tenant completes the remaining domain. This is
+idempotent multi-domain progress, not a transaction spanning all domains and not
+a guarantee against concurrent writes. Remaining operational stores and account
+revocation are still open P-03 requirements.
+
+Logical SQL deletion is distinct from physical storage reclamation. PostgreSQL
+retains old row versions for MVCC; VACUUM reclaims reusable space, and does not
+establish backup erasure. See [PostgreSQL 16 routine vacuuming](https://www.postgresql.org/docs/16/routine-vacuuming.html).
+Backup/WAL retention, replicas and operator-controlled physical purge require
+separate deployment policy and evidence. No infrastructure purge was performed.

@@ -1,8 +1,27 @@
 # Current Memory Search Build State
 
-Updated: 2026-09-14
+Updated: 2026-09-15
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
+
+## Current continuation — 2026-09-15
+
+Verified main `4f4ed118749447af730b19b1cd211e6366b3f5f5` includes #295
+(model-usage privacy primitives); exact-head CI #1125 and main CI #1126 passed.
+#286/#287, #289/#290/#291/#292 and #294 are merged. Their pending references
+below are historical. #294's combined live-worker privacy acceptance passed
+CI #1123; it establishes its exercised memory/feedback boundary, not full-account erasure.
+
+Current implementation slice integrates model usage into PrivacyService export
+and production erasure, extending the existing two-worker acceptance with a real
+Postgres deletion failure and retry. Exact-head CI is required before acceptance.
+P-03 remains **Partial**. Next: operational privacy inventory, especially EventBus,
+agent state, captures/imports, jobs and auth/session lifecycle. The erasure helper
+currently covers memory, feedback and model usage; it does not revoke accounts or
+prevent concurrent writers from recreating data. The public delete-memories API
+remains a memory-only operation. No live deployment migration occurred.
+
+Jarvis Gate: 22/29 cleared — 7 remaining (continuity baseline; unchanged).
 
 ## Verified continuation — 2026-09-14 (review of #283)
 
