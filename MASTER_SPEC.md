@@ -1062,12 +1062,16 @@ flowchart TB
 
 ### GAP-02 — SQLite as System of Record
 
-**Current P-03 status (2026-09-14): Partial implementation acceptance.**
+**Current P-03 status (2026-09-15): Partial implementation acceptance.**
+#296 model-usage privacy integration passed CI #1127; see
+[operational privacy inventory](docs/P03_OPERATIONAL_PRIVACY_INVENTORY.md) for
+all 52 declared PostgreSQL tables and remaining export/erasure/write-fencing gaps.
+Memory Search remains the priority; no full-account erasure or live cutover claim.
 Selected Postgres stores and runtime slices through #282 are implemented; the
 historical problem/plan below is not a rebuild instruction. Review of #283 found
-actual hierarchical deletion and generic connector tenant-propagation gaps (#284,
-#285), plus canonical vector-reference and legacy-inventory failure handling to
-reconcile. See `docs/P03_FINAL_ACCEPTANCE_EVIDENCE.md` for current proof and limits.
+actual hierarchical deletion and generic connector tenant-propagation gaps,
+subsequently repaired in #284/#285; #286/#287 addressed canonical vector-reference
+and legacy-inventory failure handling. These merged slices must not be rebuilt. See `docs/P03_FINAL_ACCEPTANCE_EVIDENCE.md` for current proof and limits.
 Live deployment migration is a separate operator prerequisite, not CI evidence.
 
 

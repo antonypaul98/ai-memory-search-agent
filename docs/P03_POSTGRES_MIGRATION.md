@@ -1,5 +1,20 @@
 # P-03 — Production-wide Postgres migration
 
+## Current audit — 2026-09-15
+
+P-03 remains **Partial**. #296 merged model-usage privacy integration after
+CI #1127 / run 34912421871 passed (1,191 Python tests, 27 extension tests,
+benchmark); main merge `8e1cc8ab59ab59c6f2bff153829f75c04c26ab3f`.
+The [52-table operational privacy inventory](P03_OPERATIONAL_PRIVACY_INVENTORY.md)
+is the current continuation reference. Missing complete export enumeration,
+operational/graph erasure and account/write-fencing integration are implementation
+gaps, not merely deployment prerequisites. Older pending PR references below are
+historical. Next: EventBus safe export and tenant deletion with rollback tests.
+No live migration or physical/backup purge is claimed; those require separate
+operator evidence. Chroma native storage remains outside the relational SQLite
+sentinel boundary. Gate continuity stays 22/29; no top-level checkpoint advanced.
+
+
 Status: **Partial — implementation acceptance still has confirmed gaps.**
 
 Current authority: [final acceptance evidence](P03_FINAL_ACCEPTANCE_EVIDENCE.md),

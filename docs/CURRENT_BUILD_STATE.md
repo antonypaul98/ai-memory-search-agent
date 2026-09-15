@@ -12,9 +12,17 @@ Verified main `4f4ed118749447af730b19b1cd211e6366b3f5f5` includes #295
 below are historical. #294's combined live-worker privacy acceptance passed
 CI #1123; it establishes its exercised memory/feedback boundary, not full-account erasure.
 
-Current implementation slice integrates model usage into PrivacyService export
-and production erasure, extending the existing two-worker acceptance with a real
-Postgres deletion failure and retry. Exact-head CI is required before acceptance.
+#296 merged as `8e1cc8ab59ab59c6f2bff153829f75c04c26ab3f`. Exact-head
+CI #1127 / run 34912421871 passed 1,191 Python tests, 27 extension tests and
+benchmark. Model usage is integrated into PrivacyService export and production
+erasure; real Postgres failure/retry and neighboring-tenant preservation passed.
+
+The [operational privacy inventory](P03_OPERATIONAL_PRIVACY_INVENTORY.md)
+accounts for all 52 literal PostgreSQL table declarations. It records incomplete
+export pagination, residual graph/intelligence/capture/import/job/agent records,
+and missing account/session/write-fencing integration. This is a source audit,
+not full-erasure acceptance. Exact next implementation: EventBus safe export and
+tenant deletion, including subscription secret exclusion and rollback coverage.
 P-03 remains **Partial**. Next: operational privacy inventory, especially EventBus,
 agent state, captures/imports, jobs and auth/session lifecycle. The erasure helper
 currently covers memory, feedback and model usage; it does not revoke accounts or
