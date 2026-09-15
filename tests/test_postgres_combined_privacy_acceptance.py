@@ -16,7 +16,11 @@ import pytest
 
 from app.config import Settings
 from app.db.auth_store_factory import get_auth_store
+from app.db.postgres_concept_capsule_store import PostgresConceptCapsuleStore
+from app.db.postgres_creator_profile_store import PostgresCreatorProfileStore
+from app.db.postgres_intelligence_event_store import PostgresIntelligenceEventStore
 from app.db.postgres_job_store import PostgresJobStore
+from app.db.postgres_learning_edge_store import PostgresLearningEdgeStore
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import RELATIONAL_STORE_BACKEND_FIELDS
@@ -132,6 +136,13 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                 )
 
             factory = get_postgres_connection_factory(settings)
+            # Production erasure now includes all four intelligence domains.  The
+            # combined acceptance owns an isolated schema, so provision those
+            # tables explicitly just as production startup/migrations do.
+            PostgresConceptCapsuleStore(factory)
+            PostgresCreatorProfileStore(factory)
+            PostgresLearningEdgeStore(factory)
+            PostgresIntelligenceEventStore(factory)
             usage = PostgresModelUsageLedger(factory)
             for user in (owner, other):
                 usage.record(user_id=user.user_id, route_id="fixture:model",
