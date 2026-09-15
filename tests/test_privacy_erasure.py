@@ -27,6 +27,16 @@ class _PrivacyService:
         return self.result
 
 
+def _stub_graph_erasure(monkeypatch, result=None):
+    graph_result = result or {"links": 0, "relations": 0, "entities": 0}
+    monkeypatch.setattr(
+        privacy_erasure,
+        "delete_user_graph",
+        lambda settings, *, user_id: graph_result,
+    )
+    return graph_result
+
+
 def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     service = _PrivacyService({"deleted_count": 3, "errors": []})
     connection_factory = object()
@@ -48,6 +58,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0}))
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
+    graph_deleted = _stub_graph_erasure(monkeypatch)
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service
@@ -61,6 +72,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         "memory_errors": [],
         "model_usage_deleted": 0,
         "activity_deleted": {"events": 0, "subscriptions": 0},
+        "graph_deleted": graph_deleted,
         "feedback_deleted": {
             "feedback": 2,
             "credit_ledger": 1,
@@ -86,6 +98,7 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
         SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0}))
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
+    _stub_graph_erasure(monkeypatch)
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service
