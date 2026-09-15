@@ -50,7 +50,7 @@ standalone read/delete method.
 | `kg_entities`, `kg_relations`, `kg_memory_entities` | Portable graph facts and provenance. `postgres_knowledge_graph_store.py`, `knowledge_graph_privacy.py` | All three exported tenant-scoped. Memory deletion removes only memory/entity links; entities and relations remain. Erase exact-tenant graph content without deleting shared-source neighbors. |
 | `concept_capsules`, `creator_profiles`, `learning_edges`, `intelligence_events` | Portable/derived intelligence and operational history. Corresponding `postgres_*_store.py` files | Not integrated into privacy export/erasure. Canonical tenant ownership must govern cleanup/regeneration. No indefinite-retention exception established. |
 | `background_jobs`, `job_items`, `job_events`, `job_item_leases` | Portable job history and operational execution/leases. `postgres_runtime.py`, `postgres_job_claims.py` | Export lists at most 500 jobs, not a complete item/event/lease inventory. Erasure does not stop/remove jobs. Require worker fencing and late-finalization rejection before purging work. Parent ownership must govern children without tenant columns. |
-| `memory_events`, `webhook_subscriptions` | Portable audit/activity and operational delivery configuration. `postgres_event_store.py` | EventBus provides tenant paging and subscription deletion, but neither table is in the privacy lifecycle. Redact sensitive payload/URL credentials; cancel delivery, export safe metadata and erase exact tenant. No universal legal-retention exception inferred. |
+| `memory_events`, `webhook_subscriptions` | Portable audit/activity and operational delivery configuration. `postgres_event_store.py` | EventBus privacy follow-up integrates complete event export with the existing payload redaction policy and subscription metadata (URLs excluded). Both tables are erased in one exact-tenant transaction with rollback/retry coverage. Already-dispatched deliveries and concurrent writers remain outside that transaction. No universal legal-retention exception inferred. |
 | `agent_runs`, `agent_tool_calls` | Portable task/result history and operational execution. `postgres_agent_runtime_store.py` | Missing export/erasure; arguments/results may contain private content. Fence execution and validate both parent and child ownership before cascades. |
 | `ingest_agent_rules`, `ingest_agent_claims` | Portable preferences and operational dedup/claims. `postgres_ingest_agent_store.py` | Disable/release operations exist; full export/erasure missing. Disable ingestion before cleanup; preserve explicit approval semantics. |
 | `connector_oauth_tokens` | Security secrets plus portable non-secret consent metadata. `postgres_oauth_token_store.py` | Vault revocation exists; account erasure does not call it. Never export encrypted/decrypted token payloads. Provider-side revocation and in-flight connector work require explicit lifecycle handling. |
@@ -69,7 +69,7 @@ standalone read/delete method.
   webhook deliveries or optional provider data retention. Trace enabled production
   callers, TTLs, files and credentials before final acceptance.
 - The public `/privacy/memories` endpoint deletes memories only. The internal
-  production helper covers memory/feedback/model usage, not the whole account;
+  production helper covers memory/feedback/model usage/activity, not the whole account;
   `deleted=true` describes those attempted domains. It is not connected to a
   separately confirmed account-erasure API.
 - Live workers in #294/#296 poll successfully; their presence does not demonstrate
@@ -81,8 +81,8 @@ standalone read/delete method.
 
 ## Next acceptance order
 
-1. Integrate EventBus safe export/deletion with exact-tenant, pagination and
-   rollback coverage. Define subscription secret exclusion explicitly.
+1. Validate/merge the EventBus privacy follow-up with exact-tenant, complete
+   export and rollback coverage. Delivery URLs are explicitly excluded.
 2. Address canonical export completeness and graph/intelligence residual data;
    then capture/import/job/agent/OAuth lifecycle integration. Keep each PR bounded.
 3. Add confirmed account erasure with durable ingress/worker fencing, session

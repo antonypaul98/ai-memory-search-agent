@@ -31,6 +31,7 @@ from app.db.topic_privacy import delete_memory_topic_links
 from app.db.topic_store_factory import get_topic_store
 from app.db.video_registry import get_video_registry
 from app.db.youtube_memory_store_factory import get_youtube_memory_store
+from app.services.event_bus import EventBus
 from app.services.fts_index_factory import get_fts_index_for_exclusive_delete
 from app.services.semantic_cache import SemanticCache
 from app.services.review_schedule_service import ReviewScheduleService
@@ -94,6 +95,8 @@ class PrivacyService:
             else None
         )
 
+        self._event_bus = EventBus(self._settings) if is_complete_postgres_profile(self._settings) else None
+
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
         memories = self._memory_store.list_recent(user_id=user_id, limit=10_000)
         youtube = [
@@ -132,6 +135,9 @@ class PrivacyService:
         model_usage = getattr(self, "_model_usage", None)
         if model_usage is not None:
             payload["model_usage"] = model_usage.export_user_data(user_id=user_id)
+        event_bus = getattr(self, "_event_bus", None)
+        if event_bus is not None:
+            payload["activity"] = event_bus.export_user_data(user_id=user_id)
         return payload
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
@@ -305,6 +311,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
         ("knowledge_graph", "Knowledge graph"),
         ("feedback_records", "Feedback records"),
         ("model_usage", "Model usage"),
+        ("activity", "Activity and subscription metadata"),
     )
     for key, label in collection_labels:
         value = payload.get(key) or []

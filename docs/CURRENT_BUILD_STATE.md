@@ -4,6 +4,21 @@ Updated: 2026-09-15
 
 This file records the implementation state used during the active Memory Search completion pass. `MASTER_SPEC.md` remains the canonical feature inventory; this document exists to prevent implementation/documentation drift while that larger inventory is reconciled.
 
+## EventBus privacy follow-up — 2026-09-15
+
+The next implementation extends production privacy to tenant activity and webhook
+subscription metadata. Export includes every event (no interactive-page cap),
+reapplies the existing payload credential-redaction policy, and excludes delivery
+URLs entirely. Event/subscription deletion shares one transaction; a failed event
+delete rolls back subscription removal. Two-tenant Postgres regression covers
+105 events per tenant, rollback/retry, blank-owner rejection and the combined
+live-worker privacy lifecycle. Exact-head CI is required before merging.
+
+This does not cancel already dispatched webhooks or fence concurrent producers.
+P-03 stays Partial. Next: complete canonical export enumeration/history and
+residual graph/intelligence erasure, then durable account/write-fencing semantics.
+The table inventory below remains the boundary checklist; gate stays 22/29.
+
 ## Current continuation — 2026-09-15
 
 Verified main `4f4ed118749447af730b19b1cd211e6366b3f5f5` includes #295
@@ -21,8 +36,8 @@ The [operational privacy inventory](P03_OPERATIONAL_PRIVACY_INVENTORY.md)
 accounts for all 52 literal PostgreSQL table declarations. It records incomplete
 export pagination, residual graph/intelligence/capture/import/job/agent records,
 and missing account/session/write-fencing integration. This is a source audit,
-not full-erasure acceptance. Exact next implementation: EventBus safe export and
-tenant deletion, including subscription secret exclusion and rollback coverage.
+not full-erasure acceptance. EventBus was the next bounded implementation identified by this audit; see the
+follow-up above for its acceptance boundary.
 P-03 remains **Partial**. Next: operational privacy inventory, especially EventBus,
 agent state, captures/imports, jobs and auth/session lifecycle. The erasure helper
 currently covers memory, feedback and model usage; it does not revoke accounts or

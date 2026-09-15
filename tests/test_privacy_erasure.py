@@ -44,6 +44,8 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         return {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}
 
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
+    monkeypatch.setattr(privacy_erasure, "PostgresEventStore", lambda factory:
+        SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0}))
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
 
@@ -58,6 +60,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         "memory_deleted_count": 3,
         "memory_errors": [],
         "model_usage_deleted": 0,
+        "activity_deleted": {"events": 0, "subscriptions": 0},
         "feedback_deleted": {
             "feedback": 2,
             "credit_ledger": 1,
@@ -79,6 +82,8 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
         return {"feedback": 1, "credit_ledger": 0, "output_preferences": 0, "interactions": 1}
 
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
+    monkeypatch.setattr(privacy_erasure, "PostgresEventStore", lambda factory:
+        SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0}))
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
 

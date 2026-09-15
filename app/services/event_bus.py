@@ -71,6 +71,15 @@ class EventBus:
         else:
             self._ensure_table()
 
+    def export_user_data(self, *, user_id: str) -> dict[str, Any]:
+        """Portable production activity, using the existing credential redaction policy."""
+        if self._postgres is None:
+            raise RuntimeError("event privacy export requires selected Postgres storage")
+        data = self._postgres.export_user_data(user_id=user_id)
+        for row in data["events"]:
+            row["payload"] = _redact_payload(json.loads(row.pop("payload_json")))
+        return data
+
     def _ensure_table(self) -> None:
         """Create the Phase-4 audit and webhook tables idempotently for local mode."""
         with get_connection(self._settings) as conn:
