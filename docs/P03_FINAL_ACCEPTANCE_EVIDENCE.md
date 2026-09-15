@@ -130,7 +130,9 @@ ledger into JSON/Markdown export and production erasure. The existing combined
 production acceptance now checks empty-account export, two tenants' usage rows,
 logical erasure, neighbor preservation, and a database-triggered failure/retry
 while two workers poll and Python relational SQLite access is rejected. CI on
-the follow-up head is required before claiming this additional acceptance.
+the follow-up head passed: #296 head `7070f50864035cec24a4e131c44171506c057796`,
+CI #1127 / run 34912421871, 1,191 Python tests, 27 extension tests and benchmark.
+Merged as `8e1cc8ab59ab59c6f2bff153829f75c04c26ab3f`.
 
 A failed usage deletion propagates; earlier memory/feedback deletions may already
 be committed. Retrying the same tenant completes the remaining domain. This is
@@ -143,3 +145,13 @@ retains old row versions for MVCC; VACUUM reclaims reusable space, and does not
 establish backup erasure. See [PostgreSQL 16 routine vacuuming](https://www.postgresql.org/docs/16/routine-vacuuming.html).
 Backup/WAL retention, replicas and operator-controlled physical purge require
 separate deployment policy and evidence. No infrastructure purge was performed.
+
+## Current remaining boundary — 2026-09-15
+
+The [operational privacy inventory](P03_OPERATIONAL_PRIVACY_INVENTORY.md) is the
+current table-level continuation reference. It supersedes pending references to
+merged #286/#287 and feedback/usage slices above. All 52 literal PostgreSQL table
+declarations are classified, with implementation gaps distinguished from operator
+retention requirements. P-03 remains Partial: limited export enumeration,
+operational/graph residual data and account/write-fencing semantics are not closed
+by #296. Next: EventBus safe export and exact-tenant deletion/rollback acceptance.
