@@ -22,6 +22,7 @@ from app.db.knowledge_graph_privacy import delete_memory_graph_links, export_use
 from app.db.memory_privacy import delete_canonical_memory
 from app.db.memory_store_factory import get_memory_store
 from app.db.postgres_feedback_store import PostgresFeedbackStore
+from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.repositories.memory_repository import MemoryRepository
@@ -87,6 +88,12 @@ class PrivacyService:
             else None
         )
 
+        self._model_usage = (
+            PostgresModelUsageLedger(get_postgres_connection_factory(self._settings))
+            if is_complete_postgres_profile(self._settings)
+            else None
+        )
+
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
         memories = self._memory_store.list_recent(user_id=user_id, limit=10_000)
         youtube = [
@@ -122,6 +129,9 @@ class PrivacyService:
         feedback_store = getattr(self, "_feedback_store", None)
         if feedback_store is not None:
             payload["feedback_records"] = feedback_store.export_user_data(user_id=user_id)
+        model_usage = getattr(self, "_model_usage", None)
+        if model_usage is not None:
+            payload["model_usage"] = model_usage.export_user_data(user_id=user_id)
         return payload
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:
@@ -294,6 +304,7 @@ def dump_export_markdown(payload: dict[str, Any]) -> str:
         ("video_registry", "Video registry"),
         ("knowledge_graph", "Knowledge graph"),
         ("feedback_records", "Feedback records"),
+        ("model_usage", "Model usage"),
     )
     for key, label in collection_labels:
         value = payload.get(key) or []

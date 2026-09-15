@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from uuid import uuid4
+from types import SimpleNamespace
 
 import pytest
 
@@ -43,6 +44,8 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         return {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}
 
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
+    monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
+        SimpleNamespace(delete_user_data=lambda *, user_id: 0))
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service
@@ -54,6 +57,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         "deleted": True,
         "memory_deleted_count": 3,
         "memory_errors": [],
+        "model_usage_deleted": 0,
         "feedback_deleted": {
             "feedback": 2,
             "credit_ledger": 1,
@@ -75,6 +79,8 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
         return {"feedback": 1, "credit_ledger": 0, "output_preferences": 0, "interactions": 1}
 
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
+    monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
+        SimpleNamespace(delete_user_data=lambda *, user_id: 0))
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service

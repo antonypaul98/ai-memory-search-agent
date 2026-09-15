@@ -17,6 +17,8 @@ import pytest
 from app.config import Settings
 from app.db.auth_store_factory import get_auth_store
 from app.db.postgres_job_store import PostgresJobStore
+from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
+from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import RELATIONAL_STORE_BACKEND_FIELDS
 from app.models.feedback import FeedbackIssue, FeedbackSubmitRequest
 from app.models.video import SourceType
@@ -28,7 +30,8 @@ import app.main as main_module
 import app.services.job_worker as worker_module
 
 
-def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatch, tmp_path):
+@pytest.mark.parametrize("fail_usage_delete", [False, True])
+def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatch, tmp_path, fail_usage_delete):
     if not os.getenv("MEMORY_AGENT_TEST_POSTGRES_DSN"):
         pytest.skip("real Postgres DSN required")
 
@@ -97,6 +100,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             )
 
             privacy = PrivacyService(settings)
+            assert privacy.export_user_data(user_id=owner.user_id)["model_usage"] == []
             memories = {}
             for user in (owner, other):
                 memories[user.user_id] = privacy._memory_store.upsert(
@@ -126,6 +130,13 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                     video_id="shared-privacy-source",
                     result="good",
                 )
+
+            factory = get_postgres_connection_factory(settings)
+            usage = PostgresModelUsageLedger(factory)
+            for user in (owner, other):
+                usage.record(user_id=user.user_id, route_id="fixture:model",
+                             provider_id="fixture", model_id="model", prompt_tokens=11,
+                             completion_tokens=7, total_tokens=18)
 
             feedback = FeedbackService(settings)
             for user, suffix in ((owner, "owner"), (other, "other")):
@@ -185,15 +196,36 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                 assert all(row["user_id"] == owner.user_id for row in owner_rows)
                 assert all(row["user_id"] == other.user_id for row in other_rows)
 
+            assert owner_export["model_usage"] == usage.export_user_data(user_id=owner.user_id)
+            assert other_export["model_usage"] == usage.export_user_data(user_id=other.user_id)
+            assert len(owner_export["model_usage"]) == len(other_export["model_usage"]) == 1
+            assert owner_export["model_usage"][0]["user_id"] == owner.user_id
+            assert other_export["model_usage"][0]["user_id"] == other.user_id
+
+            if fail_usage_delete:
+                with factory() as conn:
+                    conn.execute("""CREATE FUNCTION reject_usage_delete() RETURNS trigger
+                        LANGUAGE plpgsql AS $$ BEGIN
+                        RAISE EXCEPTION 'injected usage deletion failure'; END $$""")
+                    conn.execute("""CREATE TRIGGER reject_usage_delete BEFORE DELETE
+                        ON model_route_usage FOR EACH ROW EXECUTE FUNCTION reject_usage_delete()""")
+                with pytest.raises(psycopg.Error, match="injected usage deletion failure"):
+                    delete_production_user_data(settings, user_id=owner.user_id, privacy_service=privacy)
+                assert usage.export_user_data(user_id=owner.user_id) == owner_export["model_usage"]
+                assert usage.export_user_data(user_id=other.user_id) == other_export["model_usage"]
+                with factory() as conn:
+                    conn.execute("DROP TRIGGER reject_usage_delete ON model_route_usage")
+
             result = delete_production_user_data(
                 settings,
                 user_id=owner.user_id,
                 privacy_service=privacy,
             )
             assert result["deleted"] is True
-            assert result["memory_deleted_count"] == 1
+            assert result["memory_deleted_count"] == (0 if fail_usage_delete else 1)
             assert not result["memory_errors"]
-            assert all(count > 0 for count in result["feedback_deleted"].values())
+            assert all(count == (0 if fail_usage_delete else 1) for count in result["feedback_deleted"].values())
+            assert result["model_usage_deleted"] == 1
 
             assert privacy._fts.search("combined", user_id=owner.user_id) == []
             assert privacy._fts.search("combined", user_id=other.user_id)
@@ -203,12 +235,14 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             )
 
             erased_export = privacy.export_user_data(user_id=owner.user_id)
+            assert erased_export["model_usage"] == []
             assert erased_export["memories"] == []
             assert erased_export["review_schedules"] == []
             for rows in erased_export["feedback_records"].values():
                 assert rows == []
 
             preserved_export = privacy.export_user_data(user_id=other.user_id)
+            assert preserved_export["model_usage"] == other_export["model_usage"]
             assert preserved_export["memories"]
             assert preserved_export["review_schedules"]
             assert all(preserved_export["feedback_records"][key] for key in (

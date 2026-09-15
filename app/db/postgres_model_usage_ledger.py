@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
+
+from app.db.postgres_model_usage_privacy import export_user_model_usage, delete_user_model_usage
 
 from app.db.postgres_job_repository import ConnectionFactory
 
@@ -77,3 +80,9 @@ class PostgresModelUsageLedger:
                     timestamp,
                 ),
             )
+
+    def export_user_data(self, *, user_id: str) -> list[dict[str, Any]]:
+        return export_user_model_usage(self._connection_factory, user_id=user_id)
+
+    def delete_user_data(self, *, user_id: str) -> int:
+        return delete_user_model_usage(self._connection_factory, user_id=user_id)
