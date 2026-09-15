@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
+from app.db.knowledge_graph_privacy import delete_user_graph
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
@@ -18,13 +19,13 @@ def delete_production_user_data(
     user_id: str,
     privacy_service: PrivacyService | None = None,
 ) -> dict[str, Any]:
-    """Delete one tenant's memory, feedback, model-usage and activity domains in the full Postgres profile.
+    """Delete one tenant's memory, feedback, model-usage, activity and graph domains.
 
     This intentionally fails closed outside the complete production profile instead
     of claiming a full-account erasure while a relational domain could remain on a
-    legacy backend. Memory deletion is best-effort per canonical memory; feedback
-    deletion is still attempted so a later retry only has to finish any reported
-    memory failures.
+    legacy backend. Memory deletion is best-effort per canonical memory; subsequent
+    bounded domains are still attempted in sequence so a later retry can complete
+    any remaining work.
     """
 
     if not str(user_id).strip():
@@ -44,6 +45,7 @@ def delete_production_user_data(
     activity_deleted = PostgresEventStore(
         get_postgres_connection_factory(settings)
     ).delete_user_data(user_id=user_id)
+    graph_deleted = delete_user_graph(settings, user_id=user_id)
     errors = list(memory_result.get("errors") or [])
     return {
         "deleted": not errors,
@@ -52,4 +54,5 @@ def delete_production_user_data(
         "feedback_deleted": feedback_counts,
         "model_usage_deleted": model_usage_deleted,
         "activity_deleted": activity_deleted,
+        "graph_deleted": graph_deleted,
     }
