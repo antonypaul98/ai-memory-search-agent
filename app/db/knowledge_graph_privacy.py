@@ -161,3 +161,50 @@ def delete_memory_graph_links(
             return max(0, int(getattr(cursor, "rowcount", 0) or 0))
 
     raise RuntimeError("unsupported selected knowledge-graph privacy backend")
+
+
+def delete_user_graph(
+    settings: Settings,
+    *,
+    user_id: str,
+    store: Any | None = None,
+) -> dict[str, int]:
+    """Atomically erase all graph rows owned by one exact tenant.
+
+    Relations and memory links are removed before entities so this remains safe if
+    stricter foreign keys are introduced later. A blank tenant is rejected before
+    opening a database connection. The transaction is owned by the selected store's
+    connection context; any failure aborts the whole graph-domain erasure.
+    """
+
+    tenant = str(user_id or "").strip()
+    if not tenant:
+        raise ValueError("user_id is required for graph erasure")
+
+    selected = store or get_selected_knowledge_graph_store(settings)
+    if isinstance(selected, PostgresKnowledgeGraphStore):
+        placeholder = "%s"
+        connection_factory = selected._connection_factory
+    elif isinstance(selected, KnowledgeGraphStore):
+        placeholder = "?"
+
+        def connection_factory():
+            from app.db.schema import get_connection
+
+            return get_connection(selected._settings)
+    else:
+        raise RuntimeError("unsupported selected knowledge-graph privacy backend")
+
+    counts: dict[str, int] = {}
+    with connection_factory() as conn:
+        for table, key in (
+            ("kg_memory_entities", "memory_entity_links"),
+            ("kg_relations", "relations"),
+            ("kg_entities", "entities"),
+        ):
+            cursor = conn.execute(
+                f"DELETE FROM {table} WHERE user_id = {placeholder}",
+                (tenant,),
+            )
+            counts[key] = max(0, int(getattr(cursor, "rowcount", 0) or 0))
+    return counts
