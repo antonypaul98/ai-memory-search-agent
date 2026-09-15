@@ -10,7 +10,7 @@ from app.config import Settings
 from app.db.knowledge_graph_privacy import delete_user_graph, export_user_graph
 from app.db.knowledge_graph_store_factory import get_selected_knowledge_graph_store
 from app.db.production_storage_profile import RELATIONAL_STORE_BACKEND_FIELDS
-from app.models.knowledge_graph import EntityType, RelationPredicate
+from app.models.knowledge_graph import EntityType, MemoryEntityLink, RelationPredicate
 
 
 def test_graph_erasure_is_atomic_and_two_tenant_isolated(monkeypatch, tmp_path):
@@ -41,7 +41,6 @@ def test_graph_erasure_is_atomic_and_two_tenant_isolated(monkeypatch, tmp_path):
     store = get_selected_knowledge_graph_store(settings)
 
     try:
-        seeded = {}
         for user_id, suffix in ((owner, "owner"), (other, "other")):
             subject = store.upsert_entity(
                 user_id=user_id, entity_type=EntityType.CONCEPT, name=f"{suffix} subject"
@@ -49,7 +48,7 @@ def test_graph_erasure_is_atomic_and_two_tenant_isolated(monkeypatch, tmp_path):
             obj = store.upsert_entity(
                 user_id=user_id, entity_type=EntityType.PROJECT, name=f"{suffix} project"
             )
-            relation = store.upsert_relation(
+            store.upsert_relation(
                 user_id=user_id,
                 subject_entity_id=subject.entity_id,
                 predicate=RelationPredicate.RELATED_TO,
@@ -57,12 +56,13 @@ def test_graph_erasure_is_atomic_and_two_tenant_isolated(monkeypatch, tmp_path):
                 memory_id=f"memory-{suffix}",
             )
             store.link_memory_entity(
+                MemoryEntityLink(
+                    memory_id=f"memory-{suffix}",
+                    entity_id=subject.entity_id,
+                    mention_context=f"private {suffix} evidence",
+                ),
                 user_id=user_id,
-                memory_id=f"memory-{suffix}",
-                entity_id=subject.entity_id,
-                mention_context=f"private {suffix} evidence",
             )
-            seeded[user_id] = (subject, obj, relation)
 
         owner_before = export_user_graph(settings, user_id=owner)
         other_before = export_user_graph(settings, user_id=other)
@@ -82,8 +82,6 @@ def test_graph_erasure_is_atomic_and_two_tenant_isolated(monkeypatch, tmp_path):
         try:
             with pytest.raises(psycopg.Error, match="injected graph deletion failure"):
                 delete_user_graph(settings, user_id=owner, store=store)
-            # Links and relations are deleted before entities; the injected final-step
-            # failure must roll the whole graph-domain transaction back.
             assert export_user_graph(settings, user_id=owner) == owner_before
             assert export_user_graph(settings, user_id=other) == other_before
         finally:
