@@ -37,6 +37,21 @@ def _stub_graph_erasure(monkeypatch, result=None):
     return graph_result
 
 
+def _stub_intelligence_erasure(monkeypatch, result=None):
+    intelligence_result = result or {
+        "learning_edges": 0,
+        "intelligence_events": 0,
+        "concept_capsules": 0,
+        "creator_profiles": 0,
+    }
+    monkeypatch.setattr(
+        privacy_erasure,
+        "delete_user_intelligence",
+        lambda factory, *, user_id: intelligence_result,
+    )
+    return intelligence_result
+
+
 def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     service = _PrivacyService({"deleted_count": 3, "errors": []})
     connection_factory = object()
@@ -59,6 +74,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
     graph_deleted = _stub_graph_erasure(monkeypatch)
+    intelligence_deleted = _stub_intelligence_erasure(monkeypatch)
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service
@@ -73,6 +89,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
         "model_usage_deleted": 0,
         "activity_deleted": {"events": 0, "subscriptions": 0},
         "graph_deleted": graph_deleted,
+        "intelligence_deleted": intelligence_deleted,
         "feedback_deleted": {
             "feedback": 2,
             "credit_ledger": 1,
@@ -99,6 +116,7 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory:
         SimpleNamespace(delete_user_data=lambda *, user_id: 0))
     _stub_graph_erasure(monkeypatch)
+    _stub_intelligence_erasure(monkeypatch)
 
     result = privacy_erasure.delete_production_user_data(
         object(), user_id="tenant-a", privacy_service=service
@@ -149,6 +167,9 @@ def pg_tenant_erasure(monkeypatch, tmp_path):
     nonce = uuid4().hex
     owner = f"privacy-erasure-owner-{nonce}"
     other = f"privacy-erasure-other-{nonce}"
+    with factory() as conn:
+        for table in ("concept_capsules", "creator_profiles", "learning_edges", "intelligence_events"):
+            conn.execute(f"CREATE TABLE IF NOT EXISTS {table} (user_id TEXT NOT NULL)")
     try:
         yield settings, store, factory, owner, other, nonce
     finally:
@@ -157,6 +178,8 @@ def pg_tenant_erasure(monkeypatch, tmp_path):
             conn.execute("DELETE FROM feedback_credit_ledger WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM output_preferences WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM answer_interactions WHERE user_id IN (%s, %s)", (owner, other))
+            for table in ("learning_edges", "intelligence_events", "concept_capsules", "creator_profiles"):
+                conn.execute(f"DELETE FROM {table} WHERE user_id IN (%s, %s)", (owner, other))
         assert sqlite_attempts == []
         assert not (tmp_path / "forbidden.db").exists()
 
