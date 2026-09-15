@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
+from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
 from app.db.postgres_runtime import get_postgres_connection_factory
@@ -17,7 +18,7 @@ def delete_production_user_data(
     user_id: str,
     privacy_service: PrivacyService | None = None,
 ) -> dict[str, Any]:
-    """Delete one tenant's memory, feedback and model-usage domains in the full Postgres profile.
+    """Delete one tenant's memory, feedback, model-usage and activity domains in the full Postgres profile.
 
     This intentionally fails closed outside the complete production profile instead
     of claiming a full-account erasure while a relational domain could remain on a
@@ -40,6 +41,9 @@ def delete_production_user_data(
     model_usage_deleted = PostgresModelUsageLedger(
         get_postgres_connection_factory(settings)
     ).delete_user_data(user_id=user_id)
+    activity_deleted = PostgresEventStore(
+        get_postgres_connection_factory(settings)
+    ).delete_user_data(user_id=user_id)
     errors = list(memory_result.get("errors") or [])
     return {
         "deleted": not errors,
@@ -47,4 +51,5 @@ def delete_production_user_data(
         "memory_errors": errors,
         "feedback_deleted": feedback_counts,
         "model_usage_deleted": model_usage_deleted,
+        "activity_deleted": activity_deleted,
     }

@@ -176,6 +176,12 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             assert other_events == []
             assert other_cursor is None
 
+            events.emit(user_id=other.user_id, event_type="acceptance.neighbor", payload={"count": 2})
+            for user in (owner, other):
+                events._postgres.create_subscription(
+                    subscription_id=uuid4().hex, user_id=user.user_id, event_type="*",
+                    url="https://example.test/hook?secret=fixture-secret", created_at="2026-01-01T00:00:00Z")
+
             owner_export = privacy.export_user_data(user_id=owner.user_id)
             other_export = privacy.export_user_data(user_id=other.user_id)
             assert [row["memory_id"] for row in owner_export["memories"]] == [
@@ -226,6 +232,8 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             assert not result["memory_errors"]
             assert all(count == (0 if fail_usage_delete else 1) for count in result["feedback_deleted"].values())
             assert result["model_usage_deleted"] == 1
+            assert result["activity_deleted"]["events"] == len(owner_export["activity"]["events"])
+            assert result["activity_deleted"]["subscriptions"] == 1
 
             assert privacy._fts.search("combined", user_id=owner.user_id) == []
             assert privacy._fts.search("combined", user_id=other.user_id)
@@ -235,6 +243,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             )
 
             erased_export = privacy.export_user_data(user_id=owner.user_id)
+            assert erased_export["activity"] == {"events": [], "subscriptions": []}
             assert erased_export["model_usage"] == []
             assert erased_export["memories"] == []
             assert erased_export["review_schedules"] == []
@@ -242,6 +251,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                 assert rows == []
 
             preserved_export = privacy.export_user_data(user_id=other.user_id)
+            assert preserved_export["activity"] == other_export["activity"]
             assert preserved_export["model_usage"] == other_export["model_usage"]
             assert preserved_export["memories"]
             assert preserved_export["review_schedules"]

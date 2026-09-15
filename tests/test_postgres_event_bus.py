@@ -118,3 +118,73 @@ def test_postgres_webhook_subscription_crud_is_exact_tenant(pg_event_bus):
         user_id=owner, subscription_id=subscription.subscription_id
     ) is True
     assert restarted.list_webhook_subscriptions(user_id=owner) == []
+
+
+@pytest.mark.parametrize("owner", ["", "   ", None])
+def test_event_privacy_rejects_missing_owner_before_sql(owner):
+    from app.db.postgres_event_store import PostgresEventStore
+
+    store = PostgresEventStore.__new__(PostgresEventStore)
+    def forbidden_connection():
+        raise AssertionError("invalid owner reached SQL")
+    store._connection_factory = forbidden_connection
+    with pytest.raises(ValueError, match="user_id is required"):
+        store.export_user_data(user_id=owner)
+    with pytest.raises(ValueError, match="user_id is required"):
+        store.delete_user_data(user_id=owner)
+
+
+def test_event_privacy_export_is_complete_redacted_and_retry_safe(pg_event_bus):
+    import json
+    import psycopg
+    from psycopg import sql
+
+    _, bus, factory, owner, other = pg_event_bus
+    store = bus._postgres
+    assert store is not None
+    for user_id in (owner, other):
+        store.create_subscription(subscription_id=uuid4().hex, user_id=user_id,
+                                  event_type="*", url="https://example.test/hook?secret=fixture-secret",
+                                  created_at="2026-01-01T00:00:00Z")
+    # Exceed the interactive page size; include legacy payloads to verify export redaction.
+    with factory() as conn:
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """INSERT INTO memory_events(event_id, user_id, event_type, payload_json, created_at)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                [(uuid4().hex, user_id, "privacy.fixture",
+                  json.dumps({"nested": [{"access_token": "fixture-secret", "count": i}]}),
+                  "2026-01-01T00:00:00Z")
+                 for user_id in (owner, other) for i in range(105)],
+            )
+    exported = bus.export_user_data(user_id=owner)
+    neighbor = bus.export_user_data(user_id=other)
+    assert len(exported["events"]) == 105
+    assert [row["id"] for row in exported["events"]] == sorted(row["id"] for row in exported["events"])
+    assert all(row["user_id"] == owner for row in exported["events"])
+    assert all(row["user_id"] == owner for row in exported["subscriptions"])
+    assert all("url" not in row for row in exported["subscriptions"])
+    assert "fixture-secret" not in json.dumps(exported)
+    assert exported["events"][0]["payload"]["nested"][0]["access_token"] == "[REDACTED]"
+
+    trigger = "privacy_event_failure_" + uuid4().hex
+    with factory() as conn:
+        conn.execute(sql.SQL("""CREATE FUNCTION {}() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN IF OLD.user_id = {} THEN RAISE EXCEPTION 'injected event deletion failure';
+            END IF; RETURN OLD; END $$""").format(sql.Identifier(trigger), sql.Literal(owner)))
+        conn.execute(sql.SQL("CREATE TRIGGER {} BEFORE DELETE ON memory_events FOR EACH ROW EXECUTE FUNCTION {}()")
+                     .format(sql.Identifier(trigger), sql.Identifier(trigger)))
+    try:
+        with pytest.raises(psycopg.Error, match="injected event deletion failure"):
+            store.delete_user_data(user_id=owner)
+        # Subscription deletion happened first, but must roll back with the event failure.
+        assert bus.export_user_data(user_id=owner) == exported
+        assert bus.export_user_data(user_id=other) == neighbor
+    finally:
+        with factory() as conn:
+            conn.execute(sql.SQL("DROP TRIGGER {} ON memory_events").format(sql.Identifier(trigger)))
+            conn.execute(sql.SQL("DROP FUNCTION {}()").format(sql.Identifier(trigger)))
+    assert store.delete_user_data(user_id=owner) == {"events": 105, "subscriptions": 1}
+    assert store.delete_user_data(user_id=owner) == {"events": 0, "subscriptions": 0}
+    assert bus.export_user_data(user_id=owner) == {"events": [], "subscriptions": []}
+    assert bus.export_user_data(user_id=other) == neighbor

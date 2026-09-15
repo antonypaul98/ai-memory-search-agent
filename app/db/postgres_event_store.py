@@ -175,3 +175,49 @@ class PostgresEventStore:
                 (user_id,),
             ).fetchall()
         return {str(row["event_type"]): int(row["event_count"]) for row in rows}
+
+    def export_user_data(self, *, user_id: str) -> dict[str, list[dict[str, Any]]]:
+        """Export exact-tenant activity and non-secret subscription metadata.
+
+        No LIMIT: privacy export must not inherit the interactive event page cap.
+        URLs are deliberately excluded because they can carry delivery credentials.
+        """
+        self._require_privacy_user(user_id)
+        with self._connection_factory() as conn:
+            # Both collections describe the same database snapshot.
+            conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            events = conn.execute(
+                """SELECT id, event_id, user_id, event_type, aggregate_type,
+                          aggregate_id, actor, request_id, payload_json, created_at
+                   FROM memory_events WHERE user_id = %s ORDER BY id ASC""",
+                (user_id,),
+            ).fetchall()
+            subscriptions = conn.execute(
+                """SELECT subscription_id, user_id, event_type, active, created_at
+                   FROM webhook_subscriptions WHERE user_id = %s
+                   ORDER BY created_at ASC, subscription_id ASC""",
+                (user_id,),
+            ).fetchall()
+        return {"events": [dict(row) for row in events],
+                "subscriptions": [dict(row) for row in subscriptions]}
+
+    def delete_user_data(self, *, user_id: str) -> dict[str, int]:
+        """Erase subscriptions and events atomically for one exact tenant.
+
+        Already-dispatched deliveries and concurrent producers require the separate
+        account write barrier; this transaction does not claim to cancel them.
+        """
+        self._require_privacy_user(user_id)
+        with self._connection_factory() as conn:
+            subscriptions = conn.execute(
+                "DELETE FROM webhook_subscriptions WHERE user_id = %s", (user_id,)
+            ).rowcount
+            events = conn.execute(
+                "DELETE FROM memory_events WHERE user_id = %s", (user_id,)
+            ).rowcount
+        return {"subscriptions": int(subscriptions), "events": int(events)}
+
+    @staticmethod
+    def _require_privacy_user(user_id: str) -> None:
+        if not isinstance(user_id, str) or not user_id.strip():
+            raise ValueError("user_id is required")

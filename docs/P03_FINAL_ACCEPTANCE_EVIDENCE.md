@@ -155,3 +155,18 @@ declarations are classified, with implementation gaps distinguished from operato
 retention requirements. P-03 remains Partial: limited export enumeration,
 operational/graph residual data and account/write-fencing semantics are not closed
 by #296. Next: EventBus safe export and exact-tenant deletion/rollback acceptance.
+
+## EventBus lifecycle acceptance follow-up
+
+The EventBus privacy follow-up adds complete, deterministic tenant activity export
+and credential-redacted payloads; subscription delivery URLs are excluded rather
+than guessing which URL components are secrets. Event/subscription reads share a
+repeatable-read snapshot. Deletion is atomic within this domain. The real-Postgres
+regression seeds 105 events per tenant, injects a DELETE-trigger failure, verifies
+subscription rollback and neighbor preservation, then retries twice. Existing
+combined two-worker acceptance also exercises activity export and erasure.
+Exact-head CI is the merge gate; no live deployment evidence is implied.
+
+The broader account barrier must still prevent new writes and revoke sessions,
+connectors and already-dispatched work. P-03 remains Partial; next inventory items
+are canonical export completeness and graph/intelligence residual erasure.
