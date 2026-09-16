@@ -18,6 +18,7 @@ from app.config import Settings
 from app.db.auth_store_factory import get_auth_store
 from app.db.postgres_concept_capsule_store import PostgresConceptCapsuleStore
 from app.db.postgres_creator_profile_store import PostgresCreatorProfileStore
+from app.db.postgres_home_image_store import PostgresHomeImageStore
 from app.db.postgres_intelligence_event_store import PostgresIntelligenceEventStore
 from app.db.postgres_job_store import PostgresJobStore
 from app.db.postgres_learning_edge_store import PostgresLearningEdgeStore
@@ -92,94 +93,41 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             assert all(thread.is_alive() for thread in worker._threads)
 
             auth = get_auth_store(settings)
-            owner = auth.create_user(
-                email=f"owner-{uuid4().hex}@example.test",
-                password=uuid4().hex,
-                display_name="Owner",
-            )
-            other = auth.create_user(
-                email=f"other-{uuid4().hex}@example.test",
-                password=uuid4().hex,
-                display_name="Other",
-            )
+            owner = auth.create_user(email=f"owner-{uuid4().hex}@example.test", password=uuid4().hex, display_name="Owner")
+            other = auth.create_user(email=f"other-{uuid4().hex}@example.test", password=uuid4().hex, display_name="Other")
 
             privacy = PrivacyService(settings)
             assert privacy.export_user_data(user_id=owner.user_id)["model_usage"] == []
             memories = {}
             for user in (owner, other):
-                memories[user.user_id] = privacy._memory_store.upsert(
-                    user_id=user.user_id,
-                    source_type=SourceType.WEB,
-                    external_id="shared-privacy-source",
-                    canonical_url="https://example.test/shared-privacy-source",
-                    title="Combined privacy acceptance",
-                )
-                privacy._registry.upsert_video(
-                    user_id=user.user_id,
-                    video_id="shared-privacy-source",
-                    url="https://example.test/shared-privacy-source",
-                    title="Combined privacy acceptance",
-                    channel="fixture",
-                )
-                privacy._fts.upsert(
-                    user_id=user.user_id,
-                    video_id="shared-privacy-source",
-                    level="capsule",
-                    doc_id="shared-privacy-source",
-                    title="Combined privacy acceptance",
-                    body="tenant scoped combined privacy evidence",
-                )
-                privacy._review_schedule.record_result(
-                    user_id=user.user_id,
-                    video_id="shared-privacy-source",
-                    result="good",
-                )
+                memories[user.user_id] = privacy._memory_store.upsert(user_id=user.user_id, source_type=SourceType.WEB, external_id="shared-privacy-source", canonical_url="https://example.test/shared-privacy-source", title="Combined privacy acceptance")
+                privacy._registry.upsert_video(user_id=user.user_id, video_id="shared-privacy-source", url="https://example.test/shared-privacy-source", title="Combined privacy acceptance", channel="fixture")
+                privacy._fts.upsert(user_id=user.user_id, video_id="shared-privacy-source", level="capsule", doc_id="shared-privacy-source", title="Combined privacy acceptance", body="tenant scoped combined privacy evidence")
+                privacy._review_schedule.record_result(user_id=user.user_id, video_id="shared-privacy-source", result="good")
 
             factory = get_postgres_connection_factory(settings)
-            # Production erasure now includes all four intelligence domains.  The
-            # combined acceptance owns an isolated schema, so provision those
-            # tables explicitly just as production startup/migrations do.
+            # Production erasure includes intelligence and Home physical-memory domains.
+            # This acceptance owns an isolated schema, so provision both explicitly.
             PostgresConceptCapsuleStore(factory)
             PostgresCreatorProfileStore(factory)
             PostgresLearningEdgeStore(factory)
             PostgresIntelligenceEventStore(factory)
+            PostgresHomeImageStore(factory)
             usage = PostgresModelUsageLedger(factory)
             for user in (owner, other):
-                usage.record(user_id=user.user_id, route_id="fixture:model",
-                             provider_id="fixture", model_id="model", prompt_tokens=11,
-                             completion_tokens=7, total_tokens=18)
+                usage.record(user_id=user.user_id, route_id="fixture:model", provider_id="fixture", model_id="model", prompt_tokens=11, completion_tokens=7, total_tokens=18)
 
             feedback = FeedbackService(settings)
             for user, suffix in ((owner, "owner"), (other, "other")):
                 interaction_id = f"combined-privacy-{suffix}-{uuid4().hex}"
-                feedback.record_interaction(
-                    interaction_id=interaction_id,
-                    user_id=user.user_id,
-                    task_type="general",
-                    route_id="provider:model",
-                    output_budget_tokens=320,
-                    completion_tokens=200,
-                    route_fingerprint=f"combined-{suffix}",
-                )
-                submitted = feedback.submit(
-                    user_id=user.user_id,
-                    request=FeedbackSubmitRequest(
-                        interaction_id=interaction_id,
-                        rating=4,
-                        issues=[FeedbackIssue.TOO_LONG],
-                        comment=f"{suffix} private combined acceptance feedback",
-                    ),
-                )
+                feedback.record_interaction(interaction_id=interaction_id, user_id=user.user_id, task_type="general", route_id="provider:model", output_budget_tokens=320, completion_tokens=200, route_fingerprint=f"combined-{suffix}")
+                submitted = feedback.submit(user_id=user.user_id, request=FeedbackSubmitRequest(interaction_id=interaction_id, rating=4, issues=[FeedbackIssue.TOO_LONG], comment=f"{suffix} private combined acceptance feedback"))
                 assert submitted.duplicate is False
                 assert submitted.reward_credits > 0
                 assert submitted.preference_updated is True
 
             events = EventBus(settings)
-            events.emit(
-                user_id=owner.user_id,
-                event_type="acceptance.combined_privacy",
-                payload={"count": 1},
-            )
+            events.emit(user_id=owner.user_id, event_type="acceptance.combined_privacy", payload={"count": 1})
             owner_events, owner_cursor = events.list_events(user_id=owner.user_id)
             other_events, other_cursor = events.list_events(user_id=other.user_id)
             assert owner_events
@@ -189,24 +137,13 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
 
             events.emit(user_id=other.user_id, event_type="acceptance.neighbor", payload={"count": 2})
             for user in (owner, other):
-                events._postgres.create_subscription(
-                    subscription_id=uuid4().hex, user_id=user.user_id, event_type="*",
-                    url="https://example.test/hook?secret=fixture-secret", created_at="2026-01-01T00:00:00Z")
+                events._postgres.create_subscription(subscription_id=uuid4().hex, user_id=user.user_id, event_type="*", url="https://example.test/hook?secret=fixture-secret", created_at="2026-01-01T00:00:00Z")
 
             owner_export = privacy.export_user_data(user_id=owner.user_id)
             other_export = privacy.export_user_data(user_id=other.user_id)
-            assert [row["memory_id"] for row in owner_export["memories"]] == [
-                memories[owner.user_id].memory_id
-            ]
-            assert [row["memory_id"] for row in other_export["memories"]] == [
-                memories[other.user_id].memory_id
-            ]
-            for collection in (
-                "interactions",
-                "feedback",
-                "credit_ledger",
-                "output_preferences",
-            ):
+            assert [row["memory_id"] for row in owner_export["memories"]] == [memories[owner.user_id].memory_id]
+            assert [row["memory_id"] for row in other_export["memories"]] == [memories[other.user_id].memory_id]
+            for collection in ("interactions", "feedback", "credit_ledger", "output_preferences"):
                 owner_rows = owner_export["feedback_records"][collection]
                 other_rows = other_export["feedback_records"][collection]
                 assert owner_rows and other_rows
@@ -221,11 +158,8 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
 
             if fail_usage_delete:
                 with factory() as conn:
-                    conn.execute("""CREATE FUNCTION reject_usage_delete() RETURNS trigger
-                        LANGUAGE plpgsql AS $$ BEGIN
-                        RAISE EXCEPTION 'injected usage deletion failure'; END $$""")
-                    conn.execute("""CREATE TRIGGER reject_usage_delete BEFORE DELETE
-                        ON model_route_usage FOR EACH ROW EXECUTE FUNCTION reject_usage_delete()""")
+                    conn.execute("""CREATE FUNCTION reject_usage_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected usage deletion failure'; END $$""")
+                    conn.execute("""CREATE TRIGGER reject_usage_delete BEFORE DELETE ON model_route_usage FOR EACH ROW EXECUTE FUNCTION reject_usage_delete()""")
                 with pytest.raises(psycopg.Error, match="injected usage deletion failure"):
                     delete_production_user_data(settings, user_id=owner.user_id, privacy_service=privacy)
                 assert usage.export_user_data(user_id=owner.user_id) == owner_export["model_usage"]
@@ -233,11 +167,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
                 with factory() as conn:
                     conn.execute("DROP TRIGGER reject_usage_delete ON model_route_usage")
 
-            result = delete_production_user_data(
-                settings,
-                user_id=owner.user_id,
-                privacy_service=privacy,
-            )
+            result = delete_production_user_data(settings, user_id=owner.user_id, privacy_service=privacy)
             assert result["deleted"] is True
             assert result["memory_deleted_count"] == (0 if fail_usage_delete else 1)
             assert not result["memory_errors"]
@@ -248,10 +178,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
 
             assert privacy._fts.search("combined", user_id=owner.user_id) == []
             assert privacy._fts.search("combined", user_id=other.user_id)
-            assert privacy._memory_store.get(
-                memories[other.user_id].memory_id,
-                user_id=other.user_id,
-            )
+            assert privacy._memory_store.get(memories[other.user_id].memory_id, user_id=other.user_id)
 
             erased_export = privacy.export_user_data(user_id=owner.user_id)
             assert erased_export["activity"] == {"events": [], "subscriptions": []}
@@ -266,12 +193,7 @@ def test_complete_postgres_profile_combines_export_and_tenant_erasure(monkeypatc
             assert preserved_export["model_usage"] == other_export["model_usage"]
             assert preserved_export["memories"]
             assert preserved_export["review_schedules"]
-            assert all(preserved_export["feedback_records"][key] for key in (
-                "interactions",
-                "feedback",
-                "credit_ledger",
-                "output_preferences",
-            ))
+            assert all(preserved_export["feedback_records"][key] for key in ("interactions", "feedback", "credit_ledger", "output_preferences"))
 
     try:
         asyncio.run(run())
