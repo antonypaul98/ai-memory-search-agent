@@ -29,6 +29,7 @@ class PhysicalMemoryStore(Protocol):
 
 class InspectableEvidenceStore(Protocol):
     def describe_observation(self, *, user_id: str, observation_id: str) -> dict | None: ...
+    def get_image(self, *, user_id: str, frame_id: str) -> bytes | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,15 @@ class HomeAgentQueryService:
             evidence_image_sha256=evidence.get("image_sha256") if evidence else None,
             evidence_detector_id=evidence.get("detector_id") if evidence else None,
         )
+
+    def evidence_image(self, *, user_id: str, answer: WhereAnswer) -> bytes | None:
+        """Return retained image bytes for this answer, scoped to the requesting tenant."""
+        if not answer.evidence_frame_id:
+            return None
+        get_image = getattr(self._store, "get_image", None)
+        if not callable(get_image):
+            return None
+        return get_image(user_id=user_id, frame_id=answer.evidence_frame_id)
 
     def history(
         self,
