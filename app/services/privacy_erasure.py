@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
+from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
 from app.db.postgres_event_store import PostgresEventStore
@@ -20,7 +21,7 @@ def delete_production_user_data(
     user_id: str,
     privacy_service: PrivacyService | None = None,
 ) -> dict[str, Any]:
-    """Delete one tenant's memory, feedback, model-usage, activity, graph and intelligence domains.
+    """Delete one tenant's memory, feedback, usage, activity, graph, intelligence and Home physical data.
 
     This intentionally fails closed outside the complete production profile instead
     of claiming a full-account erasure while a relational domain could remain on a
@@ -52,6 +53,10 @@ def delete_production_user_data(
         connection_factory,
         user_id=user_id,
     )
+    home_physical_deleted = delete_user_home_physical_data(
+        connection_factory,
+        user_id=user_id,
+    )
     errors = list(memory_result.get("errors") or [])
     return {
         "deleted": not errors,
@@ -62,4 +67,5 @@ def delete_production_user_data(
         "activity_deleted": activity_deleted,
         "graph_deleted": graph_deleted,
         "intelligence_deleted": intelligence_deleted,
+        "home_physical_deleted": home_physical_deleted,
     }
