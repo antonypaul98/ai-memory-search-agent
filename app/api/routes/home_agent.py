@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
@@ -52,6 +52,9 @@ class WhereIsResponse(BaseModel):
     confidence: float | None = None
     source_id: str | None = None
     evidence_id: str | None = None
+    evidence_frame_id: str | None = None
+    evidence_image_sha256: str | None = None
+    evidence_detector_id: str | None = None
 
 
 class SightingResponse(BaseModel):
@@ -97,7 +100,23 @@ def where_is(
         confidence=answer.confidence,
         source_id=answer.source_id,
         evidence_id=answer.evidence_id,
+        evidence_frame_id=answer.evidence_frame_id,
+        evidence_image_sha256=answer.evidence_image_sha256,
+        evidence_detector_id=answer.evidence_detector_id,
     )
+
+
+@router.get("/evidence/{frame_id}")
+def evidence_frame(
+    frame_id: str,
+    service: HomeAgentQueryService = Depends(get_home_agent_query_service),
+    user: UserPublic = Depends(get_current_user),
+) -> Response:
+    """Return one retained evidence frame for the authenticated tenant only."""
+    image = service.evidence_frame(user_id=user.user_id, frame_id=frame_id)
+    if image is None:
+        raise HTTPException(status_code=404, detail="Evidence frame not found.")
+    return Response(content=image, media_type="application/octet-stream")
 
 
 @router.post("/history", response_model=HistoryResponse)

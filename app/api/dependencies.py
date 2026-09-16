@@ -6,7 +6,7 @@ Routes stay thin — they never construct repositories or Chroma clients directl
 """
 
 from app.config import Settings, get_settings
-from app.db.postgres_home_physical_memory_store import PostgresHomePhysicalMemoryStore
+from app.db.postgres_home_image_store import PostgresHomeImageStore
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.repositories.memory_repository import MemoryRepository
 from app.services.adaptive_model_router import AdaptiveModelRouter
@@ -95,14 +95,14 @@ def get_recommendation_service() -> RecommendationService:
     return RecommendationService(settings=settings, repository=repository)
 
 
-def _get_home_agent_physical_memory_store() -> PostgresHomePhysicalMemoryStore:
+def _get_home_agent_physical_memory_store() -> PostgresHomeImageStore:
     settings = get_settings()
     connection_factory = get_postgres_connection_factory(settings)
-    return PostgresHomePhysicalMemoryStore(connection_factory)
+    return PostgresHomeImageStore(connection_factory)
 
 
 def get_home_agent_query_service() -> HomeAgentQueryService:
-    """Provide the persistent Home Agent physical-memory query service."""
+    """Provide the persistent Home Agent physical-memory query service with inspectable evidence."""
     return HomeAgentQueryService(_get_home_agent_physical_memory_store())
 
 

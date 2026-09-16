@@ -91,10 +91,16 @@ class HomeAgentQueryService:
         """Return retained image bytes for this answer, scoped to the requesting tenant."""
         if not answer.evidence_frame_id:
             return None
+        return self.evidence_frame(user_id=user_id, frame_id=answer.evidence_frame_id)
+
+    def evidence_frame(self, *, user_id: str, frame_id: str) -> bytes | None:
+        """Return one retained frame only when it belongs to the requesting tenant."""
+        if not frame_id.strip():
+            return None
         get_image = getattr(self._store, "get_image", None)
         if not callable(get_image):
             return None
-        return get_image(user_id=user_id, frame_id=answer.evidence_frame_id)
+        return get_image(user_id=user_id, frame_id=frame_id)
 
     def history(
         self,
