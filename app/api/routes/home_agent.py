@@ -1,11 +1,13 @@
 """Authenticated Home Agent physical-memory query and capture-control routes."""
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from app.api.auth import get_current_user
 from app.api.dependencies import get_home_agent_capture_registry, get_home_agent_capture_service, get_home_agent_query_service
+from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
 from app.models.user import UserPublic
+from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
@@ -74,6 +76,12 @@ class CaptureSessionResponse(BaseModel):
 class CaptureDetectionResponse(BaseModel):
     stored: bool
 
+class CaptureImageResponse(BaseModel):
+    stored: bool
+    frame_id: str | None = None
+    detection_ms: float | None = None
+    ingestion_ms: float | None = None
+
 @router.post("/where-is", response_model=WhereIsResponse)
 def where_is(body: WhereIsRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> WhereIsResponse:
     answer = AuthenticatedHomeAgentQuery(service=service, user=user).where_is(object_name=body.object_name, min_confidence=body.min_confidence)
@@ -110,3 +118,35 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
     return CaptureDetectionResponse(stored=stored)
+
+@router.post("/capture-images", response_model=CaptureImageResponse)
+async def ingest_capture_image(
+    request: Request,
+    session_id: str,
+    source_id: str,
+    location: str,
+    observed_at: datetime,
+    service: AuthenticatedHomeImageIngest = Depends(get_home_agent_authenticated_image_ingest),
+    user: UserPublic = Depends(get_current_user),
+) -> CaptureImageResponse:
+    """Detect and persist one raw JPEG/PNG only through the caller's active capture session."""
+    image_bytes = await request.body()
+    try:
+        result = service.ingest(
+            session_id=session_id,
+            user_id=user.user_id,
+            source_id=source_id,
+            image_bytes=image_bytes,
+            location=location,
+            observed_at=observed_at,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return CaptureImageResponse(
+        stored=bool(result.get("stored", True)),
+        frame_id=result.get("frame_id"),
+        detection_ms=result.get("detection_ms"),
+        ingestion_ms=result.get("ingestion_ms"),
+    )
