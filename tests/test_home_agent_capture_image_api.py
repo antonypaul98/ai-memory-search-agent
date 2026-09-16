@@ -1,6 +1,7 @@
 """API regressions for authenticated raw-image Home capture."""
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,11 +31,13 @@ def client(test_settings: Settings) -> TestClient:
 
 
 def _url() -> str:
-    return (
-        "/api/v1/home-agent/capture-images"
-        "?session_id=capture-1&source_id=camera-entry&location=entry%20table"
-        f"&observed_at={NOW.isoformat()}"
-    )
+    query = urlencode({
+        "session_id": "capture-1",
+        "source_id": "camera-entry",
+        "location": "entry table",
+        "observed_at": NOW.isoformat(),
+    })
+    return f"/api/v1/home-agent/capture-images?{query}"
 
 
 def test_raw_image_is_bound_to_authenticated_user_and_session(client: TestClient) -> None:
