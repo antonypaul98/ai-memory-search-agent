@@ -34,7 +34,7 @@ def test_where_is_uses_latest_qualifying_image_sighting_without_crossing_tenants
     store = PostgresHomeImageStore(get_postgres_connection_factory(settings))
     service = HomeAgentQueryService(store)
 
-    def observe(user_id: str, location: str, when: datetime, confidence: float) -> str:
+    def observe(user_id: str, location: str, when: datetime, confidence: float) -> tuple[str, str, str]:
         image_bytes = f"{user_id}:{location}:{when.isoformat()}".encode()
         digest = hashlib.sha256(image_bytes).hexdigest()
         frame_id = canonical_id("frame", user_id, digest, "camera-1", location, when.isoformat())
@@ -45,7 +45,8 @@ def test_where_is_uses_latest_qualifying_image_sighting_without_crossing_tenants
             observed_at=when, detector_id="fixture-detector", detections=(detection,),
         )
         assert store.store_image_batch(batch)["stored_observations"] == 1
-        return canonical_id("observation", frame_id, detection.object_class, "[0.1, 0.2, 0.4, 0.6]")
+        observation_id = canonical_id("observation", frame_id, detection.object_class, "[0.1, 0.2, 0.4, 0.6]")
+        return observation_id, frame_id, digest
 
     try:
         owner = "home-where-owner"
@@ -55,7 +56,7 @@ def test_where_is_uses_latest_qualifying_image_sighting_without_crossing_tenants
         neighbor_time = datetime(2026, 9, 16, 8, 10, tzinfo=timezone.utc)
 
         observe(owner, "kitchen counter", older, 0.91)
-        newest_owner_evidence = observe(owner, "entry table", newer, 0.96)
+        newest_owner_evidence, newest_owner_frame, newest_owner_digest = observe(owner, "entry table", newer, 0.96)
         observe(neighbor, "neighbor bedroom", neighbor_time, 0.99)
 
         answer = service.where_is(user_id=owner, object_name="KEYS", min_confidence=0.90)
@@ -66,6 +67,9 @@ def test_where_is_uses_latest_qualifying_image_sighting_without_crossing_tenants
         assert answer.source_id == "camera-1"
         assert answer.evidence_id == newest_owner_evidence
         assert answer.observed_at == newer.isoformat()
+        assert answer.evidence_frame_id == newest_owner_frame
+        assert answer.evidence_image_sha256 == newest_owner_digest
+        assert answer.evidence_detector_id == "fixture-detector"
         assert "neighbor bedroom" not in answer.text
 
         # Raising the trust threshold above all owner sightings must not leak the

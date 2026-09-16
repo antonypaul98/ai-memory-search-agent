@@ -27,6 +27,10 @@ class PhysicalMemoryStore(Protocol):
     ) -> list[ObjectSighting]: ...
 
 
+class InspectableEvidenceStore(Protocol):
+    def describe_observation(self, *, user_id: str, observation_id: str) -> dict | None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class WhereAnswer:
     object_name: str
@@ -35,6 +39,9 @@ class WhereAnswer:
     confidence: float
     source_id: str
     evidence_id: str
+    evidence_frame_id: str | None = None
+    evidence_image_sha256: str | None = None
+    evidence_detector_id: str | None = None
 
     @property
     def text(self) -> str:
@@ -61,6 +68,12 @@ class HomeAgentQueryService:
         )
         if sighting is None:
             return None
+
+        evidence = None
+        describe = getattr(self._store, "describe_observation", None)
+        if callable(describe):
+            evidence = describe(user_id=user_id, observation_id=sighting.evidence_id)
+
         return WhereAnswer(
             object_name=sighting.object_name,
             location=sighting.location,
@@ -68,6 +81,9 @@ class HomeAgentQueryService:
             confidence=sighting.confidence,
             source_id=sighting.source_id,
             evidence_id=sighting.evidence_id,
+            evidence_frame_id=evidence.get("frame_id") if evidence else None,
+            evidence_image_sha256=evidence.get("image_sha256") if evidence else None,
+            evidence_detector_id=evidence.get("detector_id") if evidence else None,
         )
 
     def history(
