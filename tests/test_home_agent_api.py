@@ -52,38 +52,26 @@ def home_agent_api_client(test_settings: Settings) -> TestClient:
 
 def test_where_is_uses_authenticated_identity(home_agent_api_client: TestClient) -> None:
     home_agent_api_client.home_agent_service.where_is.return_value = WhereAnswer(
-        object_name="keys",
-        location="entry table",
-        observed_at="2026-09-11T06:00:00+00:00",
-        confidence=0.93,
-        source_id="camera-entry",
-        evidence_id="evidence-1",
-        evidence_frame_id="frame-1",
-        evidence_image_sha256="abc123",
-        evidence_detector_id="detector-v1",
+        object_name="keys", location="entry table", observed_at="2026-09-11T06:00:00+00:00",
+        confidence=0.93, source_id="camera-entry", evidence_id="evidence-1",
+        evidence_frame_id="frame-1", evidence_image_sha256="abc123", evidence_detector_id="detector-v1",
     )
-
     response = home_agent_api_client.post(
-        "/api/v1/home-agent/where-is",
-        json={"object_name": "keys", "min_confidence": 0.8},
+        "/api/v1/home-agent/where-is", json={"object_name": "keys", "min_confidence": 0.8},
     )
-
     assert response.status_code == 200
     assert response.json()["location"] == "entry table"
     assert response.json()["evidence_frame_id"] == "frame-1"
     assert response.json()["evidence_image_sha256"] == "abc123"
     assert response.json()["evidence_detector_id"] == "detector-v1"
     home_agent_api_client.home_agent_service.where_is.assert_called_once_with(
-        user_id=AUTHENTICATED_USER_ID,
-        object_name="keys",
-        min_confidence=0.8,
+        user_id=AUTHENTICATED_USER_ID, object_name="keys", min_confidence=0.8,
     )
 
 
 def test_where_is_rejects_caller_supplied_user_id(home_agent_api_client: TestClient) -> None:
     response = home_agent_api_client.post(
-        "/api/v1/home-agent/where-is",
-        json={"object_name": "keys", "user_id": "other-tenant"},
+        "/api/v1/home-agent/where-is", json={"object_name": "keys", "user_id": "other-tenant"},
     )
     assert response.status_code == 422
     home_agent_api_client.home_agent_service.where_is.assert_not_called()
@@ -96,8 +84,7 @@ def test_evidence_frame_uses_authenticated_identity(home_agent_api_client: TestC
     assert response.content == b"private-image-bytes"
     assert response.headers["content-type"] == "application/octet-stream"
     home_agent_api_client.home_agent_service.evidence_frame.assert_called_once_with(
-        user_id=AUTHENTICATED_USER_ID,
-        frame_id="frame-1",
+        user_id=AUTHENTICATED_USER_ID, frame_id="frame-1",
     )
 
 
@@ -106,8 +93,7 @@ def test_evidence_frame_returns_404_without_cross_tenant_fallback(home_agent_api
     response = home_agent_api_client.get("/api/v1/home-agent/evidence/other-tenant-frame")
     assert response.status_code == 404
     home_agent_api_client.home_agent_service.evidence_frame.assert_called_once_with(
-        user_id=AUTHENTICATED_USER_ID,
-        frame_id="other-tenant-frame",
+        user_id=AUTHENTICATED_USER_ID, frame_id="other-tenant-frame",
     )
 
 
@@ -120,8 +106,7 @@ def test_history_uses_authenticated_identity(home_agent_api_client: TestClient) 
         )
     ]
     response = home_agent_api_client.post(
-        "/api/v1/home-agent/history",
-        json={"object_name": "wallet", "min_confidence": 0.4, "limit": 5},
+        "/api/v1/home-agent/history", json={"object_name": "wallet", "min_confidence": 0.4, "limit": 5},
     )
     assert response.status_code == 200
     assert response.json()["sightings"][0]["evidence_id"] == "evidence-2"
@@ -175,3 +160,4 @@ def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: 
     )
     assert response.status_code == 422
     home_agent_api_client.home_agent_capture_service.start_session.assert_not_called()
+    home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
