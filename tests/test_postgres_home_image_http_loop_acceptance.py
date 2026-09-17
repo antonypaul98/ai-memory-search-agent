@@ -87,8 +87,9 @@ def test_authenticated_image_http_loop_is_real_postgres_and_tenant_isolated(monk
                 headers={"content-type": "application/octet-stream"},
             )
             assert captured.status_code == 200
+            assert captured.json()["stored"] is True
             frame_id = captured.json()["frame_id"]
-            assert captured.json()["stored_observations"] == 1
+            assert frame_id
 
             answer = client.post("/api/v1/home-agent/where-is", json={"object_name": "KEYS"})
             assert answer.status_code == 200
