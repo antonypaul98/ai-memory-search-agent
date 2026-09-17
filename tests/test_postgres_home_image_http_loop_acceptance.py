@@ -93,6 +93,7 @@ def test_authenticated_image_http_loop_is_real_postgres_and_tenant_isolated(monk
 
             answer = client.post("/api/v1/home-agent/where-is", json={"object_name": "KEYS"})
             assert answer.status_code == 200
+            assert answer.json()["found"] is True
             assert answer.json()["location"] == "entry table"
             assert answer.json()["evidence_frame_id"] == frame_id
 
@@ -106,7 +107,10 @@ def test_authenticated_image_http_loop_is_real_postgres_and_tenant_isolated(monk
             assert denied.status_code == 404
             assert denied.content != owner_evidence
             neighbor_answer = client.post("/api/v1/home-agent/where-is", json={"object_name": "keys"})
-            assert neighbor_answer.status_code == 404
+            assert neighbor_answer.status_code == 200
+            assert neighbor_answer.json()["found"] is False
+            assert neighbor_answer.json()["location"] is None
+            assert neighbor_answer.json()["evidence_frame_id"] is None
     finally:
         app.dependency_overrides.clear()
         with psycopg.connect(base_dsn) as conn:
