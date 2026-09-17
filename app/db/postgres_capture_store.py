@@ -83,6 +83,19 @@ class PostgresCaptureStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def delete_for_user(self, *, user_id: str) -> int:
+        """Delete capture/retry payloads owned by exactly one tenant.
+
+        Account-level orchestration must fence producers before calling this method;
+        this primitive deliberately does not infer ownership or cancel external work.
+        """
+        owner = str(user_id or "").strip()
+        if not owner:
+            raise ValueError("user_id is required")
+        with self._connection_factory() as conn:
+            result = conn.execute("DELETE FROM captures WHERE user_id = %s", (owner,))
+            return int(result.rowcount or 0)
+
     def get_retry_payload(self, capture_id: str, *, user_id: str) -> dict | None:
         with self._connection_factory() as conn:
             row = conn.execute(
