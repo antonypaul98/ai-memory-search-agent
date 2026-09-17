@@ -56,6 +56,8 @@ def test_postgres_capture_schema_and_queries_keep_tenant_scope():
     statements: list[str] = []
 
     class FakeCursor:
+        rowcount = 0
+
         def fetchone(self):
             return None
 
@@ -96,3 +98,45 @@ def test_postgres_capture_schema_and_queries_keep_tenant_scope():
     tenant_queries = [s for s in statements if "capture_id = %s" in s]
     assert tenant_queries
     assert all("user_id = %s" in s for s in tenant_queries)
+
+
+def test_postgres_capture_delete_is_exact_tenant_and_returns_count():
+    calls: list[tuple[str, tuple | None]] = []
+
+    class FakeCursor:
+        rowcount = 3
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, params=None):
+            normalized = " ".join(str(statement).split())
+            calls.append((normalized, params))
+            return FakeCursor()
+
+    store = PostgresCaptureStore(lambda: FakeConnection())
+    calls.clear()
+
+    assert store.delete_for_user(user_id="tenant-a") == 3
+    assert calls == [("DELETE FROM captures WHERE user_id = %s", ("tenant-a",))]
+
+
+def test_postgres_capture_delete_rejects_blank_owner_before_connection():
+    connections = 0
+
+    def connection_factory():
+        nonlocal connections
+        connections += 1
+        raise AssertionError("blank owner must fail before opening Postgres")
+
+    store = object.__new__(PostgresCaptureStore)
+    store._connection_factory = connection_factory
+
+    with pytest.raises(ValueError, match="user_id is required"):
+        store.delete_for_user(user_id="   ")
+
+    assert connections == 0
