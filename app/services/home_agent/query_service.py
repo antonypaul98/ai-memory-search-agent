@@ -9,22 +9,8 @@ from .physical_memory import ObjectSighting
 
 
 class PhysicalMemoryStore(Protocol):
-    def latest(
-        self,
-        *,
-        user_id: str,
-        object_name: str,
-        min_confidence: float = 0.0,
-    ) -> ObjectSighting | None: ...
-
-    def history(
-        self,
-        *,
-        user_id: str,
-        object_name: str,
-        min_confidence: float = 0.0,
-        limit: int = 20,
-    ) -> list[ObjectSighting]: ...
+    def latest(self, *, user_id: str, object_name: str, min_confidence: float = 0.0) -> ObjectSighting | None: ...
+    def history(self, *, user_id: str, object_name: str, min_confidence: float = 0.0, limit: int = 20) -> list[ObjectSighting]: ...
 
 
 class InspectableEvidenceStore(Protocol):
@@ -49,52 +35,48 @@ class WhereAnswer:
         return f"{self.object_name} was last seen at {self.location} at {self.observed_at}."
 
 
+@dataclass(frozen=True, slots=True)
+class MovementEvent:
+    """Evidence-linked transition between two observed locations."""
+    object_name: str
+    from_location: str
+    to_location: str
+    moved_at: str
+    confidence: float
+    source_id: str
+    from_evidence_id: str
+    to_evidence_id: str
+
+
 class HomeAgentQueryService:
     """Resolve Home Agent questions without crossing tenant boundaries."""
 
     def __init__(self, store: PhysicalMemoryStore) -> None:
         self._store = store
 
-    def where_is(
-        self,
-        *,
-        user_id: str,
-        object_name: str,
-        min_confidence: float = 0.5,
-    ) -> WhereAnswer | None:
-        sighting = self._store.latest(
-            user_id=user_id,
-            object_name=object_name,
-            min_confidence=min_confidence,
-        )
+    def where_is(self, *, user_id: str, object_name: str, min_confidence: float = 0.5) -> WhereAnswer | None:
+        sighting = self._store.latest(user_id=user_id, object_name=object_name, min_confidence=min_confidence)
         if sighting is None:
             return None
-
         evidence = None
         describe = getattr(self._store, "describe_observation", None)
         if callable(describe):
             evidence = describe(user_id=user_id, observation_id=sighting.evidence_id)
-
         return WhereAnswer(
-            object_name=sighting.object_name,
-            location=sighting.location,
-            observed_at=sighting.observed_at.isoformat(),
-            confidence=sighting.confidence,
-            source_id=sighting.source_id,
-            evidence_id=sighting.evidence_id,
+            object_name=sighting.object_name, location=sighting.location,
+            observed_at=sighting.observed_at.isoformat(), confidence=sighting.confidence,
+            source_id=sighting.source_id, evidence_id=sighting.evidence_id,
             evidence_frame_id=evidence.get("frame_id") if evidence else None,
             evidence_image_sha256=evidence.get("image_sha256") if evidence else None,
             evidence_detector_id=evidence.get("detector_id") if evidence else None,
         )
 
     def evidence_image(self, *, user_id: str, answer: WhereAnswer) -> bytes | None:
-        """Return retained image bytes for this answer, scoped to the requesting tenant."""
         if not answer.evidence_frame_id:
             return None
         return self.evidence_frame(user_id=user_id, frame_id=answer.evidence_frame_id)
 
     def evidence_frame(self, *, user_id: str, frame_id: str) -> bytes | None:
-        """Return one retained frame only when it belongs to the requesting tenant."""
         if not frame_id.strip():
             return None
         get_image = getattr(self._store, "get_image", None)
@@ -102,17 +84,32 @@ class HomeAgentQueryService:
             return None
         return get_image(user_id=user_id, frame_id=frame_id)
 
-    def history(
-        self,
-        *,
-        user_id: str,
-        object_name: str,
-        min_confidence: float = 0.0,
-        limit: int = 20,
-    ) -> list[ObjectSighting]:
-        return self._store.history(
-            user_id=user_id,
-            object_name=object_name,
-            min_confidence=min_confidence,
-            limit=limit,
-        )
+    def history(self, *, user_id: str, object_name: str, min_confidence: float = 0.0, limit: int = 20) -> list[ObjectSighting]:
+        return self._store.history(user_id=user_id, object_name=object_name, min_confidence=min_confidence, limit=limit)
+
+    def movement_history(self, *, user_id: str, object_name: str, min_confidence: float = 0.5, limit: int = 20) -> list[MovementEvent]:
+        """Return chronological location changes, preserving evidence on both sides.
+
+        The backing history call is tenant-scoped. Repeated observations at the same
+        location are collapsed; only an actual observed location transition becomes
+        a movement event. No cross-tenant correlation is attempted.
+        """
+        sightings = self.history(user_id=user_id, object_name=object_name,
+                                 min_confidence=min_confidence, limit=limit)
+        chronological = list(reversed(sightings))
+        events: list[MovementEvent] = []
+        previous: ObjectSighting | None = None
+        for current in chronological:
+            if previous is not None and current.location != previous.location:
+                events.append(MovementEvent(
+                    object_name=current.object_name,
+                    from_location=previous.location,
+                    to_location=current.location,
+                    moved_at=current.observed_at.isoformat(),
+                    confidence=current.confidence,
+                    source_id=current.source_id,
+                    from_evidence_id=previous.evidence_id,
+                    to_evidence_id=current.evidence_id,
+                ))
+            previous = current
+        return events
