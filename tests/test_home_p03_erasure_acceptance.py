@@ -16,7 +16,7 @@ from app.db.production_storage_profile import RELATIONAL_STORE_BACKEND_FIELDS
 from app.services import privacy_erasure
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import CaptureSession
-from app.services.home_agent.image_ingest import ImageDetection, ImageObservationBatch
+from app.services.home_agent.image_ingest import DetectedObject, ImageObservationBatch
 
 
 class _EmptyPrivacyService:
@@ -46,7 +46,7 @@ def _seed_home_image(store: PostgresHomeImageStore, *, user_id: str, nonce: str,
         location="test-room",
         observed_at=now,
         detector_id="p03-acceptance",
-        detections=(ImageDetection(object_class="test-object", confidence=0.99, box=(1, 2, 3, 4)),),
+        detections=(DetectedObject(object_class="test-object", confidence=0.99, box=(0.1, 0.2, 0.3, 0.4)),),
     )
     result = store.store_image_batch(batch)
     assert result["stored_observations"] == 1
