@@ -64,3 +64,19 @@ class CaptureSessionRegistry:
             raise ValueError("session_id is required")
         with self._lock:
             return self._sessions.pop(session_id, None) is not None
+
+    def revoke_for_user(self, *, user_id: str) -> int:
+        """Atomically revoke every active capture session owned by one tenant."""
+        owner = str(user_id or "").strip()
+        if not owner:
+            raise ValueError("user_id is required")
+
+        with self._lock:
+            session_ids = [
+                session_id
+                for session_id, session in self._sessions.items()
+                if session.user_id == owner
+            ]
+            for session_id in session_ids:
+                self._sessions.pop(session_id, None)
+            return len(session_ids)
