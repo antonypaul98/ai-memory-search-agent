@@ -7,11 +7,13 @@ from app.config import Settings
 from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
+from app.db.postgres_capture_store import PostgresCaptureStore
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import is_complete_postgres_profile
+from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.privacy_service import PrivacyService
 
 
@@ -20,46 +22,46 @@ def delete_production_user_data(
     *,
     user_id: str,
     privacy_service: PrivacyService | None = None,
+    capture_registry: CaptureSessionRegistry | None = None,
 ) -> dict[str, Any]:
-    """Delete one tenant's memory, feedback, usage, activity, graph, intelligence and Home physical data.
+    """Delete one tenant's production data, including capture/retry payloads.
 
     This intentionally fails closed outside the complete production profile instead
     of claiming a full-account erasure while a relational domain could remain on a
-    legacy backend. Memory deletion is best-effort per canonical memory; subsequent
-    bounded domains are still attempted in sequence so a later retry can complete
-    any remaining work.
+    legacy backend. When the process owns active Home capture sessions, callers pass
+    that registry so producers are fenced before persisted capture payload deletion.
+    Memory deletion is best-effort per canonical memory; subsequent bounded domains
+    are still attempted so a later retry can complete any remaining work.
     """
 
-    if not str(user_id).strip():
+    owner = str(user_id or "").strip()
+    if not owner:
         raise ValueError("user_id is required")
     if not is_complete_postgres_profile(settings):
         raise RuntimeError("full user-data erasure requires complete Postgres profile")
 
     service = privacy_service or PrivacyService(settings)
     connection_factory = get_postgres_connection_factory(settings)
-    memory_result = service.delete_all_memories(user_id=user_id)
-    feedback_counts = delete_user_feedback_data(
-        connection_factory,
-        user_id=user_id,
+
+    # Fence process-local Home capture producers before deleting any persisted
+    # capture/retry payloads. The count is evidence for account-erasure auditing.
+    capture_sessions_revoked = (
+        capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
     )
-    model_usage_deleted = PostgresModelUsageLedger(
-        connection_factory
-    ).delete_user_data(user_id=user_id)
-    activity_deleted = PostgresEventStore(
-        connection_factory
-    ).delete_user_data(user_id=user_id)
-    graph_deleted = delete_user_graph(settings, user_id=user_id)
-    intelligence_deleted = delete_user_intelligence(
-        connection_factory,
-        user_id=user_id,
-    )
-    home_physical_deleted = delete_user_home_physical_data(
-        connection_factory,
-        user_id=user_id,
-    )
+    capture_payloads_deleted = PostgresCaptureStore(connection_factory).delete_for_user(user_id=owner)
+
+    memory_result = service.delete_all_memories(user_id=owner)
+    feedback_counts = delete_user_feedback_data(connection_factory, user_id=owner)
+    model_usage_deleted = PostgresModelUsageLedger(connection_factory).delete_user_data(user_id=owner)
+    activity_deleted = PostgresEventStore(connection_factory).delete_user_data(user_id=owner)
+    graph_deleted = delete_user_graph(settings, user_id=owner)
+    intelligence_deleted = delete_user_intelligence(connection_factory, user_id=owner)
+    home_physical_deleted = delete_user_home_physical_data(connection_factory, user_id=owner)
     errors = list(memory_result.get("errors") or [])
     return {
         "deleted": not errors,
+        "capture_sessions_revoked": capture_sessions_revoked,
+        "capture_payloads_deleted": capture_payloads_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
         "memory_errors": errors,
         "feedback_deleted": feedback_counts,
