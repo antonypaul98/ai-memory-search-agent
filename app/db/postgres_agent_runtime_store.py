@@ -165,3 +165,25 @@ class PostgresAgentRuntimeStore:
                 """,
                 (result_json, message, updated_at, run_id, user_id),
             )
+
+    def delete_for_user(self, *, user_id: str) -> dict[str, int]:
+        """Delete one tenant's persisted agent history as one DB transaction.
+
+        Child tool calls are deleted explicitly before parent runs rather than
+        relying on the run foreign-key cascade. This keeps the tenant predicate
+        visible on both tables and avoids treating parent ownership as proof for
+        malformed child rows during privacy erasure.
+        """
+        owner = user_id.strip()
+        if not owner:
+            raise ValueError("user_id is required")
+        with self._connection_factory() as conn:
+            tool_calls = conn.execute(
+                "DELETE FROM agent_tool_calls WHERE user_id=%s RETURNING id",
+                (owner,),
+            ).fetchall()
+            runs = conn.execute(
+                "DELETE FROM agent_runs WHERE user_id=%s RETURNING run_id",
+                (owner,),
+            ).fetchall()
+        return {"agent_tool_calls": len(tool_calls), "agent_runs": len(runs)}
