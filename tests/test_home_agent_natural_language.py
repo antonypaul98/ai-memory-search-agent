@@ -32,7 +32,13 @@ def test_routes_location_history_question():
 
 def test_routes_location_history_today_question():
     assert parse_home_query("  Where has the wallet been today?  ") == HomeQueryIntent(
-        kind="location_history", object_name="wallet"
+        kind="location_history", object_name="wallet", time_scope="today"
+    )
+
+
+def test_today_scope_is_case_insensitive():
+    assert parse_home_query("Where have my keys been TODAY?") == HomeQueryIntent(
+        kind="location_history", object_name="keys", time_scope="today"
     )
 
 
