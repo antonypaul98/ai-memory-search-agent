@@ -64,7 +64,9 @@ def main():
         assert movement.from_evidence_id != movement.to_evidence_id
         movement_provenance = restarted.describe_observation(
             user_id=tenant, observation_id=movement.to_evidence_id)
-        assert movement_provenance["location"] == answer.location
+        assert movement_provenance is not None
+        assert movement.to_evidence_id == answer.evidence_id
+        assert movement_provenance["frame_id"] == provenance["frame_id"]
         assert restarted.get_image(user_id=tenant, frame_id=movement_provenance["frame_id"])
         assert restarted.get_image(user_id=tenant+"-other", frame_id=movement_provenance["frame_id"]) is None
         assert query.movement_history(user_id=tenant+"-other", object_name="cat", min_confidence=.2, limit=20) == []
