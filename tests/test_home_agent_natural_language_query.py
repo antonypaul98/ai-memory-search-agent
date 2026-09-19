@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.natural_language_query import execute_home_query
-from app.services.home_agent.query_service import BeforeLocationAnswer, HomeAgentQueryService, WhereAnswer
+from app.services.home_agent.query_service import BeforeLocationAnswer, HomeAgentQueryService, MovementEvent, WhereAnswer
 
 
 def _query(service):
@@ -49,12 +49,42 @@ def test_executes_before_location_and_preserves_evidence():
     )
 
 
+def test_executes_location_history_with_authenticated_identity_and_evidence():
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = [MovementEvent(
+        object_name="keys", from_location="desk", to_location="kitchen",
+        moved_at="2026-09-19T15:00:00+00:00", confidence=0.93,
+        source_id="camera-kitchen", from_evidence_id="frame-desk",
+        to_evidence_id="frame-kitchen",
+    )]
+    result = execute_home_query(
+        text="Where have my keys been?", query=_query(service), min_confidence=0.8, limit=12,
+    )
+    assert result.status == "answered"
+    assert result.kind == "location_history"
+    assert result.answer == service.movement_history.return_value
+    assert result.answer[0].from_evidence_id == "frame-desk"
+    assert result.answer[0].to_evidence_id == "frame-kitchen"
+    service.movement_history.assert_called_once_with(
+        user_id="owner-a", object_name="keys", min_confidence=0.8, limit=12,
+    )
+
+
+def test_empty_location_history_returns_not_found():
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = []
+    result = execute_home_query(text="Where has my wallet been?", query=_query(service))
+    assert result.status == "not_found"
+    assert result.kind == "location_history"
+
+
 def test_unsupported_language_fails_closed_without_querying_store():
     service = MagicMock(spec=HomeAgentQueryService)
     result = execute_home_query(text="Did someone move my keys after lunch?", query=_query(service))
     assert result.status == "unsupported"
     service.where_is.assert_not_called()
     service.before_location.assert_not_called()
+    service.movement_history.assert_not_called()
 
 
 def test_supported_question_without_memory_returns_not_found():
