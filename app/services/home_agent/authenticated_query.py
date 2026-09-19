@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from app.models.user import UserPublic
 
-from .query_service import HomeAgentQueryService, WhereAnswer
+from .query_service import HomeAgentQueryService, MovementEvent, WhereAnswer
 from .physical_memory import ObjectSighting
 
 
@@ -42,6 +42,20 @@ class AuthenticatedHomeAgentQuery:
         limit: int = 20,
     ) -> list[ObjectSighting]:
         return self.service.history(
+            user_id=self.user.user_id,
+            object_name=object_name,
+            min_confidence=min_confidence,
+            limit=limit,
+        )
+
+    def movement_history(
+        self,
+        *,
+        object_name: str,
+        min_confidence: float = 0.5,
+        limit: int = 20,
+    ) -> list[MovementEvent]:
+        return self.service.movement_history(
             user_id=self.user.user_id,
             object_name=object_name,
             min_confidence=min_confidence,
