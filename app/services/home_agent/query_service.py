@@ -48,6 +48,23 @@ class MovementEvent:
     to_evidence_id: str
 
 
+@dataclass(frozen=True, slots=True)
+class BeforeLocationAnswer:
+    """Answer where an object was immediately before an observed destination."""
+    object_name: str
+    location: str
+    before_location: str
+    moved_at: str
+    confidence: float
+    source_id: str
+    evidence_id: str
+    destination_evidence_id: str
+
+    @property
+    def text(self) -> str:
+        return f"{self.object_name} was at {self.location} before {self.before_location}."
+
+
 class HomeAgentQueryService:
     """Resolve Home Agent questions without crossing tenant boundaries."""
 
@@ -88,12 +105,7 @@ class HomeAgentQueryService:
         return self._store.history(user_id=user_id, object_name=object_name, min_confidence=min_confidence, limit=limit)
 
     def movement_history(self, *, user_id: str, object_name: str, min_confidence: float = 0.5, limit: int = 20) -> list[MovementEvent]:
-        """Return chronological location changes, preserving evidence on both sides.
-
-        The backing history call is tenant-scoped. Repeated observations at the same
-        location are collapsed; only an actual observed location transition becomes
-        a movement event. No cross-tenant correlation is attempted.
-        """
+        """Return chronological location changes, preserving evidence on both sides."""
         sightings = self.history(user_id=user_id, object_name=object_name,
                                  min_confidence=min_confidence, limit=limit)
         chronological = list(reversed(sightings))
@@ -113,3 +125,32 @@ class HomeAgentQueryService:
                 ))
             previous = current
         return events
+
+    def before_location(self, *, user_id: str, object_name: str, location: str,
+                        min_confidence: float = 0.5, limit: int = 20) -> BeforeLocationAnswer | None:
+        """Return the most recent location immediately before entering ``location``.
+
+        Matching is case-insensitive after trimming. The answer preserves evidence
+        from both sides of the transition and inherits tenant isolation from the
+        tenant-scoped movement history query.
+        """
+        target = location.strip().casefold()
+        if not target:
+            return None
+        movements = self.movement_history(
+            user_id=user_id, object_name=object_name,
+            min_confidence=min_confidence, limit=limit,
+        )
+        for movement in reversed(movements):
+            if movement.to_location.strip().casefold() == target:
+                return BeforeLocationAnswer(
+                    object_name=movement.object_name,
+                    location=movement.from_location,
+                    before_location=movement.to_location,
+                    moved_at=movement.moved_at,
+                    confidence=movement.confidence,
+                    source_id=movement.source_id,
+                    evidence_id=movement.from_evidence_id,
+                    destination_evidence_id=movement.to_evidence_id,
+                )
+        return None
