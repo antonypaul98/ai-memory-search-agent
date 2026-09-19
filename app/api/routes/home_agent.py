@@ -30,6 +30,11 @@ class HistoryRequest(_StrictRequest):
     min_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     limit: int = Field(default=20, ge=1, le=100)
 
+class MovementHistoryRequest(_StrictRequest):
+    object_name: str = Field(min_length=1, max_length=200)
+    min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    limit: int = Field(default=20, ge=1, le=100)
+
 class StartCaptureSessionRequest(_StrictRequest):
     source_id: str = Field(min_length=1, max_length=200)
     ttl_seconds: int = Field(default=300, ge=1, le=900)
@@ -67,6 +72,19 @@ class SightingResponse(BaseModel):
 class HistoryResponse(BaseModel):
     sightings: list[SightingResponse]
 
+class MovementEventResponse(BaseModel):
+    object_name: str
+    from_location: str
+    to_location: str
+    moved_at: str
+    confidence: float
+    source_id: str
+    from_evidence_id: str
+    to_evidence_id: str
+
+class MovementHistoryResponse(BaseModel):
+    movements: list[MovementEventResponse]
+
 class CaptureSessionResponse(BaseModel):
     session_id: str
     source_id: str
@@ -101,6 +119,11 @@ def history(body: HistoryRequest, service: HomeAgentQueryService = Depends(get_h
     sightings = AuthenticatedHomeAgentQuery(service=service, user=user).history(object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit)
     return HistoryResponse(sightings=[SightingResponse(object_name=item.object_name, location=item.location, observed_at=item.observed_at.isoformat(), confidence=item.confidence, source_id=item.source_id, evidence_id=item.evidence_id) for item in sightings])
 
+@router.post("/movement-history", response_model=MovementHistoryResponse)
+def movement_history(body: MovementHistoryRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> MovementHistoryResponse:
+    movements = AuthenticatedHomeAgentQuery(service=service, user=user).movement_history(object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit)
+    return MovementHistoryResponse(movements=[MovementEventResponse(object_name=item.object_name, from_location=item.from_location, to_location=item.to_location, moved_at=item.moved_at, confidence=item.confidence, source_id=item.source_id, from_evidence_id=item.from_evidence_id, to_evidence_id=item.to_evidence_id) for item in movements])
+
 @router.post("/capture-sessions", response_model=CaptureSessionResponse)
 def start_capture_session(body: StartCaptureSessionRequest, service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service), registry: CaptureSessionRegistry = Depends(get_home_agent_capture_registry), user: UserPublic = Depends(get_current_user)) -> CaptureSessionResponse:
     session = service.start_session(user_id=user.user_id, source_id=body.source_id, ttl=timedelta(seconds=body.ttl_seconds))
@@ -120,33 +143,13 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
     return CaptureDetectionResponse(stored=stored)
 
 @router.post("/capture-images", response_model=CaptureImageResponse)
-async def ingest_capture_image(
-    request: Request,
-    session_id: str,
-    source_id: str,
-    location: str,
-    observed_at: datetime,
-    service: AuthenticatedHomeImageIngest = Depends(get_home_agent_authenticated_image_ingest),
-    user: UserPublic = Depends(get_current_user),
-) -> CaptureImageResponse:
+async def ingest_capture_image(request: Request, session_id: str, source_id: str, location: str, observed_at: datetime, service: AuthenticatedHomeImageIngest = Depends(get_home_agent_authenticated_image_ingest), user: UserPublic = Depends(get_current_user)) -> CaptureImageResponse:
     """Detect and persist one raw JPEG/PNG only through the caller's active capture session."""
     image_bytes = await request.body()
     try:
-        result = service.ingest(
-            session_id=session_id,
-            user_id=user.user_id,
-            source_id=source_id,
-            image_bytes=image_bytes,
-            location=location,
-            observed_at=observed_at,
-        )
+        result = service.ingest(session_id=session_id, user_id=user.user_id, source_id=source_id, image_bytes=image_bytes, location=location, observed_at=observed_at)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return CaptureImageResponse(
-        stored=bool(result.get("stored", True)),
-        frame_id=result.get("frame_id"),
-        detection_ms=result.get("detection_ms"),
-        ingestion_ms=result.get("ingestion_ms"),
-    )
+    return CaptureImageResponse(stored=bool(result.get("stored", True)), frame_id=result.get("frame_id"), detection_ms=result.get("detection_ms"), ingestion_ms=result.get("ingestion_ms"))
