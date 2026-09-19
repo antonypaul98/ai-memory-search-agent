@@ -6,7 +6,7 @@ from typing import Literal
 
 from .authenticated_query import AuthenticatedHomeAgentQuery
 from .natural_language import parse_home_query
-from .query_service import BeforeLocationAnswer, WhereAnswer
+from .query_service import BeforeLocationAnswer, MovementEvent, WhereAnswer
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,8 +14,8 @@ class NaturalLanguageQueryResult:
     """Typed result that keeps parsing/execution failures explicit."""
 
     status: Literal["answered", "unsupported", "not_found"]
-    kind: Literal["where_is", "before_location"] | None = None
-    answer: WhereAnswer | BeforeLocationAnswer | None = None
+    kind: Literal["where_is", "before_location", "location_history"] | None = None
+    answer: WhereAnswer | BeforeLocationAnswer | list[MovementEvent] | None = None
 
 
 def execute_home_query(
@@ -35,6 +35,12 @@ def execute_home_query(
             object_name=intent.object_name,
             min_confidence=min_confidence,
         )
+    elif intent.kind == "location_history":
+        answer = query.movement_history(
+            object_name=intent.object_name,
+            min_confidence=min_confidence,
+            limit=limit,
+        )
     else:
         if intent.location is None:  # defensive invariant for typed parser output
             return NaturalLanguageQueryResult(status="unsupported")
@@ -45,6 +51,6 @@ def execute_home_query(
             limit=limit,
         )
 
-    if answer is None:
+    if not answer:
         return NaturalLanguageQueryResult(status="not_found", kind=intent.kind)
     return NaturalLanguageQueryResult(status="answered", kind=intent.kind, answer=answer)
