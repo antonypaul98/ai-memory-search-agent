@@ -24,6 +24,18 @@ def test_routes_singular_object_before_location_question():
     )
 
 
+def test_routes_location_history_question():
+    assert parse_home_query("Where have my keys been?") == HomeQueryIntent(
+        kind="location_history", object_name="keys"
+    )
+
+
+def test_routes_location_history_today_question():
+    assert parse_home_query("  Where has the wallet been today?  ") == HomeQueryIntent(
+        kind="location_history", object_name="wallet"
+    )
+
+
 def test_unknown_language_fails_closed():
     assert parse_home_query("Did anyone move my keys after lunch?") is None
     assert parse_home_query("") is None

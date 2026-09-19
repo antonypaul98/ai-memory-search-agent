@@ -12,7 +12,7 @@ from typing import Literal
 
 @dataclass(frozen=True, slots=True)
 class HomeQueryIntent:
-    kind: Literal["where_is", "before_location"]
+    kind: Literal["where_is", "before_location", "location_history"]
     object_name: str
     location: str | None = None
 
@@ -20,6 +20,10 @@ class HomeQueryIntent:
 _BEFORE_PATTERNS = (
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:i (?:left|put|placed) (?:it|them) (?:in|at|on) |(?:it|they) (?:was|were) (?:in|at|on) |)(?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
+)
+_HISTORY_PATTERN = re.compile(
+    r"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: today)?\??$",
+    re.IGNORECASE,
 )
 _WHERE_PATTERN = re.compile(r"^where (?:is|are) (?:my |the )?(?P<object>.+?)\??$", re.IGNORECASE)
 
@@ -32,8 +36,8 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
     """Parse a bounded Home/Jarvis physical-memory question without an LLM.
 
     Supported examples include ``Where are my keys?``, ``Where were my keys before
-    the kitchen?`` and ``Where were my keys before I left them in the kitchen?``.
-    Unsupported/ambiguous text returns ``None``.
+    the kitchen?``, ``Where were my keys before I left them in the kitchen?`` and
+    ``Where have my keys been today?``. Unsupported/ambiguous text returns ``None``.
     """
     normalized = " ".join(text.strip().split())
     if not normalized:
@@ -46,6 +50,12 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
             location = _clean(match.group("location"))
             if object_name and location:
                 return HomeQueryIntent(kind="before_location", object_name=object_name, location=location)
+
+    match = _HISTORY_PATTERN.fullmatch(normalized)
+    if match:
+        object_name = _clean(match.group("object"))
+        if object_name:
+            return HomeQueryIntent(kind="location_history", object_name=object_name)
 
     match = _WHERE_PATTERN.fullmatch(normalized)
     if match:
