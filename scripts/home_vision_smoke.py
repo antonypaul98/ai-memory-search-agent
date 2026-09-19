@@ -47,17 +47,37 @@ def main():
                 frames.append(result["frame_id"])
             assert result["stored_observations"] > 0, "trained detector produced no observations"
         restarted = PostgresHomeImageStore(factory)
-        answer = HomeAgentQueryService(restarted).where_is(user_id=tenant, object_name="cat", min_confidence=.2)
+        query = HomeAgentQueryService(restarted)
+        answer = query.where_is(user_id=tenant, object_name="cat", min_confidence=.2)
         assert answer is not None and answer.location == "demo living room"
         assert answer.observed_at == (now-timedelta(minutes=1)).isoformat()
         provenance = restarted.describe_observation(user_id=tenant, observation_id=answer.evidence_id)
         assert provenance["identity_kind"] == "class"
         assert restarted.get_image(user_id=tenant, frame_id=provenance["frame_id"])
         assert restarted.get_image(user_id=tenant+"-other", frame_id=provenance["frame_id"]) is None
+
+        movements = query.movement_history(user_id=tenant, object_name="cat", min_confidence=.2, limit=20)
+        assert len(movements) == 1, "expected exactly one physical movement transition"
+        movement = movements[0]
+        assert movement.from_location == "demo office"
+        assert movement.to_location == "demo living room"
+        assert movement.from_evidence_id != movement.to_evidence_id
+        movement_provenance = restarted.describe_observation(
+            user_id=tenant, observation_id=movement.to_evidence_id)
+        assert movement_provenance is not None
+        # Multiple valid detections can exist in the destination frame. Movement
+        # evidence need not be the exact detection selected by where_is(); what
+        # matters is that the transition's own evidence is retained and scoped.
+        assert restarted.get_image(user_id=tenant, frame_id=movement_provenance["frame_id"])
+        assert restarted.get_image(user_id=tenant+"-other", frame_id=movement_provenance["frame_id"]) is None
+        assert query.movement_history(user_id=tenant+"-other", object_name="cat", min_confidence=.2, limit=20) == []
+
         print(json.dumps({"result": "passed", "model_revision": MODEL_REVISION,
             "detector_id": detector.detector_id, "location": answer.location,
             "confidence": answer.confidence, "detection_ms": result["detection_ms"],
-            "ingestion_ms": result["ingestion_ms"], "evidence_linked": True}))
+            "ingestion_ms": result["ingestion_ms"], "evidence_linked": True,
+            "movement_history": {"from": movement.from_location, "to": movement.to_location,
+                "tenant_isolated": True}}))
     finally:
         for frame_id in frames:
             store.delete_image(user_id=tenant, frame_id=frame_id)
