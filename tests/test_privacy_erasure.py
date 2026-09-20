@@ -45,6 +45,17 @@ def _stub_home_physical_erasure(monkeypatch, result=None):
     return home_result
 
 
+def _stub_erasure_fence(monkeypatch):
+    fenced: list[str] = []
+    class _Fence:
+        def __init__(self, factory):
+            self.factory = factory
+        def fence(self, *, user_id: str):
+            fenced.append(user_id)
+    monkeypatch.setattr(privacy_erasure, "AccountErasureFence", _Fence)
+    return fenced
+
+
 def _stub_capture_erasure(monkeypatch, deleted=0):
     user_ids: list[str] = []
     def _store(factory):
@@ -64,13 +75,15 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
     monkeypatch.setattr(privacy_erasure, "PostgresEventStore", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0}))
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: 0))
+    fenced_users = _stub_erasure_fence(monkeypatch)
     capture_users = _stub_capture_erasure(monkeypatch, deleted=2)
     graph_deleted = _stub_graph_erasure(monkeypatch); intelligence_deleted = _stub_intelligence_erasure(monkeypatch); home_physical_deleted = _stub_home_physical_erasure(monkeypatch)
     result = privacy_erasure.delete_production_user_data(object(), user_id="tenant-a", privacy_service=service)
     assert service.user_ids == ["tenant-a"]
+    assert fenced_users == ["tenant-a"]
     assert capture_users == ["tenant-a"]
     assert calls == [(connection_factory, "tenant-a")]
-    assert result == {"deleted": True, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
+    assert result == {"deleted": True, "account_fenced": True, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
 
 
 def test_delete_production_user_data_reports_partial_memory_failure_but_erases_feedback(monkeypatch):
@@ -80,9 +93,9 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
         feedback_user_ids.append(user_id); return {"feedback": 1, "credit_ledger": 0, "output_preferences": 0, "interactions": 1}
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
     monkeypatch.setattr(privacy_erasure, "PostgresEventStore", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0})); monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: 0))
-    _stub_capture_erasure(monkeypatch); _stub_graph_erasure(monkeypatch); _stub_intelligence_erasure(monkeypatch); _stub_home_physical_erasure(monkeypatch)
+    fenced_users = _stub_erasure_fence(monkeypatch); _stub_capture_erasure(monkeypatch); _stub_graph_erasure(monkeypatch); _stub_intelligence_erasure(monkeypatch); _stub_home_physical_erasure(monkeypatch)
     result = privacy_erasure.delete_production_user_data(object(), user_id="tenant-a", privacy_service=service)
-    assert feedback_user_ids == ["tenant-a"]; assert result["deleted"] is False; assert result["memory_errors"] == ["memory-2: delete failed"]
+    assert fenced_users == ["tenant-a"]; assert feedback_user_ids == ["tenant-a"]; assert result["deleted"] is False; assert result["memory_errors"] == ["memory-2: delete failed"]
 
 
 def test_delete_production_user_data_fails_closed_before_deletion(monkeypatch):
