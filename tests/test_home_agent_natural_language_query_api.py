@@ -7,7 +7,7 @@ from app.api.auth import get_current_user
 from app.api.dependencies import get_home_agent_query_service
 from app.config import get_settings
 from app.models.user import UserPublic
-from app.services.home_agent.query_service import BeforeLocationAnswer, HomeAgentQueryService, WhereAnswer
+from app.services.home_agent.query_service import BeforeLocationAnswer, HomeAgentQueryService, MovementEvent, WhereAnswer
 
 
 def _client(test_settings, service):
@@ -72,6 +72,34 @@ def test_query_before_location_preserves_both_evidence_ids(test_settings):
         app.dependency_overrides.clear()
 
 
+def test_query_location_history_serializes_movements_and_evidence(test_settings):
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = [MovementEvent(
+        object_name="keys", from_location="desk", to_location="kitchen",
+        moved_at="2026-09-19T15:00:00+00:00", confidence=0.93,
+        source_id="camera-kitchen", from_evidence_id="frame-desk",
+        to_evidence_id="frame-kitchen",
+    )]
+    app = _client(test_settings, service)
+    try:
+        response = _post(app, test_settings, {"text": "Where have my keys been?", "limit": 12})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "answered"
+        assert body["kind"] == "location_history"
+        assert body["movements"] == [{
+            "object_name": "keys", "from_location": "desk", "to_location": "kitchen",
+            "moved_at": "2026-09-19T15:00:00+00:00", "confidence": 0.93,
+            "source_id": "camera-kitchen", "from_evidence_id": "frame-desk",
+            "to_evidence_id": "frame-kitchen",
+        }]
+        service.movement_history.assert_called_once_with(
+            user_id="owner-a", object_name="keys", min_confidence=0.5, limit=12,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_query_unsupported_and_not_found_are_explicit(test_settings):
     service = MagicMock(spec=HomeAgentQueryService)
     app = _client(test_settings, service)
@@ -81,6 +109,7 @@ def test_query_unsupported_and_not_found_are_explicit(test_settings):
         assert unsupported.json()["status"] == "unsupported"
         service.where_is.assert_not_called()
         service.before_location.assert_not_called()
+        service.movement_history.assert_not_called()
 
         service.where_is.return_value = None
         missing = _post(app, test_settings, {"text": "Where are my keys?"})
@@ -99,5 +128,6 @@ def test_query_rejects_caller_supplied_tenant_identity(test_settings):
         assert response.status_code == 422
         service.where_is.assert_not_called()
         service.before_location.assert_not_called()
+        service.movement_history.assert_not_called()
     finally:
         app.dependency_overrides.clear()
