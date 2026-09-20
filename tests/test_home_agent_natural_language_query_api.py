@@ -95,6 +95,7 @@ def test_query_location_history_serializes_movements_and_evidence(test_settings)
         }]
         service.movement_history.assert_called_once_with(
             user_id="owner-a", object_name="keys", min_confidence=0.5, limit=12,
+            since=None, until=None,
         )
     finally:
         app.dependency_overrides.clear()
