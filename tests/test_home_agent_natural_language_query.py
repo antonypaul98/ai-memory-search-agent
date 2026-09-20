@@ -1,4 +1,5 @@
 """Tests for authenticated execution of bounded Home/Jarvis questions."""
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from app.models.user import UserPublic
@@ -68,6 +69,39 @@ def test_executes_location_history_with_authenticated_identity_and_evidence():
     service.movement_history.assert_called_once_with(
         user_id="owner-a", object_name="keys", min_confidence=0.8, limit=12,
         since=None, until=None,
+    )
+
+
+def test_today_history_uses_authenticated_timezone_bounds():
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = []
+    result = execute_home_query(
+        text="Where have my keys been today?",
+        query=_query(service),
+        timezone_name="America/New_York",
+        now=datetime(2026, 9, 20, 22, 0, tzinfo=timezone.utc),
+    )
+    assert result.status == "not_found"
+    service.movement_history.assert_called_once_with(
+        user_id="owner-a", object_name="keys", min_confidence=0.5, limit=20,
+        since=datetime(2026, 9, 20, 4, 0, tzinfo=timezone.utc),
+        until=datetime(2026, 9, 21, 4, 0, tzinfo=timezone.utc),
+    )
+
+
+def test_today_history_is_dst_safe_on_fall_back_day():
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = []
+    execute_home_query(
+        text="Where have my keys been today?",
+        query=_query(service),
+        timezone_name="America/New_York",
+        now=datetime(2026, 11, 1, 17, 0, tzinfo=timezone.utc),
+    )
+    service.movement_history.assert_called_once_with(
+        user_id="owner-a", object_name="keys", min_confidence=0.5, limit=20,
+        since=datetime(2026, 11, 1, 4, 0, tzinfo=timezone.utc),
+        until=datetime(2026, 11, 2, 5, 0, tzinfo=timezone.utc),
     )
 
 
