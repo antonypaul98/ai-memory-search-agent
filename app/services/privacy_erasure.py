@@ -8,6 +8,8 @@ from app.db.account_erasure_fence import AccountErasureFence
 from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
+from app.db.postgres_agent_runtime_store import PostgresAgentRuntimeStore
+from app.db.postgres_auth_store import PostgresAuthStore
 from app.db.postgres_capture_store import PostgresCaptureStore
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
@@ -44,10 +46,16 @@ def delete_production_user_data(
     # This must be first: a failed/partial erasure remains fail-closed on retry.
     AccountErasureFence(connection_factory).fence(user_id=owner)
 
+    # Revoke authenticated ingress immediately after the durable write fence. The
+    # user row intentionally remains until account-profile deletion is explicitly
+    # accepted; password/session secrets are never part of portable export.
+    sessions_revoked = PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
+
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
     )
     capture_payloads_deleted = PostgresCaptureStore(connection_factory).delete_for_user(user_id=owner)
+    agent_deleted = PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
 
     memory_result = service.delete_all_memories(user_id=owner)
     feedback_counts = delete_user_feedback_data(connection_factory, user_id=owner)
@@ -60,8 +68,10 @@ def delete_production_user_data(
     return {
         "deleted": not errors,
         "account_fenced": True,
+        "sessions_revoked": sessions_revoked,
         "capture_sessions_revoked": capture_sessions_revoked,
         "capture_payloads_deleted": capture_payloads_deleted,
+        "agent_deleted": agent_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
         "memory_errors": errors,
         "feedback_deleted": feedback_counts,
