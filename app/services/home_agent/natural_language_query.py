@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, time, timedelta, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from .authenticated_query import AuthenticatedHomeAgentQuery
 from .natural_language import parse_home_query
@@ -18,12 +20,26 @@ class NaturalLanguageQueryResult:
     answer: WhereAnswer | BeforeLocationAnswer | list[MovementEvent] | None = None
 
 
+def _today_bounds(*, timezone_name: str, now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Return the UTC half-open interval covering today in a trusted IANA timezone."""
+    zone = ZoneInfo(timezone_name)
+    instant = now or datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    local_now = instant.astimezone(zone)
+    local_start = datetime.combine(local_now.date(), time.min, tzinfo=zone)
+    local_end = datetime.combine(local_now.date() + timedelta(days=1), time.min, tzinfo=zone)
+    return local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
+
+
 def execute_home_query(
     *,
     text: str,
     query: AuthenticatedHomeAgentQuery,
     min_confidence: float = 0.5,
     limit: int = 20,
+    timezone_name: str = "UTC",
+    now: datetime | None = None,
 ) -> NaturalLanguageQueryResult:
     """Parse and execute one bounded question using authenticated tenant identity only."""
     intent = parse_home_query(text)
@@ -36,10 +52,15 @@ def execute_home_query(
             min_confidence=min_confidence,
         )
     elif intent.kind == "location_history":
+        since = until = None
+        if intent.time_scope == "today":
+            since, until = _today_bounds(timezone_name=timezone_name, now=now)
         answer = query.movement_history(
             object_name=intent.object_name,
             min_confidence=min_confidence,
             limit=limit,
+            since=since,
+            until=until,
         )
     else:
         if intent.location is None:  # defensive invariant for typed parser output
