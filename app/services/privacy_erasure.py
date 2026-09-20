@@ -8,6 +8,8 @@ from app.db.account_erasure_fence import AccountErasureFence
 from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
+from app.db.postgres_agent_runtime_store import PostgresAgentRuntimeStore
+from app.db.postgres_auth_store import PostgresAuthStore
 from app.db.postgres_capture_store import PostgresCaptureStore
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
@@ -43,6 +45,13 @@ def delete_production_user_data(
 
     # This must be first: a failed/partial erasure remains fail-closed on retry.
     AccountErasureFence(connection_factory).fence(user_id=owner)
+
+    # Revoke authenticated ingress and erase persisted agent execution history
+    # before deleting canonical data. Production connection factories are callable;
+    # the guard preserves lightweight unit-test doubles without weakening runtime.
+    if callable(connection_factory):
+        PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
+        PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
 
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
