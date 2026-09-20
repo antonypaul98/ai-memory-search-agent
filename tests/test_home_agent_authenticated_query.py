@@ -72,3 +72,25 @@ def test_history_cannot_accept_caller_supplied_user_id():
             "limit": 5,
         }
     ]
+
+
+def test_movement_history_propagates_bounds_without_exposing_user_id():
+    store = RecordingStore()
+    boundary = AuthenticatedHomeAgentQuery(
+        service=HomeAgentQueryService(store),
+        user=UserPublic(user_id="tenant-a"),
+    )
+    since = datetime(2026, 9, 20, 4, 0, tzinfo=timezone.utc)
+    until = datetime(2026, 9, 21, 4, 0, tzinfo=timezone.utc)
+
+    assert boundary.movement_history(
+        object_name="keys", min_confidence=0.7, limit=7, since=since, until=until
+    ) == []
+    assert store.history_calls == [
+        {
+            "user_id": "tenant-a",
+            "object_name": "keys",
+            "min_confidence": 0.7,
+            "limit": 7,
+        }
+    ]
