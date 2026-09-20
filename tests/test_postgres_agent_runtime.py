@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 
 from app.config import Settings
+from app.db.account_erasure_fence import AccountErasureFence
 from app.db.postgres_runtime import PostgresConfigurationError, get_postgres_connection_factory
 from app.db.production_storage_profile import RELATIONAL_STORE_BACKEND_FIELDS
 from app.models.agent_runtime import AgentPolicyTier, AgentRunRequest, AgentRunStatus
@@ -67,6 +68,7 @@ def pg_agent_runtime(monkeypatch, tmp_path):
             conn.execute("DELETE FROM memory_events WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM agent_tool_calls WHERE user_id IN (%s, %s)", (owner, other))
             conn.execute("DELETE FROM agent_runs WHERE user_id IN (%s, %s)", (owner, other))
+            conn.execute("DELETE FROM account_erasure_fences WHERE user_id IN (%s, %s)", (owner, other))
         assert attempts == []
         assert not (tmp_path / "forbidden.db").exists()
 
@@ -118,3 +120,29 @@ def test_postgres_agent_runtime_preserves_approval_and_failure_state(pg_agent_ru
     assert len(failed.tool_calls) == 1
     assert failed.tool_calls[0].status == "failed"
     assert "RuntimeError" in failed.message
+
+
+def test_postgres_erasure_fence_blocks_only_target_tenant(pg_agent_runtime):
+    _, runtime, factory, owner, other = pg_agent_runtime
+    fence = AccountErasureFence(factory)
+    fence.fence(user_id=owner)
+
+    request = AgentRunRequest(
+        task="search after erasure fence",
+        tool="search_memory",
+        arguments={"query": "tenant isolation"},
+        policy_tier=AgentPolicyTier.READ_ONLY,
+    )
+    with pytest.raises(PermissionError, match="account erasure"):
+        runtime.run(user_id=owner, request=request)
+
+    response = MagicMock()
+    response.model_dump.return_value = {"query": "tenant isolation", "results": []}
+    with patch("app.services.agent_runtime.SearchService") as search:
+        search.return_value.search.return_value = response
+        other_run = runtime.run(user_id=other, request=request)
+
+    assert other_run.status == AgentRunStatus.COMPLETED
+    assert len(other_run.tool_calls) == 1
+    assert fence.is_fenced(user_id=owner) is True
+    assert fence.is_fenced(user_id=other) is False
