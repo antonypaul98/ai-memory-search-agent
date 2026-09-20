@@ -67,6 +67,7 @@ def test_executes_location_history_with_authenticated_identity_and_evidence():
     assert result.answer[0].to_evidence_id == "frame-kitchen"
     service.movement_history.assert_called_once_with(
         user_id="owner-a", object_name="keys", min_confidence=0.8, limit=12,
+        since=None, until=None,
     )
 
 

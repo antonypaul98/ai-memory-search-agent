@@ -51,6 +51,7 @@ def test_movement_history_uses_authenticated_identity(test_settings) -> None:
         }]
         service.movement_history.assert_called_once_with(
             user_id="owner-a", object_name="keys", min_confidence=0.8, limit=10,
+            since=None, until=None,
         )
     finally:
         app.dependency_overrides.clear()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.models.user import UserPublic
 
@@ -28,8 +29,24 @@ class AuthenticatedHomeAgentQuery:
     def history(self, *, object_name: str, min_confidence: float = 0.0, limit: int = 20) -> list[ObjectSighting]:
         return self.service.history(user_id=self.user.user_id, object_name=object_name, min_confidence=min_confidence, limit=limit)
 
-    def movement_history(self, *, object_name: str, min_confidence: float = 0.5, limit: int = 20) -> list[MovementEvent]:
-        return self.service.movement_history(user_id=self.user.user_id, object_name=object_name, min_confidence=min_confidence, limit=limit)
+    def movement_history(
+        self,
+        *,
+        object_name: str,
+        min_confidence: float = 0.5,
+        limit: int = 20,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> list[MovementEvent]:
+        """Return tenant-scoped movement history with optional trusted time bounds."""
+        return self.service.movement_history(
+            user_id=self.user.user_id,
+            object_name=object_name,
+            min_confidence=min_confidence,
+            limit=limit,
+            since=since,
+            until=until,
+        )
 
     def before_location(self, *, object_name: str, location: str, min_confidence: float = 0.5, limit: int = 20) -> BeforeLocationAnswer | None:
         """Answer from authenticated tenant history only."""
