@@ -83,7 +83,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     assert fenced_users == ["tenant-a"]
     assert capture_users == ["tenant-a"]
     assert calls == [(connection_factory, "tenant-a")]
-    assert result == {"deleted": True, "account_fenced": True, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
+    assert result == {"deleted": True, "account_fenced": True, "oauth_tokens_deleted": 0, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
 
 
 def test_delete_production_user_data_reports_partial_memory_failure_but_erases_feedback(monkeypatch):
