@@ -92,5 +92,7 @@ def test_movement_history_propagates_bounds_without_exposing_user_id():
             "object_name": "keys",
             "min_confidence": 0.7,
             "limit": 7,
+            "since": since,
+            "until": until,
         }
     ]
