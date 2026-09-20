@@ -50,6 +50,19 @@ class NaturalLanguageQueryResponse(BaseModel):
     movements: list[MovementEventResponse] | None = None
 
 
+def _movement_response(event: MovementEvent) -> MovementEventResponse:
+    return MovementEventResponse(
+        object_name=event.object_name,
+        from_location=event.from_location,
+        to_location=event.to_location,
+        moved_at=event.moved_at,
+        confidence=event.confidence,
+        source_id=event.source_id,
+        from_evidence_id=event.from_evidence_id,
+        to_evidence_id=event.to_evidence_id,
+    )
+
+
 @router.post("/query", response_model=NaturalLanguageQueryResponse)
 def natural_language_query(
     body: NaturalLanguageQueryRequest,
@@ -72,7 +85,7 @@ def natural_language_query(
         return NaturalLanguageQueryResponse(
             status=result.status,
             kind=result.kind,
-            movements=[MovementEventResponse(**event.__dict__) for event in answer],
+            movements=[_movement_response(event) for event in answer],
         )
 
     if isinstance(answer, WhereAnswer):
