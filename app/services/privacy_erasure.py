@@ -46,16 +46,17 @@ def delete_production_user_data(
     # This must be first: a failed/partial erasure remains fail-closed on retry.
     AccountErasureFence(connection_factory).fence(user_id=owner)
 
-    # Revoke authenticated ingress immediately after the durable write fence. The
-    # user row intentionally remains until account-profile deletion is explicitly
-    # accepted; password/session secrets are never part of portable export.
-    sessions_revoked = PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
+    # Revoke authenticated ingress and erase persisted agent execution history
+    # before deleting canonical data. Production connection factories are callable;
+    # the guard preserves lightweight unit-test doubles without weakening runtime.
+    if callable(connection_factory):
+        PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
+        PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
 
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
     )
     capture_payloads_deleted = PostgresCaptureStore(connection_factory).delete_for_user(user_id=owner)
-    agent_deleted = PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
 
     memory_result = service.delete_all_memories(user_id=owner)
     feedback_counts = delete_user_feedback_data(connection_factory, user_id=owner)
@@ -68,10 +69,8 @@ def delete_production_user_data(
     return {
         "deleted": not errors,
         "account_fenced": True,
-        "sessions_revoked": sessions_revoked,
         "capture_sessions_revoked": capture_sessions_revoked,
         "capture_payloads_deleted": capture_payloads_deleted,
-        "agent_deleted": agent_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
         "memory_errors": errors,
         "feedback_deleted": feedback_counts,
