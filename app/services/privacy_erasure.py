@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
+from app.db.account_erasure_fence import AccountErasureFence
 from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
@@ -24,14 +25,11 @@ def delete_production_user_data(
     privacy_service: PrivacyService | None = None,
     capture_registry: CaptureSessionRegistry | None = None,
 ) -> dict[str, Any]:
-    """Delete one tenant's production data, including capture/retry payloads.
+    """Delete one tenant's production data after durably fencing new work.
 
-    This intentionally fails closed outside the complete production profile instead
-    of claiming a full-account erasure while a relational domain could remain on a
-    legacy backend. When the process owns active Home capture sessions, callers pass
-    that registry so producers are fenced before persisted capture payload deletion.
-    Memory deletion is best-effort per canonical memory; subsequent bounded domains
-    are still attempted so a later retry can complete any remaining work.
+    The durable fence is installed before any deletion starts and intentionally
+    survives partial failure/retry. This prevents agent and other fence-aware
+    producers from recreating tenant state while erasure is in progress.
     """
 
     owner = str(user_id or "").strip()
@@ -43,8 +41,9 @@ def delete_production_user_data(
     service = privacy_service or PrivacyService(settings)
     connection_factory = get_postgres_connection_factory(settings)
 
-    # Fence process-local Home capture producers before deleting any persisted
-    # capture/retry payloads. The count is evidence for account-erasure auditing.
+    # This must be first: a failed/partial erasure remains fail-closed on retry.
+    AccountErasureFence(connection_factory).fence(user_id=owner)
+
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
     )
@@ -60,6 +59,7 @@ def delete_production_user_data(
     errors = list(memory_result.get("errors") or [])
     return {
         "deleted": not errors,
+        "account_fenced": True,
         "capture_sessions_revoked": capture_sessions_revoked,
         "capture_payloads_deleted": capture_payloads_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
