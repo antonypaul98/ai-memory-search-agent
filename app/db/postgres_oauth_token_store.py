@@ -76,3 +76,15 @@ class PostgresOAuthTokenStore:
                 (encrypted_payload, updated_at, user_id, connector_id),
             )
         return cur.rowcount > 0
+
+    def delete_for_user(self, *, user_id: str) -> int:
+        """Delete all locally persisted OAuth credentials for exactly one tenant."""
+        owner = str(user_id or "").strip()
+        if not owner:
+            raise ValueError("user_id is required")
+        with self._connection_factory() as conn:
+            cur = conn.execute(
+                "DELETE FROM connector_oauth_tokens WHERE user_id=%s",
+                (owner,),
+            )
+        return int(cur.rowcount or 0)
