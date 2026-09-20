@@ -14,6 +14,7 @@ from app.db.postgres_capture_store import PostgresCaptureStore
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
+from app.db.postgres_oauth_token_store import PostgresOAuthTokenStore
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.db.production_storage_profile import is_complete_postgres_profile
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
@@ -46,12 +47,14 @@ def delete_production_user_data(
     # This must be first: a failed/partial erasure remains fail-closed on retry.
     AccountErasureFence(connection_factory).fence(user_id=owner)
 
-    # Revoke authenticated ingress and erase persisted agent execution history
-    # before deleting canonical data. Production connection factories are callable;
-    # the guard preserves lightweight unit-test doubles without weakening runtime.
+    # Revoke authenticated/connector ingress and erase persisted agent execution
+    # history before deleting canonical data. The durable fence prevents new
+    # fence-aware work while these security credentials are being removed.
+    oauth_tokens_deleted = 0
     if callable(connection_factory):
         PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
         PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
+        oauth_tokens_deleted = PostgresOAuthTokenStore(connection_factory).delete_for_user(user_id=owner)
 
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
@@ -69,6 +72,7 @@ def delete_production_user_data(
     return {
         "deleted": not errors,
         "account_fenced": True,
+        "oauth_tokens_deleted": oauth_tokens_deleted,
         "capture_sessions_revoked": capture_sessions_revoked,
         "capture_payloads_deleted": capture_payloads_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
