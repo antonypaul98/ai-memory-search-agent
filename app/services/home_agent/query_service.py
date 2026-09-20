@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from .physical_memory import ObjectSighting
@@ -104,8 +105,23 @@ class HomeAgentQueryService:
     def history(self, *, user_id: str, object_name: str, min_confidence: float = 0.0, limit: int = 20) -> list[ObjectSighting]:
         return self._store.history(user_id=user_id, object_name=object_name, min_confidence=min_confidence, limit=limit)
 
-    def movement_history(self, *, user_id: str, object_name: str, min_confidence: float = 0.5, limit: int = 20) -> list[MovementEvent]:
-        """Return chronological location changes, preserving evidence on both sides."""
+    def movement_history(
+        self, *, user_id: str, object_name: str, min_confidence: float = 0.5,
+        limit: int = 20, since: datetime | None = None, until: datetime | None = None,
+    ) -> list[MovementEvent]:
+        """Return chronological location changes, optionally bounded by movement time.
+
+        ``since`` is inclusive and ``until`` is exclusive. Callers must provide
+        timezone-aware boundaries; this prevents ambiguous server-local filtering.
+        Evidence on both sides of every retained transition is preserved.
+        """
+        if since is not None and since.tzinfo is None:
+            raise ValueError("since must be timezone-aware")
+        if until is not None and until.tzinfo is None:
+            raise ValueError("until must be timezone-aware")
+        if since is not None and until is not None and since >= until:
+            raise ValueError("since must be earlier than until")
+
         sightings = self.history(user_id=user_id, object_name=object_name,
                                  min_confidence=min_confidence, limit=limit)
         chronological = list(reversed(sightings))
@@ -113,16 +129,20 @@ class HomeAgentQueryService:
         previous: ObjectSighting | None = None
         for current in chronological:
             if previous is not None and current.location != previous.location:
-                events.append(MovementEvent(
-                    object_name=current.object_name,
-                    from_location=previous.location,
-                    to_location=current.location,
-                    moved_at=current.observed_at.isoformat(),
-                    confidence=current.confidence,
-                    source_id=current.source_id,
-                    from_evidence_id=previous.evidence_id,
-                    to_evidence_id=current.evidence_id,
-                ))
+                moved_at = current.observed_at
+                if moved_at.tzinfo is None:
+                    raise ValueError("physical-memory timestamps must be timezone-aware")
+                if (since is None or moved_at >= since) and (until is None or moved_at < until):
+                    events.append(MovementEvent(
+                        object_name=current.object_name,
+                        from_location=previous.location,
+                        to_location=current.location,
+                        moved_at=moved_at.isoformat(),
+                        confidence=current.confidence,
+                        source_id=current.source_id,
+                        from_evidence_id=previous.evidence_id,
+                        to_evidence_id=current.evidence_id,
+                    ))
             previous = current
         return events
 
