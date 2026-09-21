@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,6 +39,7 @@ def merge_postgres_entities(
     collapsed_relations = 0
 
     with store._connection_factory() as conn:  # selected-store transaction boundary
+        require_active_tenant(conn, user_id=user_id)
         locked = conn.execute(
             "SELECT * FROM kg_entities WHERE user_id=%s AND entity_id IN (%s,%s) "
             "ORDER BY entity_id FOR UPDATE",

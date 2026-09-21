@@ -7,6 +7,8 @@ IntelligenceStore until their own stores are validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -84,6 +86,7 @@ class PostgresLearningEdgeStore:
         refs = evidence_refs or []
         edge_id = new_id("edge")
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 INSERT INTO learning_edges (

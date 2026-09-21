@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_job_repository import ConnectionFactory
 from app.db.postgres_runtime import get_postgres_connection_factory
@@ -83,6 +84,9 @@ def migrate_topics_to_postgres(
     inserted_topics = 0
     inserted_links = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[1] for row in topics} | {row[1] for row in links}):
+            require_active_tenant(target, user_id=owner)
         for row in topics:
             cur = target.execute(
                 """INSERT INTO topic_profiles (

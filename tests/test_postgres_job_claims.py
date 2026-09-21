@@ -1,3 +1,4 @@
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 from datetime import datetime, timezone
 
 import pytest
@@ -9,6 +10,9 @@ class Cursor:
     def __init__(self, row=None, rowcount=1):
         self.row = row
         self.rowcount = rowcount
+
+    def fetchall(self):
+        return self.row
 
     def fetchone(self):
         return self.row
@@ -38,6 +42,12 @@ class Connection:
         return False
 
     def execute(self, query, params=()):
+        if is_fence_query(query):
+            return UnfencedCursor()
+        if query.startswith("SELECT DISTINCT user_id FROM background_jobs"):
+            return Cursor([{"user_id": "user-1"}])
+        if query.startswith("SELECT user_id FROM background_jobs WHERE job_id="):
+            return Cursor({"user_id": "user-1"})
         sql = " ".join(query.split())
         self.calls.append((sql, params))
         if "WITH candidate AS" in sql:
@@ -63,7 +73,7 @@ def test_claim_uses_skip_locked_and_updates_lease_and_counters():
     assert claimed == ClaimedJobItem("job-1", "item-1", "memory://item-1")
     claim_sql, claim_params = conn.calls[0]
     assert "FOR UPDATE OF ji SKIP LOCKED" in claim_sql
-    assert "AND ji.user_id = %s" in claim_sql
+    assert "AND bj.user_id = %s" in claim_sql
     assert claim_params[2] == "user-1"
     assert claim_params[-1] == now
     assert "ON CONFLICT (job_id, item_key) DO UPDATE" in conn.calls[1][0]

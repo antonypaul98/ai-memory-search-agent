@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 
 import hashlib
 import json
@@ -31,6 +32,8 @@ class _FakePostgres:
         return False
 
     def execute(self, sql: str, params=None):
+        if is_fence_query(sql):
+            return UnfencedCursor()
         values = tuple(params) if params is not None else ()
         normalized = " ".join(sql.split()).lower()
         if normalized.startswith("insert into learning_edges"):

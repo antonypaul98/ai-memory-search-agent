@@ -8,6 +8,8 @@ Postgres runtime.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 import uuid
 from datetime import datetime, timezone
@@ -216,6 +218,7 @@ class PostgresMemoryStore:
         is_new = existing is None
 
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO memory_records (
@@ -282,6 +285,7 @@ class PostgresMemoryStore:
         current = from_state or memory.lifecycle_state
         now = _utc_now()
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 "UPDATE memory_records SET lifecycle_state = %s, updated_at = %s WHERE memory_id = %s AND user_id = %s",
                 (to_state.value, now, memory_id, user_id),
@@ -308,6 +312,7 @@ class PostgresMemoryStore:
 
     def add_version(self, *, memory: UniversalMemory, reason: str = "") -> MemoryVersionSnapshot:
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=memory.user_id)
             row = conn.execute(
                 "SELECT COALESCE(MAX(version_number), 0) AS max_v FROM memory_versions WHERE memory_id = %s",
                 (memory.memory_id,),
@@ -362,6 +367,7 @@ class PostgresMemoryStore:
 
     def append_trust_history(self, *, memory_id: str, user_id: str, trust: TrustMetrics) -> None:
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 "INSERT INTO memory_trust_history (memory_id, user_id, trust_json, created_at) VALUES (%s, %s, %s, %s)",
                 (memory_id, user_id, trust.model_dump_json(), _utc_now()),

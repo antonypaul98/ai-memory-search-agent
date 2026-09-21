@@ -22,6 +22,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_job_repository import ConnectionFactory
 from app.db.postgres_runtime import get_postgres_connection_factory
@@ -159,6 +160,9 @@ def migrate_youtube_state_to_postgres(
     metric_owner = next(iter(tenant_ids)) if metrics else None
 
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row["user_id"] for row in memories + pipeline + retries} | ({metric_owner} if metric_owner is not None else set())):
+            require_active_tenant(target, user_id=owner)
         for row in memories:
             values = tuple(row)
             cur = target.execute(

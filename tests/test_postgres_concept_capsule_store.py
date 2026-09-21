@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 import pytest
 
 from app.config import Settings
@@ -38,6 +40,8 @@ def test_postgres_concept_capsule_schema_preserves_tenant_identity():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return self
 
@@ -66,6 +70,8 @@ def test_concept_capsule_reads_are_exact_tenant_and_deterministic():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return FakeResult()
 
@@ -135,6 +141,8 @@ def test_concept_capsule_upsert_caps_progress_and_preserves_tenant_key():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return FakeResult()
 

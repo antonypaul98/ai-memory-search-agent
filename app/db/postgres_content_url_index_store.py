@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -95,6 +97,7 @@ class PostgresContentUrlIndexStore:
     ) -> None:
         now = created_at or _utc_now()
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO content_url_index (

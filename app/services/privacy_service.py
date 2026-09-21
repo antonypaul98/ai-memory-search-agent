@@ -226,7 +226,7 @@ class PrivacyService:
             user_id=user_id,
         ):
             raise RuntimeError(f"Canonical memory deletion lost ownership: {memory_id}")
-        SemanticCache(self._settings).bump_index_version_and_invalidate()
+        SemanticCache(self._settings).invalidate(user_id=user_id)
         logger.info(
             "memory_deleted memory_id=%s user_id=%s external_id=%s",
             memory_id,
@@ -240,8 +240,18 @@ class PrivacyService:
             "source_type": source_type,
         }
 
+    def delete_account_vectors(self, *, user_id: str) -> None:
+        """Erase even orphan vectors with exact metadata ownership after fencing."""
+        if not user_id or not user_id.strip():
+            raise ValueError("user_id is required")
+        from app.db.chroma_client import get_chroma_client
+        client = get_chroma_client(self._settings)
+        for name in (self._settings.chroma_collection_name,
+                     self._settings.capsule_collection_name, self._settings.section_collection_name):
+            client.get_or_create_collection(name=name).delete(where={"user_id": user_id})
+
     def delete_all_memories(self, *, user_id: str) -> dict[str, Any]:
-        memories = self._memory_store.list_recent(user_id=user_id, limit=50_000)
+        memories = self._memory_store.list_recent(user_id=user_id, limit=None if getattr(self, "_complete_postgres", False) else 50_000)
         deleted = 0
         errors: list[str] = []
         for memory in memories:

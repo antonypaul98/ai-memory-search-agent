@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -28,6 +30,7 @@ class PostgresAuthStore:
         user_id = email.lower().strip().replace("@", "_at_")
         resolved_name = display_name or email
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute("INSERT INTO users (user_id, email, password_hash, display_name, created_at) VALUES (%s, %s, %s, %s, %s)", (user_id, stored_email, hash_password(password, secret=secret), resolved_name, _utc_now()))
         return UserPublic(user_id=user_id, email=stored_email, display_name=resolved_name)
 
@@ -53,6 +56,7 @@ class PostgresAuthStore:
     def update_timezone(self, *, user_id: str, timezone_name: str) -> UserPublic | None:
         """Persist a validated timezone for exactly the authenticated tenant."""
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             cur = conn.execute("UPDATE users SET timezone_name = %s WHERE user_id = %s", (timezone_name, user_id))
             if int(cur.rowcount) != 1:
                 return None
@@ -65,6 +69,7 @@ class PostgresAuthStore:
         token = new_session_token()
         expires = datetime.now(timezone.utc) + timedelta(hours=self._settings.session_ttl_hours)
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (%s, %s, %s, %s)", (token, user_id, expires, _utc_now()))
         return token
 

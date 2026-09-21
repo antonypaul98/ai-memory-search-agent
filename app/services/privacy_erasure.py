@@ -5,6 +5,7 @@ from typing import Any
 
 from app.config import Settings
 from app.db.account_erasure_fence import AccountErasureFence
+from app.db.postgres_account_residuals import delete_account_residuals
 from app.db.home_physical_privacy import delete_user_home_physical_data
 from app.db.intelligence_privacy import delete_user_intelligence
 from app.db.knowledge_graph_privacy import delete_user_graph
@@ -75,6 +76,10 @@ def delete_production_user_data(
     intelligence_deleted = delete_user_intelligence(connection_factory, user_id=owner)
     home_physical_deleted = delete_user_home_physical_data(connection_factory, user_id=owner)
     errors = list(memory_result.get("errors") or [])
+    residuals = None
+    if not errors:
+        service.delete_account_vectors(user_id=owner)
+        residuals = delete_account_residuals(connection_factory, user_id=owner)
     result: dict[str, Any] = {
         "deleted": not errors,
         "account_fenced": True,
@@ -95,4 +100,6 @@ def delete_production_user_data(
     # stores; preserve the pre-existing response shape in that compatibility path.
     if jobs_deleted is not None:
         result["jobs_deleted"] = jobs_deleted
+    if residuals is not None:
+        result["residuals_deleted"] = residuals
     return result

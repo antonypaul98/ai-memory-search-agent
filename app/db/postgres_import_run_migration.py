@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_import_run_store import PostgresImportRunStore
 from app.db.postgres_job_repository import ConnectionFactory
@@ -108,6 +109,9 @@ def migrate_import_runs_to_postgres(
     items_inserted = 0
     items_skipped_existing_run = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row["user_id"] for row in runs}):
+            require_active_tenant(target, user_id=owner)
         for run in runs:
             cur = target.execute(
                 """

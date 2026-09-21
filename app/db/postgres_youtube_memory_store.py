@@ -8,6 +8,8 @@ Runtime backend routing and SQLite migration remain separate acceptance slices.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -142,6 +144,7 @@ class PostgresYouTubeMemoryStore:
 
     def upsert(self, memory: YouTubeMemory) -> YouTubeMemory:
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=memory.user_id)
             conn.execute(
                 """
                 INSERT INTO youtube_memories (
@@ -244,6 +247,7 @@ class PostgresYouTubeMemoryStore:
         elapsed_ms: float = 0.0,
     ) -> None:
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO youtube_pipeline_runs (
@@ -278,6 +282,7 @@ class PostgresYouTubeMemoryStore:
         now = datetime.now(timezone.utc)
         next_at = (now + timedelta(seconds=min(300, 2**attempt_count))).isoformat()
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             existing = conn.execute(
                 """
                 SELECT id, attempt_count FROM youtube_retry_queue
@@ -341,6 +346,7 @@ class PostgresYouTubeMemoryStore:
     ) -> None:
         now = _utc_now()
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 SELECT value_real, value_count FROM youtube_connector_metrics

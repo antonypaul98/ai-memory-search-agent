@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_bookmark_store import PostgresBookmarkStore
 from app.db.postgres_job_repository import ConnectionFactory
@@ -60,6 +61,9 @@ def migrate_bookmarks_to_postgres(
         ).fetchall()
     inserted = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[0] for row in rows}):
+            require_active_tenant(target, user_id=owner)
         for row in rows:
             cur = target.execute(
                 """INSERT INTO browser_bookmarks (

@@ -1,5 +1,6 @@
 """Real-Postgres acceptance for tenant-scoped content URL index migration."""
 from __future__ import annotations
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 
 import os
 import sqlite3
@@ -73,6 +74,8 @@ def test_real_postgres_retry_isolation_target_preservation_and_atomic_rollback(t
             return self.conn.__exit__(*args)
 
         def execute(self, sql, params=None):
+            if is_fence_query(sql):
+                return UnfencedCursor()
             normalized = " ".join(str(sql).split())
             if normalized.startswith("INSERT INTO content_url_index"):
                 self.inserts += 1

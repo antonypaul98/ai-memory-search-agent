@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from app.db.postgres_job_repository import ConnectionFactory
 
 
@@ -35,6 +37,7 @@ class PostgresReviewScheduleStore:
         # Increment inside the upsert: a read-then-write count loses concurrent
         # reviews. RETURNING reports the count belonging to this transaction.
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 INSERT INTO memory_review_schedule (

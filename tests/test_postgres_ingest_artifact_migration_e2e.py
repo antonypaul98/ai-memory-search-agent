@@ -1,5 +1,6 @@
 """Real-Postgres artifact migration acceptance, using only the explicit test DSN."""
 from __future__ import annotations
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 
 import os
 from uuid import uuid4
@@ -46,6 +47,8 @@ def test_real_postgres_retry_isolation_and_atomic_rollback(tmp_path):
             def __exit__(self, *args):
                 return self.conn.__exit__(*args)
             def execute(self, sql, params=None):
+                if is_fence_query(sql):
+                    return UnfencedCursor()
                 if "capsule_json = EXCLUDED.capsule_json" in sql:
                     self.conn.execute("SELECT 1 / 0")
                 return self.conn.execute(sql, params)

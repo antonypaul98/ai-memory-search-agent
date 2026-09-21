@@ -1,6 +1,8 @@
 """Postgres persistence primitives for tenant-scoped answer feedback."""
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -93,6 +95,7 @@ class PostgresFeedbackStore:
         route_fingerprint: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO answer_interactions(
@@ -170,6 +173,7 @@ class PostgresFeedbackStore:
         now = datetime.now(timezone.utc).isoformat()
         day = now[:10]
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             interaction = conn.execute(
                 "SELECT * FROM answer_interactions WHERE interaction_id = %s AND user_id = %s FOR UPDATE",
                 (interaction_id, user_id),

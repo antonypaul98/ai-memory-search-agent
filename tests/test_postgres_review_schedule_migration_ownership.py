@@ -1,3 +1,4 @@
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 """Legacy ownership, preview and target transaction acceptance for review state."""
 import os
 import sqlite3
@@ -109,6 +110,8 @@ def test_real_postgres_review_migration_rollback_retry_and_target_preservation(t
             def __exit__(self, *args):
                 return self.conn.__exit__(*args)
             def execute(self, sql, params=None):
+                if is_fence_query(sql):
+                    return UnfencedCursor()
                 if sql.startswith("INSERT INTO memory_review_schedule") and params[1] == "b":
                     self.conn.execute("SELECT 1 / 0")
                 return self.conn.execute(sql, params)

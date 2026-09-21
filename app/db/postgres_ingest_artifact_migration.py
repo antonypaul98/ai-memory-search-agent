@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterator
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_ingest_artifact_store import ensure_postgres_ingest_artifact_schema
 from app.db.postgres_job_repository import ConnectionFactory
@@ -92,6 +93,9 @@ def migrate_ingest_artifacts_to_postgres(
     transcript_written = 0
     capsule_written = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({tenant}):
+            require_active_tenant(target, user_id=owner)
         for row in transcript_rows:
             cur = target.execute(
                 """

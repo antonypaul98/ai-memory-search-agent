@@ -7,6 +7,8 @@ partial intelligence-domain deletion cannot be reported as success.
 
 from __future__ import annotations
 
+from app.db.postgres_privacy_tables import table_exists
+
 import json
 from typing import Any, Callable
 
@@ -143,6 +145,9 @@ def delete_user_intelligence(
             ("concept_capsules", "concept_capsules"),
             ("creator_profiles", "creator_profiles"),
         ):
+            if not table_exists(conn, table):
+                counts[key] = 0
+                continue
             cursor = conn.execute(
                 f"DELETE FROM {table} WHERE user_id = %s", (tenant,)
             )

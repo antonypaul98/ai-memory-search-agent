@@ -5,6 +5,8 @@ they do not establish that two detections are the same physical instance.
 """
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from hashlib import sha256
 
@@ -57,6 +59,7 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
         if not batch.detections:
             return {"frame_id": None, "stored_observations": 0, "retained_bytes": 0}
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=batch.user_id)
             frame = conn.execute("""
                 INSERT INTO home_image_evidence
                     (user_id, frame_id, image_bytes, image_sha256, source_id, location, observed_at, detector_id)

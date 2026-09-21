@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 from datetime import date
 
 import pytest
@@ -37,6 +39,8 @@ def test_intelligence_event_schema_is_tenant_indexed_and_deterministic():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return self
 
@@ -62,6 +66,8 @@ def test_event_reads_are_exact_tenant_and_deterministic():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return FakeResult()
 
@@ -91,6 +97,8 @@ def test_record_event_requires_identity_and_writes_exact_tenant():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return self
 
@@ -123,6 +131,8 @@ def test_save_dates_are_utc_scoped_to_save_events():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return FakeResult()
 

@@ -1,6 +1,8 @@
 """Postgres persistence for tenant-scoped encrypted OAuth connector tokens."""
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from typing import Any
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -35,6 +37,7 @@ class PostgresOAuthTokenStore:
         scopes_json: str, expires_at: str | None, now: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO connector_oauth_tokens (
@@ -67,6 +70,7 @@ class PostgresOAuthTokenStore:
         self, *, user_id: str, connector_id: str, encrypted_payload: bytes, updated_at: str,
     ) -> bool:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             cur = conn.execute(
                 """
                 UPDATE connector_oauth_tokens

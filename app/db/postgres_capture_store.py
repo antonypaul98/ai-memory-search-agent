@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from typing import Any
 
@@ -56,6 +58,7 @@ class PostgresCaptureStore:
         now: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO captures (
@@ -128,6 +131,7 @@ class PostgresCaptureStore:
         now: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             if title is not None:
                 conn.execute(
                     """
@@ -150,6 +154,7 @@ class PostgresCaptureStore:
 
     def rewrite_payload(self, capture_id: str, *, user_id: str, payload_json: str, now: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 "UPDATE captures SET payload_json = %s, updated_at = %s WHERE capture_id = %s AND user_id = %s",
                 (payload_json, now, capture_id, user_id),

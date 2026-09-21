@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 
 import hashlib
 import sqlite3
@@ -34,6 +35,8 @@ class _FakePostgres:
         return False
 
     def execute(self, sql: str, params=None):
+        if is_fence_query(sql):
+            return UnfencedCursor()
         values = tuple(params) if params is not None else None
         self.statements.append((sql, values))
         normalized = " ".join(sql.split()).lower()

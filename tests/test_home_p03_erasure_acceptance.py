@@ -20,6 +20,9 @@ from app.services.home_agent.image_ingest import DetectedObject, ImageObservatio
 
 
 class _EmptyPrivacyService:
+    def delete_account_vectors(self, *, user_id):
+        pass
+
     def delete_all_memories(self, *, user_id: str):
         return {"deleted_count": 0, "errors": []}
 

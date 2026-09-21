@@ -1,6 +1,8 @@
 """Postgres persistence for tenant-scoped ingest-agent rules and claims."""
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from typing import Any
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -51,6 +53,7 @@ class PostgresIngestAgentStore:
         match_json: str, force_refresh: bool, created_at: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO ingest_agent_rules (
@@ -66,6 +69,7 @@ class PostgresIngestAgentStore:
 
     def approve_rule(self, *, user_id: str, rule_id: str, updated_at: str) -> bool:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 UPDATE ingest_agent_rules
@@ -79,6 +83,7 @@ class PostgresIngestAgentStore:
 
     def disable_rule(self, *, user_id: str, rule_id: str, updated_at: str) -> bool:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 UPDATE ingest_agent_rules
@@ -100,6 +105,7 @@ class PostgresIngestAgentStore:
 
     def claim(self, *, user_id: str, rule_id: str, canonical_hash: str, updated_at: str) -> bool:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 INSERT INTO ingest_agent_claims (
@@ -116,6 +122,7 @@ class PostgresIngestAgentStore:
         self, *, user_id: str, rule_id: str, canonical_hash: str, updated_at: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 UPDATE ingest_agent_claims

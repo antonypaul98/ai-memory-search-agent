@@ -8,6 +8,8 @@ identifier; there is no global/unscoped fallback.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from typing import Any
 
@@ -70,6 +72,7 @@ class PostgresFTSIndex:
         if not user_id.strip():
             raise ValueError("user_id is required for lexical indexing")
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO memory_fts_documents (

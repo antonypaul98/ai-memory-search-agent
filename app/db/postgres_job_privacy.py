@@ -1,6 +1,8 @@
 """Exact-tenant background-job erasure for confirmed account deletion."""
 from __future__ import annotations
 
+from app.db.postgres_privacy_tables import table_exists
+
 from typing import Any, Callable
 
 
@@ -15,6 +17,8 @@ class PostgresJobPrivacyStore:
         if not owner:
             raise ValueError("user_id is required")
         with self._connection_factory() as conn:
+            if not table_exists(conn, "background_jobs"):
+                return {"leases": 0, "events": 0, "items": 0, "jobs": 0}
             counts: dict[str, int] = {}
             for key, table in (("leases", "job_item_leases"), ("events", "job_events")):
                 cursor = conn.execute(

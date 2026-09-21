@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 import pytest
 
 from app.config import Settings
@@ -37,6 +39,8 @@ def test_knowledge_graph_schema_preserves_tenant_identity_and_deterministic_inde
             return False
 
         def execute(self, sql, params=None):
+            if is_fence_query(sql):
+                return UnfencedCursor()
             statements.append((" ".join(str(sql).split()), params))
             return self
 
@@ -68,6 +72,8 @@ def test_entity_reads_and_search_are_exact_tenant_and_deterministic():
             return False
 
         def execute(self, sql, params=None):
+            if is_fence_query(sql):
+                return UnfencedCursor()
             statements.append((" ".join(str(sql).split()), params))
             return Result()
 
@@ -110,6 +116,8 @@ def test_relation_write_checks_both_entities_belong_to_tenant():
             return False
 
         def execute(self, sql, params=None):
+            if is_fence_query(sql):
+                return UnfencedCursor()
             statements.append((" ".join(str(sql).split()), params))
             return Result()
 
@@ -142,6 +150,8 @@ def test_memory_links_require_exact_tenant_entity_ownership():
             return False
 
         def execute(self, sql, params=None):
+            if is_fence_query(sql):
+                return UnfencedCursor()
             statements.append((" ".join(str(sql).split()), params))
             return Result()
 

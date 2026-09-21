@@ -7,6 +7,8 @@ their own stores are validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -92,6 +94,7 @@ class PostgresConceptCapsuleStore:
         completed = max(0, min(completed, total))
         capsule_id = new_id("ccap")
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 INSERT INTO concept_capsules (

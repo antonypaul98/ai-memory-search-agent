@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -44,6 +46,7 @@ class PostgresHomePhysicalMemoryStore:
         """Store a sighting once; duplicate evidence for the same tenant is ignored."""
         user_id = _required("user_id", user_id)
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             result = conn.execute(
                 """
                 INSERT INTO home_object_sightings (

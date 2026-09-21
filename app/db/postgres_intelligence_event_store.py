@@ -7,6 +7,8 @@ and SQLite migration to separately validated follow-up changes.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -61,6 +63,7 @@ class PostgresIntelligenceEventStore:
         if not event_type:
             raise ValueError("event_type is required")
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO intelligence_events (

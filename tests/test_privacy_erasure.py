@@ -18,6 +18,9 @@ from app.services.feedback_service import FeedbackService
 
 
 class _PrivacyService:
+    def delete_account_vectors(self, *, user_id):
+        pass
+
     def __init__(self, result):
         self.result = result
         self.user_ids: list[str] = []
@@ -46,6 +49,7 @@ def _stub_home_physical_erasure(monkeypatch, result=None):
 
 
 def _stub_erasure_fence(monkeypatch):
+    monkeypatch.setattr(privacy_erasure, "delete_account_residuals", lambda factory, *, user_id: {})
     fenced: list[str] = []
     class _Fence:
         def __init__(self, factory):
@@ -93,7 +97,7 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     assert capture_users == ["tenant-a"]
     assert import_users == []  # non-callable lightweight factory skips production-only stores
     assert calls == [(connection_factory, "tenant-a")]
-    assert result == {"deleted": True, "account_fenced": True, "oauth_tokens_deleted": 0, "imports_deleted": 0, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
+    assert result == {"residuals_deleted": {}, "deleted": True, "account_fenced": True, "oauth_tokens_deleted": 0, "imports_deleted": 0, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
 
 
 def test_delete_production_user_data_reports_partial_memory_failure_but_erases_feedback(monkeypatch):
