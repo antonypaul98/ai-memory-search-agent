@@ -54,7 +54,7 @@ def delete_production_user_data(
     # work while these tenant-owned execution records are being removed.
     oauth_tokens_deleted = 0
     imports_deleted = 0
-    jobs_deleted: dict[str, int] = {}
+    jobs_deleted: dict[str, int] | None = None
     if callable(connection_factory):
         PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
         PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
@@ -75,12 +75,11 @@ def delete_production_user_data(
     intelligence_deleted = delete_user_intelligence(connection_factory, user_id=owner)
     home_physical_deleted = delete_user_home_physical_data(connection_factory, user_id=owner)
     errors = list(memory_result.get("errors") or [])
-    return {
+    result: dict[str, Any] = {
         "deleted": not errors,
         "account_fenced": True,
         "oauth_tokens_deleted": oauth_tokens_deleted,
         "imports_deleted": imports_deleted,
-        "jobs_deleted": jobs_deleted,
         "capture_sessions_revoked": capture_sessions_revoked,
         "capture_payloads_deleted": capture_payloads_deleted,
         "memory_deleted_count": int(memory_result.get("deleted_count") or 0),
@@ -92,3 +91,8 @@ def delete_production_user_data(
         "intelligence_deleted": intelligence_deleted,
         "home_physical_deleted": home_physical_deleted,
     }
+    # Lightweight/non-callable test factories intentionally skip production-only
+    # stores; preserve the pre-existing response shape in that compatibility path.
+    if jobs_deleted is not None:
+        result["jobs_deleted"] = jobs_deleted
+    return result
