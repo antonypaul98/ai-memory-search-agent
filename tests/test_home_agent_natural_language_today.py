@@ -25,21 +25,19 @@ class _Query:
 
 
 def test_parser_separates_today_from_object_name():
-    intent = parse_home_query("Where did I last see my keys today?")
-    assert intent is None  # unsupported phrasing remains fail-closed until explicitly modeled
-
-    intent = parse_home_query("Where are my keys today?")
-    assert intent is not None
-    assert intent.kind == "where_is"
-    assert intent.object_name == "keys"
-    assert intent.time_scope == "today"
+    for text in ("Where did I last see my keys today?", "Where are my keys today?"):
+        intent = parse_home_query(text)
+        assert intent is not None
+        assert intent.kind == "where_is"
+        assert intent.object_name == "keys"
+        assert intent.time_scope == "today"
 
 
 def test_today_last_seen_routes_to_authenticated_local_day_path():
     query = _Query()
     now = datetime(2026, 9, 21, 4, 30, tzinfo=timezone.utc)
     result = execute_home_query(
-        text="Where are my keys today?",
+        text="Where did I last see my keys today?",
         query=query,
         timezone_name="Asia/Tokyo",  # caller input must not control authenticated relative time
         now=now,
