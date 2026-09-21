@@ -54,7 +54,7 @@ def list_jobs_for_user(
     settings: Settings,
     *,
     user_id: str,
-    limit: int = 500,
+    limit: int | None = 500,
 ) -> list[dict[str, Any]]:
     """Read a bounded tenant export from the configured durable job backend.
 
@@ -65,7 +65,7 @@ def list_jobs_for_user(
     """
     if not user_id or not user_id.strip():
         raise ValueError("user_id is required")
-    if limit <= 0:
+    if limit is not None and limit <= 0:
         raise ValueError("limit must be positive")
 
     if settings.job_store_backend == "sqlite":
@@ -78,7 +78,7 @@ def list_jobs_for_user(
                 ORDER BY created_at DESC, job_id
                 LIMIT ?
                 """,
-                (user_id, limit),
+                (user_id, -1 if limit is None else limit),
             ).fetchall()
     else:
         connection_factory = get_postgres_connection_factory(settings)

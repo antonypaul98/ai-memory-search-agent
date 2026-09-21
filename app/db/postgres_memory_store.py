@@ -160,7 +160,7 @@ class PostgresMemoryStore:
                 ).fetchone()
         return _row_to_memory(row) if row else None
 
-    def list_recent(self, *, user_id: str, limit: int = 50) -> list[UniversalMemory]:
+    def list_recent(self, *, user_id: str, limit: int | None = 50) -> list[UniversalMemory]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM memory_records WHERE user_id = %s ORDER BY updated_at DESC LIMIT %s",

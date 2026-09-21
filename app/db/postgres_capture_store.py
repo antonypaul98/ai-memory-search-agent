@@ -69,7 +69,7 @@ class PostgresCaptureStore:
                 ),
             )
 
-    def list_for_user(self, *, user_id: str, limit: int = 2000) -> list[dict]:
+    def list_for_user(self, *, user_id: str, limit: int | None = 2000) -> list[dict]:
         """Return deterministic capture export rows for exactly one tenant."""
         with self._connection_factory() as conn:
             rows = conn.execute(
