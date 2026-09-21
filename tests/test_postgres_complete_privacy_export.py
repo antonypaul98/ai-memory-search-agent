@@ -47,9 +47,16 @@ def export_context(monkeypatch, tmp_path):
 def test_complete_export_crosses_old_caps_and_preserves_canonical_history(export_context):
     settings, factory = export_context
     service = PrivacyService(settings)
+    memories = {}
     for owner in ("target", "neighbor"):
-        service._memory_store.upsert(user_id=owner, source_type=SourceType.WEB, external_id=owner,
-                                     canonical_url="https://example.test/" + owner, title=owner)
+        memories[owner] = service._memory_store.upsert(
+            user_id=owner, source_type=SourceType.WEB, external_id=owner,
+            canonical_url="https://example.test/" + owner, title=owner,
+        )
+    # Seed history through the canonical store API rather than assuming an upsert
+    # creates a version row. This proves the exporter returns real persisted history.
+    service._memory_store.add_version(memory=memories["target"], reason="export acceptance")
+    service._memory_store.add_version(memory=memories["neighbor"], reason="neighbor isolation")
     with factory() as conn:
         conn.execute("""INSERT INTO memory_records
             (memory_id,user_id,source_type,external_id,canonical_url,title,lifecycle_state,verification_status,created_at,updated_at)
