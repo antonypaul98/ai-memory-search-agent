@@ -40,14 +40,6 @@ class PostgresAgentRuntimeStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_run ON agent_tool_calls(run_id, id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_tenant ON agent_tool_calls(user_id, run_id, id)")
 
-    @staticmethod
-    def _require_active(conn: Any, *, user_id: str) -> None:
-        row = conn.execute(
-            "SELECT 1 FROM account_erasure_fences WHERE user_id=%s", (user_id,)
-        ).fetchone()
-        if row is not None:
-            raise PermissionError("account erasure is in progress or completed")
-
     def create_run(self, *, run_id: str, user_id: str, agent_id: str, task: str, tool: str,
                    arguments_json: str, policy_tier: str, status: str, message: str,
                    created_at: str) -> None:

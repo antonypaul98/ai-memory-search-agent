@@ -21,6 +21,10 @@ class PostgresAuthStore:
 
     def ensure_local_user(self) -> None:
         with self._connection_factory() as conn:
+            try:
+                require_active_tenant(conn, user_id=LOCAL_DEFAULT_USER_ID)
+            except PermissionError:
+                return  # Never reprovision an erased demo identity.
             conn.execute("""INSERT INTO users (user_id, email, password_hash, display_name, created_at)
                 VALUES (%s, NULL, NULL, 'Local Demo User', %s) ON CONFLICT (user_id) DO NOTHING""", (LOCAL_DEFAULT_USER_ID, _utc_now()))
 

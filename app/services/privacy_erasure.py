@@ -103,3 +103,13 @@ def delete_production_user_data(
     if residuals is not None:
         result["residuals_deleted"] = residuals
     return result
+
+
+def erase_confirmed_account(settings: Settings, *, user_id: str, confirm_user_id: str,
+                            privacy_service: PrivacyService | None = None,
+                            capture_registry: CaptureSessionRegistry | None = None) -> dict[str, Any]:
+    """Explicit confirmation boundary; the caller supplies authenticated ownership."""
+    if not user_id or confirm_user_id != user_id:
+        raise ValueError("account erasure requires confirmation of the exact account ID")
+    return delete_production_user_data(settings, user_id=user_id, privacy_service=privacy_service,
+                                       capture_registry=capture_registry)

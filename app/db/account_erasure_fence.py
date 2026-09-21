@@ -6,6 +6,7 @@ already-dispatched work and recreate tenant data.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from typing import Any, Callable
@@ -66,7 +67,7 @@ def require_active_tenant(conn, *, user_id: str) -> None:
     The marker table may be absent only before the first erasure in this schema.
     Writers still lock in that case, so concurrent first-time fencing drains them.
     """
-    if not isinstance(user_id, str) or not user_id.strip():
+    if not isinstance(user_id, str) or not user_id.strip() or user_id != user_id.strip():
         raise ValueError("user_id is required")
     conn.execute("SELECT pg_advisory_xact_lock_shared(730031, hashtext(%s))", (user_id,))
     exists = conn.execute(
@@ -78,9 +79,6 @@ def require_active_tenant(conn, *, user_id: str) -> None:
         ).fetchone()
         if fenced is not None:
             raise PermissionError("account erasure is in progress or completed")
-
-
-from contextlib import contextmanager
 
 
 @contextmanager
