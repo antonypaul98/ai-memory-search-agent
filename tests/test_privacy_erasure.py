@@ -64,6 +64,14 @@ def _stub_capture_erasure(monkeypatch, deleted=0):
     return user_ids
 
 
+def _stub_import_erasure(monkeypatch, deleted=0):
+    user_ids: list[str] = []
+    def _store(factory):
+        return SimpleNamespace(delete_for_user=lambda *, user_id: user_ids.append(user_id) or deleted)
+    monkeypatch.setattr(privacy_erasure, "PostgresImportRunStore", _store)
+    return user_ids
+
+
 def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     service = _PrivacyService({"deleted_count": 3, "errors": []})
     connection_factory = object()
@@ -77,13 +85,15 @@ def test_delete_production_user_data_erases_memory_and_feedback(monkeypatch):
     monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: 0))
     fenced_users = _stub_erasure_fence(monkeypatch)
     capture_users = _stub_capture_erasure(monkeypatch, deleted=2)
+    import_users = _stub_import_erasure(monkeypatch, deleted=5)
     graph_deleted = _stub_graph_erasure(monkeypatch); intelligence_deleted = _stub_intelligence_erasure(monkeypatch); home_physical_deleted = _stub_home_physical_erasure(monkeypatch)
     result = privacy_erasure.delete_production_user_data(object(), user_id="tenant-a", privacy_service=service)
     assert service.user_ids == ["tenant-a"]
     assert fenced_users == ["tenant-a"]
     assert capture_users == ["tenant-a"]
+    assert import_users == []  # non-callable lightweight factory skips production-only stores
     assert calls == [(connection_factory, "tenant-a")]
-    assert result == {"deleted": True, "account_fenced": True, "oauth_tokens_deleted": 0, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
+    assert result == {"deleted": True, "account_fenced": True, "oauth_tokens_deleted": 0, "imports_deleted": 0, "capture_sessions_revoked": 0, "capture_payloads_deleted": 2, "memory_deleted_count": 3, "memory_errors": [], "model_usage_deleted": 0, "activity_deleted": {"events": 0, "subscriptions": 0}, "graph_deleted": graph_deleted, "intelligence_deleted": intelligence_deleted, "home_physical_deleted": home_physical_deleted, "feedback_deleted": {"feedback": 2, "credit_ledger": 1, "output_preferences": 1, "interactions": 4}}
 
 
 def test_delete_production_user_data_reports_partial_memory_failure_but_erases_feedback(monkeypatch):
@@ -93,7 +103,7 @@ def test_delete_production_user_data_reports_partial_memory_failure_but_erases_f
         feedback_user_ids.append(user_id); return {"feedback": 1, "credit_ledger": 0, "output_preferences": 0, "interactions": 1}
     monkeypatch.setattr(privacy_erasure, "delete_user_feedback_data", _delete_feedback)
     monkeypatch.setattr(privacy_erasure, "PostgresEventStore", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: {"events": 0, "subscriptions": 0})); monkeypatch.setattr(privacy_erasure, "PostgresModelUsageLedger", lambda factory: SimpleNamespace(delete_user_data=lambda *, user_id: 0))
-    fenced_users = _stub_erasure_fence(monkeypatch); _stub_capture_erasure(monkeypatch); _stub_graph_erasure(monkeypatch); _stub_intelligence_erasure(monkeypatch); _stub_home_physical_erasure(monkeypatch)
+    fenced_users = _stub_erasure_fence(monkeypatch); _stub_capture_erasure(monkeypatch); _stub_import_erasure(monkeypatch); _stub_graph_erasure(monkeypatch); _stub_intelligence_erasure(monkeypatch); _stub_home_physical_erasure(monkeypatch)
     result = privacy_erasure.delete_production_user_data(object(), user_id="tenant-a", privacy_service=service)
     assert fenced_users == ["tenant-a"]; assert feedback_user_ids == ["tenant-a"]; assert result["deleted"] is False; assert result["memory_errors"] == ["memory-2: delete failed"]
 
@@ -122,17 +132,22 @@ def pg_tenant_erasure(monkeypatch, tmp_path):
             conn.execute("DELETE FROM answer_feedback WHERE user_id IN (%s, %s)", (owner, other)); conn.execute("DELETE FROM feedback_credit_ledger WHERE user_id IN (%s, %s)", (owner, other)); conn.execute("DELETE FROM output_preferences WHERE user_id IN (%s, %s)", (owner, other)); conn.execute("DELETE FROM answer_interactions WHERE user_id IN (%s, %s)", (owner, other))
             for table in ("learning_edges", "intelligence_events", "concept_capsules", "creator_profiles"): conn.execute(f"DELETE FROM {table} WHERE user_id IN (%s, %s)", (owner, other))
             for table in ("home_image_observations", "home_image_evidence", "home_physical_objects", "home_object_sightings"): conn.execute(f"DELETE FROM {table} WHERE user_id IN (%s, %s)", (owner, other))
+            conn.execute("DELETE FROM import_run_items WHERE user_id IN (%s, %s)", (owner, other)); conn.execute("DELETE FROM import_runs WHERE user_id IN (%s, %s)", (owner, other))
         assert sqlite_attempts == []; assert not (tmp_path / "forbidden.db").exists()
 
 
 def test_real_postgres_tenant_erasure_is_two_tenant_isolated(pg_tenant_erasure):
-    settings, store, _, owner, other, nonce = pg_tenant_erasure; feedback_service = FeedbackService(settings)
+    settings, store, factory, owner, other, nonce = pg_tenant_erasure; feedback_service = FeedbackService(settings)
+    from app.db.postgres_import_run_store import PostgresImportRunStore
+    imports = PostgresImportRunStore(factory)
     for user_id, suffix in ((owner, "owner"), (other, "other")):
         interaction_id = f"privacy-erasure-{suffix}-{nonce}"; feedback_service.record_interaction(interaction_id=interaction_id, user_id=user_id, task_type="general", route_id="provider:model", output_budget_tokens=320, completion_tokens=200, route_fingerprint=f"fp-{suffix}")
         response = feedback_service.submit(user_id=user_id, request=FeedbackSubmitRequest(interaction_id=interaction_id, rating=4, issues=[FeedbackIssue.TOO_LONG], comment=f"{suffix} private feedback"))
         assert response.duplicate is False; assert response.reward_credits > 0; assert response.preference_updated is True
+        imports.create(import_id=f"privacy-import-{suffix}-{nonce}", user_id=user_id, connector_id="test", items=[(f"https://example.test/{suffix}", suffix)], now="2026-09-20T20:00:00+00:00")
     memory_service = _PrivacyService({"deleted_count": 0, "errors": []}); result = privacy_erasure.delete_production_user_data(settings, user_id=owner, privacy_service=memory_service)
-    assert memory_service.user_ids == [owner]; assert result["deleted"] is True; assert all(count > 0 for count in result["feedback_deleted"].values())
+    assert memory_service.user_ids == [owner]; assert result["deleted"] is True; assert result["imports_deleted"] == 2; assert all(count > 0 for count in result["feedback_deleted"].values())
+    assert imports.list(user_id=owner, limit=10) == []; assert len(imports.list(user_id=other, limit=10)) == 1
     owner_export = store.export_user_data(user_id=owner); other_export = store.export_user_data(user_id=other)
     for collection in ("interactions", "feedback", "credit_ledger", "output_preferences"):
         assert owner_export[collection] == []; assert other_export[collection]; assert all(row["user_id"] == other for row in other_export[collection])
