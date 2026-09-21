@@ -72,10 +72,7 @@ class HomeAgentQueryService:
     def __init__(self, store: PhysicalMemoryStore) -> None:
         self._store = store
 
-    def where_is(self, *, user_id: str, object_name: str, min_confidence: float = 0.5) -> WhereAnswer | None:
-        sighting = self._store.latest(user_id=user_id, object_name=object_name, min_confidence=min_confidence)
-        if sighting is None:
-            return None
+    def _where_answer(self, *, user_id: str, sighting: ObjectSighting) -> WhereAnswer:
         evidence = None
         describe = getattr(self._store, "describe_observation", None)
         if callable(describe):
@@ -88,6 +85,29 @@ class HomeAgentQueryService:
             evidence_image_sha256=evidence.get("image_sha256") if evidence else None,
             evidence_detector_id=evidence.get("detector_id") if evidence else None,
         )
+
+    def where_is(self, *, user_id: str, object_name: str, min_confidence: float = 0.5) -> WhereAnswer | None:
+        sighting = self._store.latest(user_id=user_id, object_name=object_name, min_confidence=min_confidence)
+        if sighting is None:
+            return None
+        return self._where_answer(user_id=user_id, sighting=sighting)
+
+    def where_is_between(self, *, user_id: str, object_name: str, since: datetime,
+                         until: datetime, min_confidence: float = 0.5,
+                         limit: int = 100) -> WhereAnswer | None:
+        """Return the newest sighting in an explicit aware [since, until) window."""
+        if since.tzinfo is None or until.tzinfo is None:
+            raise ValueError("time boundaries must be timezone-aware")
+        if since >= until:
+            raise ValueError("since must be earlier than until")
+        for sighting in self.history(user_id=user_id, object_name=object_name,
+                                     min_confidence=min_confidence, limit=limit):
+            observed_at = sighting.observed_at
+            if observed_at.tzinfo is None:
+                raise ValueError("physical-memory timestamps must be timezone-aware")
+            if since <= observed_at < until:
+                return self._where_answer(user_id=user_id, sighting=sighting)
+        return None
 
     def evidence_image(self, *, user_id: str, answer: WhereAnswer) -> bytes | None:
         if not answer.evidence_frame_id:
