@@ -127,15 +127,18 @@ class PostgresImportRunStore:
         """Erase all import execution/history rows owned by exactly one tenant.
 
         The account-erasure fence is installed by the caller before this method is
-        used. Deleting parent runs cascades their items, while the explicit item
-        delete also removes malformed/orphan tenant rows without trusting parent
-        ownership to infer a different tenant.
+        used. The canonical run owns its items; a malformed child tenant label
+        must never authorize deletion from a neighboring tenant's run.
         """
         owner = str(user_id or "").strip()
         if not owner:
             raise ValueError("user_id is required")
         with self._connection_factory() as conn:
-            items = conn.execute("DELETE FROM import_run_items WHERE user_id = %s", (owner,)).rowcount
+            items = conn.execute(
+                """DELETE FROM import_run_items child USING import_runs parent
+                   WHERE child.import_id = parent.import_id AND parent.user_id = %s""",
+                (owner,),
+            ).rowcount
             runs = conn.execute("DELETE FROM import_runs WHERE user_id = %s", (owner,)).rowcount
         return int(items or 0) + int(runs or 0)
 

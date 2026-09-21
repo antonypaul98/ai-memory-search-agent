@@ -38,7 +38,7 @@ class _Connection:
         return _Result()
 
 
-def test_delete_for_user_uses_exact_tenant_predicate_on_children_and_parents() -> None:
+def test_delete_for_user_uses_canonical_parent_ownership() -> None:
     conn = _Connection()
     store = PostgresAgentRuntimeStore(lambda: conn)
 
@@ -47,7 +47,7 @@ def test_delete_for_user_uses_exact_tenant_predicate_on_children_and_parents() -
     assert result == {"agent_tool_calls": 2, "agent_runs": 1}
     deletes = [(sql, params) for sql, params in conn.calls if sql.startswith("DELETE FROM")]
     assert deletes == [
-        ("DELETE FROM agent_tool_calls WHERE user_id=%s RETURNING id", ("tenant-a",)),
+        ("DELETE FROM agent_tool_calls child USING agent_runs parent WHERE child.run_id = parent.run_id AND parent.user_id=%s RETURNING child.id", ("tenant-a",)),
         ("DELETE FROM agent_runs WHERE user_id=%s RETURNING run_id", ("tenant-a",)),
     ]
 
