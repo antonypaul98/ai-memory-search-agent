@@ -14,6 +14,7 @@ from app.db.postgres_capture_store import PostgresCaptureStore
 from app.db.postgres_event_store import PostgresEventStore
 from app.db.postgres_feedback_privacy import delete_user_feedback_data
 from app.db.postgres_import_run_store import PostgresImportRunStore
+from app.db.postgres_job_privacy import PostgresJobPrivacyStore
 from app.db.postgres_model_usage_ledger import PostgresModelUsageLedger
 from app.db.postgres_oauth_token_store import PostgresOAuthTokenStore
 from app.db.postgres_runtime import get_postgres_connection_factory
@@ -53,11 +54,13 @@ def delete_production_user_data(
     # work while these tenant-owned execution records are being removed.
     oauth_tokens_deleted = 0
     imports_deleted = 0
+    jobs_deleted: dict[str, int] | None = None
     if callable(connection_factory):
         PostgresAuthStore(settings, connection_factory).revoke_all_sessions(owner)
         PostgresAgentRuntimeStore(connection_factory).delete_for_user(user_id=owner)
         oauth_tokens_deleted = PostgresOAuthTokenStore(connection_factory).delete_for_user(user_id=owner)
         imports_deleted = PostgresImportRunStore(connection_factory).delete_for_user(user_id=owner)
+        jobs_deleted = PostgresJobPrivacyStore(connection_factory).delete_for_user(user_id=owner)
 
     capture_sessions_revoked = (
         capture_registry.revoke_for_user(user_id=owner) if capture_registry is not None else 0
@@ -72,7 +75,7 @@ def delete_production_user_data(
     intelligence_deleted = delete_user_intelligence(connection_factory, user_id=owner)
     home_physical_deleted = delete_user_home_physical_data(connection_factory, user_id=owner)
     errors = list(memory_result.get("errors") or [])
-    return {
+    result: dict[str, Any] = {
         "deleted": not errors,
         "account_fenced": True,
         "oauth_tokens_deleted": oauth_tokens_deleted,
@@ -88,3 +91,8 @@ def delete_production_user_data(
         "intelligence_deleted": intelligence_deleted,
         "home_physical_deleted": home_physical_deleted,
     }
+    # Lightweight/non-callable test factories intentionally skip production-only
+    # stores; preserve the pre-existing response shape in that compatibility path.
+    if jobs_deleted is not None:
+        result["jobs_deleted"] = jobs_deleted
+    return result
