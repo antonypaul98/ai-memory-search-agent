@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 from .physical_memory import ObjectSighting
 
 
 PHYSICAL_OBSERVATION_SCOPE = "home_agent.physical_observation"
+MAX_OBSERVATION_FUTURE_SKEW = timedelta(minutes=2)
 
 
 class PhysicalMemoryWriter(Protocol):
@@ -72,4 +73,6 @@ class HomeObservationIngestService:
             now=resolved_now,
         ):
             raise PermissionError("physical observation consent is missing, mismatched, or expired")
+        if sighting.observed_at_utc > resolved_now.astimezone(timezone.utc) + MAX_OBSERVATION_FUTURE_SKEW:
+            raise ValueError("observation timestamp is too far in the future")
         return self._store.store_sighting(user_id=user_id, sighting=sighting)
