@@ -36,13 +36,7 @@ class AuthStore:
                 INSERT INTO users (user_id, email, password_hash, display_name, created_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (
-                    user_id,
-                    email.lower(),
-                    hash_password(password, secret=secret),
-                    display_name or email,
-                    _utc_now(),
-                ),
+                (user_id, email.lower(), hash_password(password, secret=secret), display_name or email, _utc_now()),
             )
         return UserPublic(user_id=user_id, email=email.lower(), display_name=display_name or email)
 
@@ -51,41 +45,35 @@ class AuthStore:
         if not user_id or not user_id.strip():
             raise ValueError("user_id is required")
         with get_connection(self._settings) as conn:
-            row = conn.execute(
-                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?",
-                (user_id,),
-            ).fetchone()
+            row = conn.execute("SELECT user_id, email, display_name, created_at FROM users WHERE user_id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
 
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
         with get_connection(self._settings) as conn:
-            row = conn.execute(
-                "SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = ?",
-                (email.lower(),),
-            ).fetchone()
+            row = conn.execute("SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = ?", (email.lower(),)).fetchone()
         if not row or not row["password_hash"]:
             return None
         if not verify_password(password, row["password_hash"], secret=secret):
             return None
-        return UserPublic(
-            user_id=row["user_id"],
-            email=row["email"],
-            display_name=row["display_name"],
-            timezone_name=row["timezone_name"] or "UTC",
-        )
+        return UserPublic(user_id=row["user_id"], email=row["email"], display_name=row["display_name"], timezone_name=row["timezone_name"] or "UTC")
+
+    def update_timezone(self, *, user_id: str, timezone_name: str) -> UserPublic | None:
+        """Persist a validated timezone for exactly the authenticated tenant."""
+        with get_connection(self._settings) as conn:
+            cur = conn.execute("UPDATE users SET timezone_name = ? WHERE user_id = ?", (timezone_name, user_id))
+            if cur.rowcount != 1:
+                return None
+            row = conn.execute("SELECT user_id, email, display_name, timezone_name FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        if not row:
+            return None
+        return UserPublic(user_id=row["user_id"], email=row["email"], display_name=row["display_name"], timezone_name=row["timezone_name"] or "UTC")
 
     def create_session(self, user_id: str) -> str:
         token = new_session_token()
         expires = datetime.now(timezone.utc) + timedelta(hours=self._settings.session_ttl_hours)
         with get_connection(self._settings) as conn:
-            conn.execute(
-                """
-                INSERT INTO sessions (token, user_id, expires_at, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (token, user_id, expires.isoformat(), _utc_now()),
-            )
+            conn.execute("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)", (token, user_id, expires.isoformat(), _utc_now()))
         return token
 
     def resolve_token(self, token: str) -> UserPublic | None:
@@ -93,28 +81,13 @@ class AuthStore:
             return None
         now = datetime.now(timezone.utc).isoformat()
         with get_connection(self._settings) as conn:
-            # Drop stale rows for this token so revoked/expired sessions do not linger.
-            conn.execute(
-                "DELETE FROM sessions WHERE token = ? AND expires_at <= ?",
-                (token, now),
-            )
-            row = conn.execute(
-                """
-                SELECT s.user_id, u.email, u.display_name, u.timezone_name
-                FROM sessions s
-                JOIN users u ON u.user_id = s.user_id
-                WHERE s.token = ? AND s.expires_at > ?
-                """,
-                (token, now),
-            ).fetchone()
+            conn.execute("DELETE FROM sessions WHERE token = ? AND expires_at <= ?", (token, now))
+            row = conn.execute("""SELECT s.user_id, u.email, u.display_name, u.timezone_name
+                FROM sessions s JOIN users u ON u.user_id = s.user_id
+                WHERE s.token = ? AND s.expires_at > ?""", (token, now)).fetchone()
         if not row:
             return None
-        return UserPublic(
-            user_id=row["user_id"],
-            email=row["email"],
-            display_name=row["display_name"],
-            timezone_name=row["timezone_name"] or "UTC",
-        )
+        return UserPublic(user_id=row["user_id"], email=row["email"], display_name=row["display_name"], timezone_name=row["timezone_name"] or "UTC")
 
     def revoke_session(self, token: str) -> bool:
         with get_connection(self._settings) as conn:
@@ -132,14 +105,11 @@ def _ensure_timezone_column(settings: Settings) -> None:
     with get_connection(settings) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
         if "timezone_name" not in columns:
-            conn.execute(
-                "ALTER TABLE users ADD COLUMN timezone_name TEXT NOT NULL DEFAULT 'UTC'"
-            )
+            conn.execute("ALTER TABLE users ADD COLUMN timezone_name TEXT NOT NULL DEFAULT 'UTC'")
 
 
 def _auth_secret(settings: Settings) -> str:
     import os
-
     secret = os.environ.get(settings.auth_secret_env, "")
     if not secret:
         if settings.local_demo_mode and not settings.auth_enabled:
