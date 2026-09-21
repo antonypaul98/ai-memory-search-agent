@@ -44,18 +44,11 @@ class PostgresAuthStore:
                 INSERT INTO users (user_id, email, password_hash, display_name, created_at)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
-                (
-                    user_id,
-                    stored_email,
-                    hash_password(password, secret=secret),
-                    resolved_name,
-                    _utc_now(),
-                ),
+                (user_id, stored_email, hash_password(password, secret=secret), resolved_name, _utc_now()),
             )
         return UserPublic(user_id=user_id, email=stored_email, display_name=resolved_name)
 
     def get_user_for_export(self, *, user_id: str) -> dict[str, Any] | None:
-        """Return only non-secret user fields for an exact-tenant privacy export."""
         if not user_id or not user_id.strip():
             raise ValueError("user_id is required")
         with self._connection_factory() as conn:
@@ -65,41 +58,26 @@ class PostgresAuthStore:
             ).fetchone()
         if not row:
             return None
-        return {
-            "user_id": _export_value(row, "user_id", 0),
-            "email": _export_value(row, "email", 1),
-            "display_name": _export_value(row, "display_name", 2),
-            "created_at": _export_value(row, "created_at", 3),
-        }
+        return {"user_id": _export_value(row, "user_id", 0), "email": _export_value(row, "email", 1), "display_name": _export_value(row, "display_name", 2), "created_at": _export_value(row, "created_at", 3)}
 
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
         with self._connection_factory() as conn:
             row = conn.execute(
-                "SELECT user_id, email, password_hash, display_name FROM users WHERE email = %s",
+                "SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = %s",
                 (email.lower(),),
             ).fetchone()
         if not row or not _value(row, "password_hash"):
             return None
         if not verify_password(password, str(_value(row, "password_hash")), secret=secret):
             return None
-        return UserPublic(
-            user_id=str(_value(row, "user_id")),
-            email=_value(row, "email"),
-            display_name=str(_value(row, "display_name")),
-        )
+        return UserPublic(user_id=str(_value(row, "user_id")), email=_value(row, "email"), display_name=str(_value(row, "display_name")), timezone_name=str(_value(row, "timezone_name") or "UTC"))
 
     def create_session(self, user_id: str) -> str:
         token = new_session_token()
         expires = datetime.now(timezone.utc) + timedelta(hours=self._settings.session_ttl_hours)
         with self._connection_factory() as conn:
-            conn.execute(
-                """
-                INSERT INTO sessions (token, user_id, expires_at, created_at)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (token, user_id, expires, _utc_now()),
-            )
+            conn.execute("INSERT INTO sessions (token, user_id, expires_at, created_at) VALUES (%s, %s, %s, %s)", (token, user_id, expires, _utc_now()))
         return token
 
     def resolve_token(self, token: str) -> UserPublic | None:
@@ -107,26 +85,16 @@ class PostgresAuthStore:
             return None
         now = datetime.now(timezone.utc)
         with self._connection_factory() as conn:
-            conn.execute(
-                "DELETE FROM sessions WHERE token = %s AND expires_at <= %s",
-                (token, now),
-            )
+            conn.execute("DELETE FROM sessions WHERE token = %s AND expires_at <= %s", (token, now))
             row = conn.execute(
-                """
-                SELECT s.user_id, u.email, u.display_name
-                FROM sessions s
-                JOIN users u ON u.user_id = s.user_id
-                WHERE s.token = %s AND s.expires_at > %s
-                """,
+                """SELECT s.user_id, u.email, u.display_name, u.timezone_name
+                FROM sessions s JOIN users u ON u.user_id = s.user_id
+                WHERE s.token = %s AND s.expires_at > %s""",
                 (token, now),
             ).fetchone()
         if not row:
             return None
-        return UserPublic(
-            user_id=str(_value(row, "user_id")),
-            email=_value(row, "email"),
-            display_name=str(_value(row, "display_name")),
-        )
+        return UserPublic(user_id=str(_value(row, "user_id")), email=_value(row, "email"), display_name=str(_value(row, "display_name")), timezone_name=str(_value(row, "timezone_name") or "UTC"))
 
     def revoke_session(self, token: str) -> bool:
         with self._connection_factory() as conn:
@@ -142,47 +110,29 @@ class PostgresAuthStore:
 def ensure_postgres_auth_schema(connection_factory: ConnectionFactory) -> None:
     """Create only the auth/session relational surface, idempotently."""
     with connection_factory() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                email TEXT UNIQUE,
-                password_hash TEXT,
-                display_name TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS sessions (
-                token TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-                expires_at TIMESTAMPTZ NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)"
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)"
-        )
+        conn.execute("""CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT,
+            display_name TEXT NOT NULL, timezone_name TEXT NOT NULL DEFAULT 'UTC',
+            created_at TIMESTAMPTZ NOT NULL)""")
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone_name TEXT NOT NULL DEFAULT 'UTC'")
+        conn.execute("""CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL)""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)")
 
 
 def _value(row: Any, key: str) -> Any:
-    """Support psycopg dict rows and simple test doubles."""
     try:
         return row[key]
     except (TypeError, KeyError, IndexError):
-        index = {
-            "user_id": 0,
-            "email": 1,
-            "password_hash": 2,
-            "display_name": 3,
-        }[key]
-        return row[index]
+        index = {"user_id": 0, "email": 1, "password_hash": 2, "display_name": 3, "timezone_name": 4}[key]
+        try:
+            return row[index]
+        except (TypeError, KeyError, IndexError):
+            if key == "timezone_name":
+                return "UTC"
+            raise
 
 
 def _export_value(row: Any, key: str, index: int) -> Any:
