@@ -127,7 +127,12 @@ def _value(row: Any, key: str) -> Any:
         return row[key]
     except (TypeError, KeyError, IndexError):
         index = {"user_id": 0, "email": 1, "password_hash": 2, "display_name": 3, "timezone_name": 4}[key]
-        return row[index]
+        try:
+            return row[index]
+        except (TypeError, KeyError, IndexError):
+            if key == "timezone_name":
+                return "UTC"
+            raise
 
 
 def _export_value(row: Any, key: str, index: int) -> Any:
