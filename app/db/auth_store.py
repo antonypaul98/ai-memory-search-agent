@@ -15,6 +15,7 @@ class AuthStore:
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         migrate(self._settings)
+        _ensure_timezone_column(self._settings)
 
     def ensure_local_user(self) -> None:
         with get_connection(self._settings) as conn:
@@ -60,7 +61,7 @@ class AuthStore:
         secret = _auth_secret(self._settings)
         with get_connection(self._settings) as conn:
             row = conn.execute(
-                "SELECT user_id, email, password_hash, display_name FROM users WHERE email = ?",
+                "SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = ?",
                 (email.lower(),),
             ).fetchone()
         if not row or not row["password_hash"]:
@@ -71,6 +72,7 @@ class AuthStore:
             user_id=row["user_id"],
             email=row["email"],
             display_name=row["display_name"],
+            timezone_name=row["timezone_name"] or "UTC",
         )
 
     def create_session(self, user_id: str) -> str:
@@ -98,7 +100,7 @@ class AuthStore:
             )
             row = conn.execute(
                 """
-                SELECT s.user_id, u.email, u.display_name
+                SELECT s.user_id, u.email, u.display_name, u.timezone_name
                 FROM sessions s
                 JOIN users u ON u.user_id = s.user_id
                 WHERE s.token = ? AND s.expires_at > ?
@@ -111,6 +113,7 @@ class AuthStore:
             user_id=row["user_id"],
             email=row["email"],
             display_name=row["display_name"],
+            timezone_name=row["timezone_name"] or "UTC",
         )
 
     def revoke_session(self, token: str) -> bool:
@@ -122,6 +125,16 @@ class AuthStore:
         with get_connection(self._settings) as conn:
             cur = conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
             return int(cur.rowcount)
+
+
+def _ensure_timezone_column(settings: Settings) -> None:
+    """Idempotently add trusted timezone storage for existing SQLite user databases."""
+    with get_connection(settings) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "timezone_name" not in columns:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN timezone_name TEXT NOT NULL DEFAULT 'UTC'"
+            )
 
 
 def _auth_secret(settings: Settings) -> str:
