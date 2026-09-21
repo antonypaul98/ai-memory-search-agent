@@ -1,5 +1,7 @@
 """User and session models."""
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -14,6 +16,17 @@ def _normalize_email(value: str) -> str:
     if not local or not domain or " " in email:
         raise ValueError("Invalid email address")
     return email
+
+
+def _normalize_timezone(value: str) -> str:
+    timezone_name = (value or "").strip()
+    if not timezone_name or len(timezone_name) > 128:
+        raise ValueError("Invalid timezone")
+    try:
+        ZoneInfo(timezone_name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("Invalid IANA timezone") from exc
+    return timezone_name
 
 
 class UserPublic(BaseModel):
@@ -42,6 +55,15 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_email(cls, value: str) -> str:
         return _normalize_email(value)
+
+
+class TimezoneUpdateRequest(BaseModel):
+    timezone_name: str = Field(min_length=1, max_length=128)
+
+    @field_validator("timezone_name")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        return _normalize_timezone(value)
 
 
 class AuthResponse(BaseModel):

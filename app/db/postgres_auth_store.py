@@ -1,9 +1,4 @@
-"""Postgres-backed user and session persistence for GAP-02.
-
-This store mirrors the existing SQLite AuthStore contract while keeping database
-credentials environment-owned through the shared Postgres runtime. It does not
-fall back to SQLite when Postgres is explicitly selected.
-"""
+"""Postgres-backed user and session persistence for GAP-02."""
 
 from __future__ import annotations
 
@@ -24,14 +19,8 @@ class PostgresAuthStore:
 
     def ensure_local_user(self) -> None:
         with self._connection_factory() as conn:
-            conn.execute(
-                """
-                INSERT INTO users (user_id, email, password_hash, display_name, created_at)
-                VALUES (%s, NULL, NULL, 'Local Demo User', %s)
-                ON CONFLICT (user_id) DO NOTHING
-                """,
-                (LOCAL_DEFAULT_USER_ID, _utc_now()),
-            )
+            conn.execute("""INSERT INTO users (user_id, email, password_hash, display_name, created_at)
+                VALUES (%s, NULL, NULL, 'Local Demo User', %s) ON CONFLICT (user_id) DO NOTHING""", (LOCAL_DEFAULT_USER_ID, _utc_now()))
 
     def create_user(self, *, email: str, password: str, display_name: str) -> UserPublic:
         secret = _auth_secret(self._settings)
@@ -39,23 +28,14 @@ class PostgresAuthStore:
         user_id = email.lower().strip().replace("@", "_at_")
         resolved_name = display_name or email
         with self._connection_factory() as conn:
-            conn.execute(
-                """
-                INSERT INTO users (user_id, email, password_hash, display_name, created_at)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (user_id, stored_email, hash_password(password, secret=secret), resolved_name, _utc_now()),
-            )
+            conn.execute("INSERT INTO users (user_id, email, password_hash, display_name, created_at) VALUES (%s, %s, %s, %s, %s)", (user_id, stored_email, hash_password(password, secret=secret), resolved_name, _utc_now()))
         return UserPublic(user_id=user_id, email=stored_email, display_name=resolved_name)
 
     def get_user_for_export(self, *, user_id: str) -> dict[str, Any] | None:
         if not user_id or not user_id.strip():
             raise ValueError("user_id is required")
         with self._connection_factory() as conn:
-            row = conn.execute(
-                "SELECT user_id, email, display_name, created_at FROM users WHERE user_id = %s",
-                (user_id,),
-            ).fetchone()
+            row = conn.execute("SELECT user_id, email, display_name, created_at FROM users WHERE user_id = %s", (user_id,)).fetchone()
         if not row:
             return None
         return {"user_id": _export_value(row, "user_id", 0), "email": _export_value(row, "email", 1), "display_name": _export_value(row, "display_name", 2), "created_at": _export_value(row, "created_at", 3)}
@@ -63,13 +43,21 @@ class PostgresAuthStore:
     def authenticate(self, *, email: str, password: str) -> UserPublic | None:
         secret = _auth_secret(self._settings)
         with self._connection_factory() as conn:
-            row = conn.execute(
-                "SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = %s",
-                (email.lower(),),
-            ).fetchone()
+            row = conn.execute("SELECT user_id, email, password_hash, display_name, timezone_name FROM users WHERE email = %s", (email.lower(),)).fetchone()
         if not row or not _value(row, "password_hash"):
             return None
         if not verify_password(password, str(_value(row, "password_hash")), secret=secret):
+            return None
+        return UserPublic(user_id=str(_value(row, "user_id")), email=_value(row, "email"), display_name=str(_value(row, "display_name")), timezone_name=str(_value(row, "timezone_name") or "UTC"))
+
+    def update_timezone(self, *, user_id: str, timezone_name: str) -> UserPublic | None:
+        """Persist a validated timezone for exactly the authenticated tenant."""
+        with self._connection_factory() as conn:
+            cur = conn.execute("UPDATE users SET timezone_name = %s WHERE user_id = %s", (timezone_name, user_id))
+            if int(cur.rowcount) != 1:
+                return None
+            row = conn.execute("SELECT user_id, email, display_name, timezone_name FROM users WHERE user_id = %s", (user_id,)).fetchone()
+        if not row:
             return None
         return UserPublic(user_id=str(_value(row, "user_id")), email=_value(row, "email"), display_name=str(_value(row, "display_name")), timezone_name=str(_value(row, "timezone_name") or "UTC"))
 
@@ -86,12 +74,9 @@ class PostgresAuthStore:
         now = datetime.now(timezone.utc)
         with self._connection_factory() as conn:
             conn.execute("DELETE FROM sessions WHERE token = %s AND expires_at <= %s", (token, now))
-            row = conn.execute(
-                """SELECT s.user_id, u.email, u.display_name, u.timezone_name
+            row = conn.execute("""SELECT s.user_id, u.email, u.display_name, u.timezone_name
                 FROM sessions s JOIN users u ON u.user_id = s.user_id
-                WHERE s.token = %s AND s.expires_at > %s""",
-                (token, now),
-            ).fetchone()
+                WHERE s.token = %s AND s.expires_at > %s""", (token, now)).fetchone()
         if not row:
             return None
         return UserPublic(user_id=str(_value(row, "user_id")), email=_value(row, "email"), display_name=str(_value(row, "display_name")), timezone_name=str(_value(row, "timezone_name") or "UTC"))
@@ -108,7 +93,6 @@ class PostgresAuthStore:
 
 
 def ensure_postgres_auth_schema(connection_factory: ConnectionFactory) -> None:
-    """Create only the auth/session relational surface, idempotently."""
     with connection_factory() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT,
