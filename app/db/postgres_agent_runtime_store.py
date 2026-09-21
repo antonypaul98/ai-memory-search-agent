@@ -111,6 +111,10 @@ class PostgresAgentRuntimeStore:
         if not owner:
             raise ValueError("user_id is required")
         with self._connection_factory() as conn:
-            tool_calls = conn.execute("DELETE FROM agent_tool_calls WHERE user_id=%s RETURNING id", (owner,)).fetchall()
+            tool_calls = conn.execute(
+                """DELETE FROM agent_tool_calls child USING agent_runs parent
+                   WHERE child.run_id = parent.run_id AND parent.user_id=%s RETURNING child.id""",
+                (owner,),
+            ).fetchall()
             runs = conn.execute("DELETE FROM agent_runs WHERE user_id=%s RETURNING run_id", (owner,)).fetchall()
         return {"agent_tool_calls": len(tool_calls), "agent_runs": len(runs)}
