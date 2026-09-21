@@ -68,6 +68,7 @@ class PrivacyService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
+        self._complete_postgres = is_complete_postgres_profile(self._settings)
         if not is_complete_postgres_profile(self._settings):
             migrate(self._settings)
         self._auth_store = get_auth_store(self._settings)
@@ -98,18 +99,21 @@ class PrivacyService:
         self._event_bus = EventBus(self._settings) if is_complete_postgres_profile(self._settings) else None
 
     def export_user_data(self, *, user_id: str) -> dict[str, Any]:
-        memories = self._memory_store.list_recent(user_id=user_id, limit=10_000)
+        production = getattr(self, "_complete_postgres", False)
+        # PostgreSQL LIMIT NULL is unbounded. UI list limits must not silently
+        # truncate a portable account export.
+        memories = self._memory_store.list_recent(user_id=user_id, limit=None if production else 10_000)
         youtube = [
             memory.model_dump(mode="json")
-            for memory in self._youtube_store.list_for_user(user_id, limit=10_000)
+            for memory in self._youtube_store.list_for_user(user_id, limit=None if production else 10_000)
         ]
-        captures = self._capture_store.list_for_user(user_id=user_id, limit=2000)
-        bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=5000)
-        jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=500)
+        captures = self._capture_store.list_for_user(user_id=user_id, limit=None if production else 2000)
+        bookmarks = self._bookmark_store.list_for_user(user_id=user_id, limit=None if production else 5000)
+        jobs = list_jobs_for_user(self._settings, user_id=user_id, limit=None if production else 500)
         user_row = self._auth_store.get_user_for_export(user_id=user_id)
         topic_store = getattr(self, "_topic_store", None)
         topics = (
-            [topic.model_dump(mode="json") for topic in topic_store.list_topics(user_id, limit=500)]
+            [topic.model_dump(mode="json") for topic in topic_store.list_topics(user_id, limit=None if production else 500)]
             if topic_store is not None
             else []
         )
@@ -138,6 +142,15 @@ class PrivacyService:
         event_bus = getattr(self, "_event_bus", None)
         if event_bus is not None:
             payload["activity"] = event_bus.export_user_data(user_id=user_id)
+        if production:
+            from fastapi.encoders import jsonable_encoder
+            from app.db.postgres_privacy_export import export_postgres_history, _redact_json_fields
+            payload["captures"] = [_redact_json_fields(row) for row in payload["captures"]]
+            payload["jobs"] = [_redact_json_fields(row) for row in payload["jobs"]]
+            payload["history"] = export_postgres_history(
+                get_postgres_connection_factory(self._settings), user_id=user_id
+            )
+            payload = jsonable_encoder(payload)
         return payload
 
     def delete_memory(self, *, memory_id: str, user_id: str) -> dict[str, Any]:

@@ -224,7 +224,7 @@ class PostgresTopicStore:
             ).fetchall()
         return _row_to_topic(row, [r["video_id"] for r in links])
 
-    def list_topics(self, user_id: str, *, limit: int = 50) -> list[TopicProfile]:
+    def list_topics(self, user_id: str, *, limit: int | None = 50) -> list[TopicProfile]:
         with self._connection_factory() as conn:
             rows = conn.execute(
                 """

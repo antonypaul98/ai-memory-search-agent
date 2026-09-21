@@ -221,7 +221,7 @@ class PostgresYouTubeMemoryStore:
             ).fetchone()
         return _row_to_memory(row) if row else None
 
-    def list_for_user(self, user_id: str, *, limit: int = 200) -> list[YouTubeMemory]:
+    def list_for_user(self, user_id: str, *, limit: int | None = 200) -> list[YouTubeMemory]:
         with self._connect() as conn:
             rows = conn.execute(
                 """

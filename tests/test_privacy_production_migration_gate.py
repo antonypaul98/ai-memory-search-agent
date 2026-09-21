@@ -47,6 +47,10 @@ def _stub_constructor_dependencies(monkeypatch) -> None:
         "get_video_registry",
         "get_fts_index_for_exclusive_delete",
         "HierarchicalStore",
+        "get_postgres_connection_factory",
+        "PostgresFeedbackStore",
+        "PostgresModelUsageLedger",
+        "EventBus",
     ):
         monkeypatch.setattr(privacy_module, name, MagicMock(return_value=MagicMock()))
 

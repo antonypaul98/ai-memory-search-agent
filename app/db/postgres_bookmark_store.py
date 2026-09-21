@@ -40,7 +40,7 @@ class PostgresBookmarkStore:
                 "CREATE INDEX IF NOT EXISTS idx_browser_bookmarks_tenant_hash ON browser_bookmarks(user_id, url_hash)"
             )
 
-    def list_for_user(self, *, user_id: str, limit: int = 5000) -> list[dict]:
+    def list_for_user(self, *, user_id: str, limit: int | None = 5000) -> list[dict]:
         """Return deterministic bookmark export rows for exactly one tenant."""
         with self._connection_factory() as conn:
             rows = conn.execute(
