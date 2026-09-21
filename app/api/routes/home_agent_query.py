@@ -74,6 +74,7 @@ def natural_language_query(
         query=AuthenticatedHomeAgentQuery(service=service, user=user),
         min_confidence=body.min_confidence,
         limit=body.limit,
+        timezone_name=user.timezone_name,
     )
     if result.answer is None:
         return NaturalLanguageQueryResponse(status=result.status, kind=result.kind)

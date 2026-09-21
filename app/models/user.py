@@ -20,6 +20,7 @@ class UserPublic(BaseModel):
     user_id: str
     email: str | None = None
     display_name: str = ""
+    timezone_name: str = "UTC"
 
 
 class LoginRequest(BaseModel):

@@ -132,3 +132,17 @@ def test_query_rejects_caller_supplied_tenant_identity(test_settings):
         service.movement_history.assert_not_called()
     finally:
         app.dependency_overrides.clear()
+
+
+def test_query_rejects_caller_supplied_timezone(test_settings):
+    service = MagicMock(spec=HomeAgentQueryService)
+    app = _client(test_settings, service)
+    try:
+        response = _post(app, test_settings, {
+            "text": "Where have my keys been today?",
+            "timezone_name": "Pacific/Honolulu",
+        })
+        assert response.status_code == 422
+        service.movement_history.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
