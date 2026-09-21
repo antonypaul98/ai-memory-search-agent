@@ -123,6 +123,22 @@ class PostgresImportRunStore:
                 (now, import_id, user_id),
             )
 
+    def delete_for_user(self, *, user_id: str) -> int:
+        """Erase all import execution/history rows owned by exactly one tenant.
+
+        The account-erasure fence is installed by the caller before this method is
+        used. Deleting parent runs cascades their items, while the explicit item
+        delete also removes malformed/orphan tenant rows without trusting parent
+        ownership to infer a different tenant.
+        """
+        owner = str(user_id or "").strip()
+        if not owner:
+            raise ValueError("user_id is required")
+        with self._connection_factory() as conn:
+            items = conn.execute("DELETE FROM import_run_items WHERE user_id = %s", (owner,)).rowcount
+            runs = conn.execute("DELETE FROM import_runs WHERE user_id = %s", (owner,)).rowcount
+        return int(items or 0) + int(runs or 0)
+
     def update_run(self, *, import_id: str, user_id: str, fields: dict, now: str) -> None:
         allowed = {
             "status", "detail", "error", "completed_items", "failed_items",
