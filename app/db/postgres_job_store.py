@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.exceptions import AppError
+from app.db.account_erasure_fence import AccountErasureFence
 from app.db.postgres_job_claims import PostgresJobClaimStore
 from app.db.postgres_job_controls import PostgresJobControlStore
 from app.db.postgres_job_mutations import PostgresJobMutationStore
@@ -29,6 +30,7 @@ class PostgresJobStore:
         self._claims = PostgresJobClaimStore(connection_factory, lease_seconds=lease_seconds)
         self._controls = PostgresJobControlStore(connection_factory)
         self._mutations = PostgresJobMutationStore(connection_factory)
+        self._account_erasure_fence = AccountErasureFence(connection_factory)
 
     def ensure_worker_schema(self) -> None:
         """Create the concurrency-specific lease objects idempotently."""
@@ -107,6 +109,10 @@ class PostgresJobStore:
         return self.get_job(job_id, user_id=user_id)
 
     def retry_failed(self, job_id: str, *, user_id: str) -> BackgroundJob:
+        # Account erasure deletes the job row but deliberately keeps the durable
+        # fence. Check that fence before reading the job so late/replayed retry
+        # requests fail closed instead of degrading to a misleading not-found.
+        self._account_erasure_fence.require_active(user_id=user_id)
         current = self.get_job(job_id, user_id=user_id)
         if current.status == "cancelled":
             raise AppError("Cannot retry a cancelled job. Start a new playlist import.")
