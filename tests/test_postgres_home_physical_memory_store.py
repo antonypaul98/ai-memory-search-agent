@@ -8,6 +8,7 @@ import pytest
 
 from app.db.postgres_home_physical_memory_store import PostgresHomePhysicalMemoryStore
 from app.services.home_agent import ObjectSighting
+from app.services.home_agent.presence_events import HomePresenceEvent
 
 
 class FakeResult:
@@ -49,6 +50,16 @@ def _sighting(*, evidence_id="frame-1") -> ObjectSighting:
     )
 
 
+def _departure(*, evidence_id="departure-1") -> HomePresenceEvent:
+    return HomePresenceEvent(
+        kind="home_departure",
+        occurred_at_utc=datetime(2026, 9, 22, 14, 30, tzinfo=timezone.utc),
+        confidence=0.94,
+        source_id="front-door-camera",
+        evidence_id=evidence_id,
+    )
+
+
 def test_schema_keys_evidence_by_tenant():
     statements = []
     PostgresHomePhysicalMemoryStore(lambda: FakeConnection(statements))
@@ -57,6 +68,9 @@ def test_schema_keys_evidence_by_tenant():
     assert "PRIMARY KEY (user_id, evidence_id)" in sql
     assert "idx_home_object_sightings_lookup" in sql
     assert "ON home_object_sightings(user_id, object_name, observed_at DESC)" in sql
+    assert "CREATE TABLE IF NOT EXISTS home_presence_events" in sql
+    assert "idx_home_presence_events_lookup" in sql
+    assert "ON home_presence_events(user_id, kind, occurred_at DESC)" in sql
 
 
 def test_store_sighting_preserves_tenant_and_provenance():
@@ -78,6 +92,43 @@ def test_store_sighting_preserves_tenant_and_provenance():
     assert params[3] == "entry table"
     assert params[5] == 0.91
     assert params[6] == "camera-entry"
+
+
+def test_store_presence_event_preserves_tenant_and_provenance():
+    statements = []
+    connections = iter([
+        FakeConnection(statements),
+        FakeConnection(statements, [FakeResult(one={"evidence_id": "departure-1"})]),
+    ])
+    store = PostgresHomePhysicalMemoryStore(lambda: next(connections))
+
+    assert store.store_presence_event(user_id="tenant-a", event=_departure()) is True
+    statement, params = statements[-1]
+    assert "INSERT INTO home_presence_events" in statement
+    assert "ON CONFLICT(user_id, evidence_id) DO NOTHING" in statement
+    assert params[0] == "tenant-a"
+    assert params[1] == "departure-1"
+    assert params[2] == "home_departure"
+    assert params[4] == 0.94
+    assert params[5] == "front-door-camera"
+
+
+def test_latest_departure_is_tenant_scoped_and_bounded():
+    statements = []
+    occurred = datetime(2026, 9, 22, 14, 30, tzinfo=timezone.utc)
+    before = datetime(2026, 9, 22, 15, 0, tzinfo=timezone.utc)
+    row = {"kind": "home_departure", "occurred_at": occurred, "confidence": 0.94,
+           "source_id": "front-door-camera", "evidence_id": "departure-1"}
+    connections = iter([FakeConnection(statements), FakeConnection(statements, [FakeResult(one=row)])])
+    store = PostgresHomePhysicalMemoryStore(lambda: next(connections))
+
+    result = store.latest_presence_event(user_id="tenant-a", kind="home_departure",
+                                         min_confidence=0.8, before=before)
+    assert result == _departure()
+    statement, params = statements[-1]
+    assert "WHERE user_id = %s AND kind = %s AND confidence >= %s" in statement
+    assert "occurred_at < %s" in statement
+    assert params == ("tenant-a", "home_departure", 0.8, before, before)
 
 
 def test_duplicate_evidence_is_reported_without_overwrite():
@@ -133,6 +184,11 @@ def test_latest_returns_none_when_no_tenant_row_matches():
     ("method", "kwargs"),
     [
         ("store_sighting", {"user_id": "", "sighting": _sighting()}),
+        ("store_presence_event", {"user_id": "", "event": _departure()}),
+        ("latest_presence_event", {"user_id": "", "kind": "home_departure"}),
+        ("latest_presence_event", {"user_id": "tenant-a", "kind": "unknown"}),
+        ("latest_presence_event", {"user_id": "tenant-a", "min_confidence": 1.1}),
+        ("latest_presence_event", {"user_id": "tenant-a", "before": datetime(2026, 9, 22, 15, 0)}),
         ("latest", {"user_id": "", "object_name": "keys"}),
         ("latest", {"user_id": "tenant-a", "object_name": ""}),
         ("latest", {"user_id": "tenant-a", "object_name": "keys", "min_confidence": 1.1}),
