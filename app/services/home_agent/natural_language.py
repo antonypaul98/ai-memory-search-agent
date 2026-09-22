@@ -21,6 +21,19 @@ class HomeQueryIntent:
     time_scope: TimeScope | None = None
 
 
+# Departure-relative questions require a trustworthy departure event anchor. Until
+# Home Agent persists and verifies such anchors, reject these shapes explicitly so
+# phrases such as "before I left home" cannot be misread as a literal location.
+_UNSUPPORTED_EVENT_RELATIVE_PATTERNS = (
+    re.compile(
+        r"^where (?:was|were) (?:my |the )?.+? before i (?:left|departed) (?:my |the )?home\??$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^where did i last see (?:my |the )?.+? before i (?:left|departed) (?:my |the )?home\??$",
+        re.IGNORECASE,
+    ),
+)
 _BEFORE_PATTERNS = (
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:i (?:left|put|placed) (?:it|them) (?:in|at|on) |(?:it|they) (?:was|were) (?:in|at|on) |)(?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
@@ -58,6 +71,9 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
     """Parse a bounded Home/Jarvis physical-memory question without an LLM."""
     normalized = " ".join(text.strip().split())
     if not normalized:
+        return None
+
+    if any(pattern.fullmatch(normalized) for pattern in _UNSUPPORTED_EVENT_RELATIVE_PATTERNS):
         return None
 
     for pattern in _BEFORE_PATTERNS:
