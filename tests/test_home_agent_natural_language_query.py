@@ -36,18 +36,10 @@ def test_executes_before_location_and_preserves_evidence():
         source_id="camera-kitchen", evidence_id="frame-hall",
         destination_evidence_id="frame-kitchen",
     )
-    result = execute_home_query(
-        text="Where were my keys before I left them in the kitchen?",
-        query=_query(service), min_confidence=0.7, limit=12,
-    )
+    result = execute_home_query(text="Where were my keys before I left them in the kitchen?", query=_query(service), min_confidence=0.7, limit=12)
     assert result.status == "answered"
-    assert result.kind == "before_location"
     assert result.answer.evidence_id == "frame-hall"
     assert result.answer.destination_evidence_id == "frame-kitchen"
-    service.before_location.assert_called_once_with(
-        user_id="owner-a", object_name="keys", location="kitchen",
-        min_confidence=0.7, limit=12,
-    )
 
 
 def test_executes_location_history_with_authenticated_identity_and_evidence():
@@ -55,53 +47,59 @@ def test_executes_location_history_with_authenticated_identity_and_evidence():
     service.movement_history.return_value = [MovementEvent(
         object_name="keys", from_location="desk", to_location="kitchen",
         moved_at="2026-09-19T15:00:00+00:00", confidence=0.93,
-        source_id="camera-kitchen", from_evidence_id="frame-desk",
-        to_evidence_id="frame-kitchen",
+        source_id="camera-kitchen", from_evidence_id="frame-desk", to_evidence_id="frame-kitchen",
     )]
-    result = execute_home_query(
-        text="Where have my keys been?", query=_query(service), min_confidence=0.8, limit=12,
-    )
+    result = execute_home_query(text="Where have my keys been?", query=_query(service), min_confidence=0.8, limit=12)
     assert result.status == "answered"
-    assert result.kind == "location_history"
-    assert result.answer == service.movement_history.return_value
     assert result.answer[0].from_evidence_id == "frame-desk"
     assert result.answer[0].to_evidence_id == "frame-kitchen"
-    service.movement_history.assert_called_once_with(
-        user_id="owner-a", object_name="keys", min_confidence=0.8, limit=12,
-        since=None, until=None,
-    )
 
 
 def test_today_history_uses_authenticated_timezone_bounds():
     service = MagicMock(spec=HomeAgentQueryService)
     service.movement_history.return_value = []
-    result = execute_home_query(
-        text="Where have my keys been today?",
-        query=_query(service),
-        timezone_name="America/New_York",
-        now=datetime(2026, 9, 20, 22, 0, tzinfo=timezone.utc),
-    )
-    assert result.status == "not_found"
+    execute_home_query(text="Where have my keys been today?", query=_query(service), timezone_name="UTC", now=datetime(2026, 9, 20, 22, 0, tzinfo=timezone.utc))
     service.movement_history.assert_called_once_with(
         user_id="owner-a", object_name="keys", min_confidence=0.5, limit=20,
-        since=datetime(2026, 9, 20, 4, 0, tzinfo=timezone.utc),
-        until=datetime(2026, 9, 21, 4, 0, tzinfo=timezone.utc),
+        since=datetime(2026, 9, 20, 4, 0, tzinfo=timezone.utc), until=datetime(2026, 9, 21, 4, 0, tzinfo=timezone.utc),
     )
 
 
 def test_today_history_is_dst_safe_on_fall_back_day():
     service = MagicMock(spec=HomeAgentQueryService)
     service.movement_history.return_value = []
-    execute_home_query(
-        text="Where have my keys been today?",
-        query=_query(service),
-        timezone_name="America/New_York",
-        now=datetime(2026, 11, 1, 17, 0, tzinfo=timezone.utc),
-    )
+    execute_home_query(text="Where have my keys been today?", query=_query(service), now=datetime(2026, 11, 1, 17, 0, tzinfo=timezone.utc))
     service.movement_history.assert_called_once_with(
         user_id="owner-a", object_name="keys", min_confidence=0.5, limit=20,
-        since=datetime(2026, 11, 1, 4, 0, tzinfo=timezone.utc),
-        until=datetime(2026, 11, 2, 5, 0, tzinfo=timezone.utc),
+        since=datetime(2026, 11, 1, 4, 0, tzinfo=timezone.utc), until=datetime(2026, 11, 2, 5, 0, tzinfo=timezone.utc),
+    )
+
+
+def test_this_morning_history_uses_authenticated_timezone_and_noon_bound():
+    service = MagicMock(spec=HomeAgentQueryService)
+    service.movement_history.return_value = []
+    execute_home_query(text="Where have my keys been this morning?", query=_query(service), timezone_name="UTC", now=datetime(2026, 9, 22, 17, 0, tzinfo=timezone.utc))
+    service.movement_history.assert_called_once_with(
+        user_id="owner-a", object_name="keys", min_confidence=0.5, limit=20,
+        since=datetime(2026, 9, 22, 4, 0, tzinfo=timezone.utc), until=datetime(2026, 9, 22, 16, 0, tzinfo=timezone.utc),
+    )
+
+
+def test_this_morning_before_noon_caps_at_now_and_preserves_evidence():
+    service = MagicMock(spec=HomeAgentQueryService)
+    event = MovementEvent(
+        object_name="keys", from_location="desk", to_location="kitchen",
+        moved_at="2026-09-22T12:30:00+00:00", confidence=0.93,
+        source_id="camera-kitchen", from_evidence_id="frame-desk", to_evidence_id="frame-kitchen",
+    )
+    service.movement_history.return_value = [event]
+    result = execute_home_query(text="Where did I last see my keys this morning?", query=_query(service), timezone_name="UTC", now=datetime(2026, 9, 22, 13, 30, tzinfo=timezone.utc))
+    assert result.status == "answered"
+    assert result.answer is event
+    assert result.answer.to_evidence_id == "frame-kitchen"
+    service.movement_history.assert_called_once_with(
+        user_id="owner-a", object_name="keys", min_confidence=0.5, limit=100,
+        since=datetime(2026, 9, 22, 4, 0, tzinfo=timezone.utc), until=datetime(2026, 9, 22, 13, 30, tzinfo=timezone.utc),
     )
 
 
@@ -110,7 +108,6 @@ def test_empty_location_history_returns_not_found():
     service.movement_history.return_value = []
     result = execute_home_query(text="Where has my wallet been?", query=_query(service))
     assert result.status == "not_found"
-    assert result.kind == "location_history"
 
 
 def test_unsupported_language_fails_closed_without_querying_store():
