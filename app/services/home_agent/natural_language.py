@@ -15,7 +15,7 @@ class HomeQueryIntent:
     kind: Literal["where_is", "before_location", "location_history"]
     object_name: str
     location: str | None = None
-    time_scope: Literal["today"] | None = None
+    time_scope: Literal["today", "yesterday"] | None = None
 
 
 _BEFORE_PATTERNS = (
@@ -23,21 +23,28 @@ _BEFORE_PATTERNS = (
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
 )
 _HISTORY_PATTERN = re.compile(
-    r"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?P<today> today)?\??$",
+    r"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: (?P<time_scope>today|yesterday))?\??$",
     re.IGNORECASE,
 )
 _LAST_SEEN_PATTERN = re.compile(
-    r"^where did i last see (?:my |the )?(?P<object>.+?)(?P<today> today)?\??$",
+    r"^where did i last see (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>today|yesterday))?\??$",
     re.IGNORECASE,
 )
 _WHERE_PATTERN = re.compile(
-    r"^where (?:is|are) (?:my |the )?(?P<object>.+?)(?P<today> today)?\??$",
+    r"^where (?:is|are|was|were) (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>today|yesterday))?\??$",
     re.IGNORECASE,
 )
 
 
 def _clean(value: str) -> str:
     return " ".join(value.strip().split()).rstrip("?.!").strip()
+
+
+def _time_scope(match: re.Match[str]) -> Literal["today", "yesterday"] | None:
+    value = match.group("time_scope")
+    if value is None:
+        return None
+    return value.lower()  # regex restricts this to today|yesterday
 
 
 def parse_home_query(text: str) -> HomeQueryIntent | None:
@@ -58,14 +65,12 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
     if match:
         object_name = _clean(match.group("object"))
         if object_name:
-            time_scope = "today" if match.group("today") else None
-            return HomeQueryIntent(kind="location_history", object_name=object_name, time_scope=time_scope)
+            return HomeQueryIntent(kind="location_history", object_name=object_name, time_scope=_time_scope(match))
 
     for pattern in (_LAST_SEEN_PATTERN, _WHERE_PATTERN):
         match = pattern.fullmatch(normalized)
         if match:
             object_name = _clean(match.group("object"))
             if object_name:
-                time_scope = "today" if match.group("today") else None
-                return HomeQueryIntent(kind="where_is", object_name=object_name, time_scope=time_scope)
+                return HomeQueryIntent(kind="where_is", object_name=object_name, time_scope=_time_scope(match))
     return None
