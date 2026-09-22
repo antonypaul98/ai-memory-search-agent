@@ -41,20 +41,32 @@ def execute_home_query(
     timezone_name: str = "UTC",
     now: datetime | None = None,
 ) -> NaturalLanguageQueryResult:
-    """Parse and execute one bounded question using authenticated tenant identity only."""
+    """Parse and execute one bounded question using authenticated tenant identity only.
+
+    ``timezone_name`` is retained for call-site compatibility but relative-time
+    execution derives timezone from the authenticated user, never caller input.
+    """
     intent = parse_home_query(text)
     if intent is None:
         return NaturalLanguageQueryResult(status="unsupported")
 
     if intent.kind == "where_is":
-        answer = query.where_is(
-            object_name=intent.object_name,
-            min_confidence=min_confidence,
-        )
+        if intent.time_scope == "today":
+            answer = query.where_is_today(
+                object_name=intent.object_name,
+                min_confidence=min_confidence,
+                now=now,
+                limit=max(limit, 100),
+            )
+        else:
+            answer = query.where_is(
+                object_name=intent.object_name,
+                min_confidence=min_confidence,
+            )
     elif intent.kind == "location_history":
         since = until = None
         if intent.time_scope == "today":
-            since, until = _today_bounds(timezone_name=timezone_name, now=now)
+            since, until = _today_bounds(timezone_name=query.user.timezone_name, now=now)
         answer = query.movement_history(
             object_name=intent.object_name,
             min_confidence=min_confidence,

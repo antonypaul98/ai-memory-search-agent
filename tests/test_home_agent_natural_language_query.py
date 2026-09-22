@@ -11,7 +11,7 @@ from app.services.home_agent.query_service import BeforeLocationAnswer, HomeAgen
 def _query(service):
     return AuthenticatedHomeAgentQuery(
         service=service,
-        user=UserPublic(user_id="owner-a", display_name="Owner A"),
+        user=UserPublic(user_id="owner-a", display_name="Owner A", timezone_name="America/New_York"),
     )
 
 

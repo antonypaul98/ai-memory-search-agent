@@ -26,7 +26,14 @@ _HISTORY_PATTERN = re.compile(
     r"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?P<today> today)?\??$",
     re.IGNORECASE,
 )
-_WHERE_PATTERN = re.compile(r"^where (?:is|are) (?:my |the )?(?P<object>.+?)\??$", re.IGNORECASE)
+_LAST_SEEN_PATTERN = re.compile(
+    r"^where did i last see (?:my |the )?(?P<object>.+?)(?P<today> today)?\??$",
+    re.IGNORECASE,
+)
+_WHERE_PATTERN = re.compile(
+    r"^where (?:is|are) (?:my |the )?(?P<object>.+?)(?P<today> today)?\??$",
+    re.IGNORECASE,
+)
 
 
 def _clean(value: str) -> str:
@@ -34,12 +41,7 @@ def _clean(value: str) -> str:
 
 
 def parse_home_query(text: str) -> HomeQueryIntent | None:
-    """Parse a bounded Home/Jarvis physical-memory question without an LLM.
-
-    Supported examples include ``Where are my keys?``, ``Where were my keys before
-    the kitchen?``, ``Where were my keys before I left them in the kitchen?`` and
-    ``Where have my keys been today?``. Unsupported/ambiguous text returns ``None``.
-    """
+    """Parse a bounded Home/Jarvis physical-memory question without an LLM."""
     normalized = " ".join(text.strip().split())
     if not normalized:
         return None
@@ -59,9 +61,11 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
             time_scope = "today" if match.group("today") else None
             return HomeQueryIntent(kind="location_history", object_name=object_name, time_scope=time_scope)
 
-    match = _WHERE_PATTERN.fullmatch(normalized)
-    if match:
-        object_name = _clean(match.group("object"))
-        if object_name:
-            return HomeQueryIntent(kind="where_is", object_name=object_name)
+    for pattern in (_LAST_SEEN_PATTERN, _WHERE_PATTERN):
+        match = pattern.fullmatch(normalized)
+        if match:
+            object_name = _clean(match.group("object"))
+            if object_name:
+                time_scope = "today" if match.group("today") else None
+                return HomeQueryIntent(kind="where_is", object_name=object_name, time_scope=time_scope)
     return None
