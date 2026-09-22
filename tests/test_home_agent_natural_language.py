@@ -42,6 +42,18 @@ def test_today_scope_is_case_insensitive():
     )
 
 
+def test_routes_this_morning_location_question():
+    assert parse_home_query("Where did I last see my keys this morning?") == HomeQueryIntent(
+        kind="where_is", object_name="keys", time_scope="this_morning"
+    )
+
+
+def test_this_morning_scope_is_case_insensitive():
+    assert parse_home_query("Where has the wallet been THIS MORNING?") == HomeQueryIntent(
+        kind="location_history", object_name="wallet", time_scope="this_morning"
+    )
+
+
 def test_unknown_language_fails_closed():
     assert parse_home_query("Did anyone move my keys after lunch?") is None
     assert parse_home_query("") is None

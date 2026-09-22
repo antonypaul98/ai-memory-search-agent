@@ -10,28 +10,32 @@ from dataclasses import dataclass
 from typing import Literal
 
 
+TimeScope = Literal["today", "yesterday", "this_morning"]
+
+
 @dataclass(frozen=True, slots=True)
 class HomeQueryIntent:
     kind: Literal["where_is", "before_location", "location_history"]
     object_name: str
     location: str | None = None
-    time_scope: Literal["today", "yesterday"] | None = None
+    time_scope: TimeScope | None = None
 
 
 _BEFORE_PATTERNS = (
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:i (?:left|put|placed) (?:it|them) (?:in|at|on) |(?:it|they) (?:was|were) (?:in|at|on) |)(?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
 )
+_TIME_SCOPE_PATTERN = r"today|yesterday|this morning"
 _HISTORY_PATTERN = re.compile(
-    r"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: (?P<time_scope>today|yesterday))?\??$",
+    rf"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
     re.IGNORECASE,
 )
 _LAST_SEEN_PATTERN = re.compile(
-    r"^where did i last see (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>today|yesterday))?\??$",
+    rf"^where did i last see (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
     re.IGNORECASE,
 )
 _WHERE_PATTERN = re.compile(
-    r"^where (?:is|are|was|were) (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>today|yesterday))?\??$",
+    rf"^where (?:is|are|was|were) (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
     re.IGNORECASE,
 )
 
@@ -40,11 +44,14 @@ def _clean(value: str) -> str:
     return " ".join(value.strip().split()).rstrip("?.!").strip()
 
 
-def _time_scope(match: re.Match[str]) -> Literal["today", "yesterday"] | None:
+def _time_scope(match: re.Match[str]) -> TimeScope | None:
     value = match.group("time_scope")
     if value is None:
         return None
-    return value.lower()  # regex restricts this to today|yesterday
+    normalized = value.lower()
+    if normalized == "this morning":
+        return "this_morning"
+    return normalized  # type: ignore[return-value]  # regex restricts this to today|yesterday
 
 
 def parse_home_query(text: str) -> HomeQueryIntent | None:

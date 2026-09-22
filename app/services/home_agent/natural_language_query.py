@@ -37,6 +37,19 @@ def _today_bounds(*, timezone_name: str, now: datetime | None = None) -> tuple[d
     return _local_day_bounds(timezone_name=timezone_name, now=now)
 
 
+def _this_morning_bounds(*, timezone_name: str, now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Return midnight through noon (or now, if earlier) for the trusted local day."""
+    zone = ZoneInfo(timezone_name)
+    instant = now or datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    local_now = instant.astimezone(zone)
+    local_start = datetime.combine(local_now.date(), time.min, tzinfo=zone)
+    local_noon = datetime.combine(local_now.date(), time(hour=12), tzinfo=zone)
+    local_end = min(local_now, local_noon)
+    return local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
+
+
 def execute_home_query(
     *,
     text: str,
@@ -63,8 +76,11 @@ def execute_home_query(
                 now=now,
                 limit=max(limit, 100),
             )
-        elif intent.time_scope == "yesterday":
-            since, until = _local_day_bounds(timezone_name=query.user.timezone_name, day_offset=-1, now=now)
+        elif intent.time_scope in ("yesterday", "this_morning"):
+            if intent.time_scope == "yesterday":
+                since, until = _local_day_bounds(timezone_name=query.user.timezone_name, day_offset=-1, now=now)
+            else:
+                since, until = _this_morning_bounds(timezone_name=query.user.timezone_name, now=now)
             history = query.movement_history(
                 object_name=intent.object_name,
                 min_confidence=min_confidence,
@@ -84,6 +100,8 @@ def execute_home_query(
             since, until = _today_bounds(timezone_name=query.user.timezone_name, now=now)
         elif intent.time_scope == "yesterday":
             since, until = _local_day_bounds(timezone_name=query.user.timezone_name, day_offset=-1, now=now)
+        elif intent.time_scope == "this_morning":
+            since, until = _this_morning_bounds(timezone_name=query.user.timezone_name, now=now)
         answer = query.movement_history(
             object_name=intent.object_name,
             min_confidence=min_confidence,
@@ -92,7 +110,7 @@ def execute_home_query(
             until=until,
         )
     else:
-        if intent.location is None:  # defensive invariant for typed parser output
+        if intent.location is None:
             return NaturalLanguageQueryResult(status="unsupported")
         answer = query.before_location(
             object_name=intent.object_name,
