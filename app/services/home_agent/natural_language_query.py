@@ -7,6 +7,7 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from .authenticated_query import AuthenticatedHomeAgentQuery
+from .event_relative import where_before_latest_departure
 from .natural_language import parse_home_query
 from .query_service import BeforeLocationAnswer, MovementEvent, WhereAnswer
 
@@ -14,14 +15,12 @@ from .query_service import BeforeLocationAnswer, MovementEvent, WhereAnswer
 @dataclass(frozen=True, slots=True)
 class NaturalLanguageQueryResult:
     """Typed result that keeps parsing/execution failures explicit."""
-
     status: Literal["answered", "unsupported", "not_found"]
-    kind: Literal["where_is", "before_location", "location_history"] | None = None
+    kind: Literal["where_is", "before_location", "before_departure", "location_history"] | None = None
     answer: WhereAnswer | BeforeLocationAnswer | list[MovementEvent] | None = None
 
 
 def _local_day_bounds(*, timezone_name: str, day_offset: int = 0, now: datetime | None = None) -> tuple[datetime, datetime]:
-    """Return a UTC half-open interval for a trusted local calendar day."""
     zone = ZoneInfo(timezone_name)
     instant = now or datetime.now(timezone.utc)
     if instant.tzinfo is None:
@@ -33,12 +32,10 @@ def _local_day_bounds(*, timezone_name: str, day_offset: int = 0, now: datetime 
 
 
 def _today_bounds(*, timezone_name: str, now: datetime | None = None) -> tuple[datetime, datetime]:
-    """Return the UTC half-open interval covering today in a trusted IANA timezone."""
     return _local_day_bounds(timezone_name=timezone_name, now=now)
 
 
 def _this_morning_bounds(*, timezone_name: str, now: datetime | None = None) -> tuple[datetime, datetime]:
-    """Return midnight through noon (or now, if earlier) for the trusted local day."""
     zone = ZoneInfo(timezone_name)
     instant = now or datetime.now(timezone.utc)
     if instant.tzinfo is None:
@@ -50,50 +47,33 @@ def _this_morning_bounds(*, timezone_name: str, now: datetime | None = None) -> 
     return local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
 
 
-def execute_home_query(
-    *,
-    text: str,
-    query: AuthenticatedHomeAgentQuery,
-    min_confidence: float = 0.5,
-    limit: int = 20,
-    timezone_name: str = "UTC",
-    now: datetime | None = None,
-) -> NaturalLanguageQueryResult:
-    """Parse and execute one bounded question using authenticated tenant identity only.
-
-    ``timezone_name`` is retained for call-site compatibility but relative-time
-    execution derives timezone from the authenticated user, never caller input.
-    """
+def execute_home_query(*, text: str, query: AuthenticatedHomeAgentQuery,
+                       min_confidence: float = 0.5, limit: int = 20,
+                       timezone_name: str = "UTC", now: datetime | None = None) -> NaturalLanguageQueryResult:
+    """Parse and execute one bounded question using authenticated tenant identity only."""
     intent = parse_home_query(text)
     if intent is None:
         return NaturalLanguageQueryResult(status="unsupported")
 
-    if intent.kind == "where_is":
+    if intent.kind == "before_departure":
+        answer = where_before_latest_departure(
+            query=query, object_name=intent.object_name,
+            min_confidence=min_confidence, limit=max(limit, 100),
+        )
+    elif intent.kind == "where_is":
         if intent.time_scope == "today":
-            answer = query.where_is_today(
-                object_name=intent.object_name,
-                min_confidence=min_confidence,
-                now=now,
-                limit=max(limit, 100),
-            )
+            answer = query.where_is_today(object_name=intent.object_name, min_confidence=min_confidence,
+                                          now=now, limit=max(limit, 100))
         elif intent.time_scope in ("yesterday", "this_morning"):
             if intent.time_scope == "yesterday":
                 since, until = _local_day_bounds(timezone_name=query.user.timezone_name, day_offset=-1, now=now)
             else:
                 since, until = _this_morning_bounds(timezone_name=query.user.timezone_name, now=now)
-            history = query.movement_history(
-                object_name=intent.object_name,
-                min_confidence=min_confidence,
-                limit=max(limit, 100),
-                since=since,
-                until=until,
-            )
+            history = query.movement_history(object_name=intent.object_name, min_confidence=min_confidence,
+                                             limit=max(limit, 100), since=since, until=until)
             answer = history[-1] if history else None
         else:
-            answer = query.where_is(
-                object_name=intent.object_name,
-                min_confidence=min_confidence,
-            )
+            answer = query.where_is(object_name=intent.object_name, min_confidence=min_confidence)
     elif intent.kind == "location_history":
         since = until = None
         if intent.time_scope == "today":
@@ -102,22 +82,13 @@ def execute_home_query(
             since, until = _local_day_bounds(timezone_name=query.user.timezone_name, day_offset=-1, now=now)
         elif intent.time_scope == "this_morning":
             since, until = _this_morning_bounds(timezone_name=query.user.timezone_name, now=now)
-        answer = query.movement_history(
-            object_name=intent.object_name,
-            min_confidence=min_confidence,
-            limit=limit,
-            since=since,
-            until=until,
-        )
+        answer = query.movement_history(object_name=intent.object_name, min_confidence=min_confidence,
+                                        limit=limit, since=since, until=until)
     else:
         if intent.location is None:
             return NaturalLanguageQueryResult(status="unsupported")
-        answer = query.before_location(
-            object_name=intent.object_name,
-            location=intent.location,
-            min_confidence=min_confidence,
-            limit=limit,
-        )
+        answer = query.before_location(object_name=intent.object_name, location=intent.location,
+                                       min_confidence=min_confidence, limit=limit)
 
     if not answer:
         return NaturalLanguageQueryResult(status="not_found", kind=intent.kind)
