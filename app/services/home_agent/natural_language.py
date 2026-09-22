@@ -15,42 +15,24 @@ TimeScope = Literal["today", "yesterday", "this_morning"]
 
 @dataclass(frozen=True, slots=True)
 class HomeQueryIntent:
-    kind: Literal["where_is", "before_location", "location_history"]
+    kind: Literal["where_is", "before_location", "before_departure", "location_history"]
     object_name: str
     location: str | None = None
     time_scope: TimeScope | None = None
 
 
-# Departure-relative questions require a trustworthy departure event anchor. Until
-# Home Agent persists and verifies such anchors, reject these shapes explicitly so
-# phrases such as "before I left home" cannot be misread as a literal location.
-_UNSUPPORTED_EVENT_RELATIVE_PATTERNS = (
-    re.compile(
-        r"^where (?:was|were) (?:my |the )?.+? before i (?:left|departed) (?:my |the )?home\??$",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"^where did i last see (?:my |the )?.+? before i (?:left|departed) (?:my |the )?home\??$",
-        re.IGNORECASE,
-    ),
+_BEFORE_DEPARTURE_PATTERNS = (
+    re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before i (?:left|departed) (?:my |the )?home\??$", re.IGNORECASE),
+    re.compile(r"^where did i last see (?:my |the )?(?P<object>.+?) before i (?:left|departed) (?:my |the )?home\??$", re.IGNORECASE),
 )
 _BEFORE_PATTERNS = (
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:i (?:left|put|placed) (?:it|them) (?:in|at|on) |(?:it|they) (?:was|were) (?:in|at|on) |)(?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
     re.compile(r"^where (?:was|were) (?:my |the )?(?P<object>.+?) before (?:the )?(?P<location>.+?)\??$", re.IGNORECASE),
 )
 _TIME_SCOPE_PATTERN = r"today|yesterday|this morning"
-_HISTORY_PATTERN = re.compile(
-    rf"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
-    re.IGNORECASE,
-)
-_LAST_SEEN_PATTERN = re.compile(
-    rf"^where did i last see (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
-    re.IGNORECASE,
-)
-_WHERE_PATTERN = re.compile(
-    rf"^where (?:is|are|was|were) (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$",
-    re.IGNORECASE,
-)
+_HISTORY_PATTERN = re.compile(rf"^where (?:has|have) (?:my |the )?(?P<object>.+?) been(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$", re.IGNORECASE)
+_LAST_SEEN_PATTERN = re.compile(rf"^where did i last see (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$", re.IGNORECASE)
+_WHERE_PATTERN = re.compile(rf"^where (?:is|are|was|were) (?:my |the )?(?P<object>.+?)(?: (?P<time_scope>{_TIME_SCOPE_PATTERN}))?\??$", re.IGNORECASE)
 
 
 def _clean(value: str) -> str:
@@ -64,7 +46,7 @@ def _time_scope(match: re.Match[str]) -> TimeScope | None:
     normalized = value.lower()
     if normalized == "this morning":
         return "this_morning"
-    return normalized  # type: ignore[return-value]  # regex restricts this to today|yesterday
+    return normalized  # type: ignore[return-value]
 
 
 def parse_home_query(text: str) -> HomeQueryIntent | None:
@@ -73,8 +55,12 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
     if not normalized:
         return None
 
-    if any(pattern.fullmatch(normalized) for pattern in _UNSUPPORTED_EVENT_RELATIVE_PATTERNS):
-        return None
+    for pattern in _BEFORE_DEPARTURE_PATTERNS:
+        match = pattern.fullmatch(normalized)
+        if match:
+            object_name = _clean(match.group("object"))
+            if object_name:
+                return HomeQueryIntent(kind="before_departure", object_name=object_name)
 
     for pattern in _BEFORE_PATTERNS:
         match = pattern.fullmatch(normalized)
