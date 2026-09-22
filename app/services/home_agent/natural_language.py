@@ -40,6 +40,13 @@ def _clean(value: str) -> str:
     return " ".join(value.strip().split()).rstrip("?.!").strip()
 
 
+def _time_scope(match: re.Match[str]) -> Literal["today", "yesterday"] | None:
+    value = match.group("time_scope")
+    if value is None:
+        return None
+    return value.lower()  # regex restricts this to today|yesterday
+
+
 def parse_home_query(text: str) -> HomeQueryIntent | None:
     """Parse a bounded Home/Jarvis physical-memory question without an LLM."""
     normalized = " ".join(text.strip().split())
@@ -58,14 +65,12 @@ def parse_home_query(text: str) -> HomeQueryIntent | None:
     if match:
         object_name = _clean(match.group("object"))
         if object_name:
-            time_scope = match.group("time_scope")
-            return HomeQueryIntent(kind="location_history", object_name=object_name, time_scope=time_scope)
+            return HomeQueryIntent(kind="location_history", object_name=object_name, time_scope=_time_scope(match))
 
     for pattern in (_LAST_SEEN_PATTERN, _WHERE_PATTERN):
         match = pattern.fullmatch(normalized)
         if match:
             object_name = _clean(match.group("object"))
             if object_name:
-                time_scope = match.group("time_scope")
-                return HomeQueryIntent(kind="where_is", object_name=object_name, time_scope=time_scope)
+                return HomeQueryIntent(kind="where_is", object_name=object_name, time_scope=_time_scope(match))
     return None
