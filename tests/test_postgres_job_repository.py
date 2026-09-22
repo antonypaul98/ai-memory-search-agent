@@ -1,3 +1,4 @@
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 from datetime import datetime, timezone
 
 import pytest
@@ -33,6 +34,8 @@ class Connection:
         return False
 
     def execute(self, query, params=()):
+        if is_fence_query(query):
+            return UnfencedCursor()
         sql = " ".join(query.split())
         self.calls.append((sql, params))
         if sql.startswith("SELECT job_id, user_id, job_type"):

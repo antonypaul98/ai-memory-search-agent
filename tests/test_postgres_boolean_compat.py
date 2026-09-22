@@ -1,3 +1,4 @@
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 from datetime import datetime, timezone
 
 from app.db.postgres_job_claims import PostgresJobClaimStore
@@ -24,6 +25,8 @@ class Connection:
         return False
 
     def execute(self, query, params=()):
+        if is_fence_query(query):
+            return UnfencedCursor()
         sql = " ".join(query.split())
         self.calls.append((sql, params))
         if "WITH candidate AS" in sql:
@@ -36,7 +39,7 @@ def test_claim_query_uses_postgres_boolean_predicate():
     store = PostgresJobClaimStore(lambda: conn)
 
     assert store.claim_next_item(
-        worker_id="worker-a",
+        worker_id="worker-a", user_id="tenant-a",
         now=datetime(2026, 8, 29, tzinfo=timezone.utc),
     ) is None
 

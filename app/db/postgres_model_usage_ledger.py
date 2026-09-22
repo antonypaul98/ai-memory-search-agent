@@ -1,6 +1,8 @@
 """Postgres persistence for tenant-scoped model route usage accounting."""
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -62,6 +64,7 @@ class PostgresModelUsageLedger:
     ) -> None:
         timestamp = created_at or datetime.now(timezone.utc).isoformat()
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO model_route_usage(

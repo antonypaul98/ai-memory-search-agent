@@ -13,6 +13,9 @@ class FakeResult:
         self._rows = list(rows or [])
         self.rowcount = rowcount
 
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
     def fetchall(self):
         return self._rows
 
@@ -29,6 +32,8 @@ class FakeConnection:
         return False
 
     def execute(self, statement, params=None):
+        if statement.startswith("SELECT to_regclass"):
+            return FakeResult(rows=[{"relation": params[0]}])
         self.statements.append((" ".join(str(statement).split()), params))
         return next(self.results)
 
@@ -80,6 +85,8 @@ def test_failure_escapes_connection_context_for_transaction_rollback():
 
     class FailingConnection(FakeConnection):
         def execute(self, statement, params=None):
+            if statement.startswith("SELECT to_regclass"):
+                return FakeResult(rows=[{"relation": params[0]}])
             normalized = " ".join(str(statement).split())
             self.statements.append((normalized, params))
             if "home_image_evidence" in normalized:

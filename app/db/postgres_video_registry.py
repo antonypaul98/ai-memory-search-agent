@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -74,6 +76,7 @@ class PostgresVideoRegistry:
     ) -> None:
         now = datetime.now(timezone.utc)
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO video_registry (user_id, video_id, url, title, channel, saved_at)
@@ -139,6 +142,7 @@ class PostgresVideoRegistry:
     def record_view(self, video_id: str, *, user_id: str = LOCAL_DEFAULT_USER_ID) -> UsageStats:
         now = datetime.now(timezone.utc)
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 UPDATE video_registry
@@ -154,6 +158,7 @@ class PostgresVideoRegistry:
             return
         now = datetime.now(timezone.utc)
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             for video_id in set(video_ids):
                 conn.execute(
                     """
@@ -173,6 +178,7 @@ class PostgresVideoRegistry:
     ) -> UsageStats:
         column = "helpful_count" if helpful else "not_helpful_count"
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 f"UPDATE video_registry SET {column} = {column} + 1 "
                 "WHERE user_id = %s AND video_id = %s",

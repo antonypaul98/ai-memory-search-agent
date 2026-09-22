@@ -9,6 +9,8 @@ cutover before every call site is selected through one fail-closed boundary.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -82,6 +84,7 @@ class PostgresIngestArtifactStore:
         transcript_hash = _required("transcript_hash", transcript_hash)
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO ingest_artifacts (
@@ -100,6 +103,7 @@ class PostgresIngestArtifactStore:
         capsule_json = _required("capsule_json", capsule_json)
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO ingest_artifacts (

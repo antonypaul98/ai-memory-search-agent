@@ -48,9 +48,7 @@ class FakeFactory:
 
 def test_auth_store_factory_keeps_sqlite_as_safe_default(tmp_path):
     settings = Settings(sqlite_path=str(tmp_path / "auth.db"))
-
     store = get_auth_store(settings)
-
     assert isinstance(store, AuthStore)
 
 
@@ -58,18 +56,9 @@ def test_auth_store_factory_postgres_is_explicit_and_initializes_schema(monkeypa
     settings = Settings(auth_store_backend="postgres")
     factory = FakeFactory()
     seen = {}
-
-    monkeypatch.setattr(
-        "app.db.auth_store_factory.get_postgres_connection_factory",
-        lambda supplied: factory,
-    )
-    monkeypatch.setattr(
-        "app.db.auth_store_factory.ensure_postgres_auth_schema",
-        lambda supplied: seen.setdefault("factory", supplied),
-    )
-
+    monkeypatch.setattr("app.db.auth_store_factory.get_postgres_connection_factory", lambda supplied: factory)
+    monkeypatch.setattr("app.db.auth_store_factory.ensure_postgres_auth_schema", lambda supplied: seen.setdefault("factory", supplied))
     store = get_auth_store(settings)
-
     assert isinstance(store, PostgresAuthStore)
     assert seen["factory"] is factory
 
@@ -78,16 +67,13 @@ def test_auth_store_factory_postgres_never_falls_back_without_dsn(monkeypatch):
     env_name = "TEST_MEMORY_AGENT_DATABASE_URL"
     monkeypatch.delenv(env_name, raising=False)
     settings = Settings(auth_store_backend="postgres", postgres_dsn_env=env_name)
-
     with pytest.raises(PostgresConfigurationError, match=env_name):
         get_auth_store(settings)
 
 
 def test_postgres_auth_schema_creates_users_sessions_and_indexes():
     factory = FakeFactory()
-
     ensure_postgres_auth_schema(factory)
-
     statements = "\n".join(sql for sql, _ in factory.created[0].calls)
     assert "CREATE TABLE IF NOT EXISTS users" in statements
     assert "CREATE TABLE IF NOT EXISTS sessions" in statements
@@ -99,26 +85,22 @@ def test_postgres_auth_schema_creates_users_sessions_and_indexes():
 def test_postgres_local_user_is_idempotent():
     factory = FakeFactory()
     store = PostgresAuthStore(Settings(), factory)
-
     store.ensure_local_user()
-
-    sql, params = factory.created[0].calls[0]
-    assert "ON CONFLICT (user_id) DO NOTHING" in sql
-    assert params[0] == "local-default"
+    calls = factory.created[0].calls
+    lock_sql, lock_params = calls[0]
+    assert "pg_advisory_xact_lock_shared" in lock_sql
+    assert lock_params == ("local-default",)
+    insert_sql, insert_params = next((sql, params) for sql, params in calls if "ON CONFLICT (user_id) DO NOTHING" in sql)
+    assert "ON CONFLICT (user_id) DO NOTHING" in insert_sql
+    assert insert_params[0] == "local-default"
 
 
 def test_postgres_resolve_token_deletes_only_expired_matching_token_then_reads_active():
-    row = {
-        "user_id": "tenant-a",
-        "email": "person@example.com",
-        "display_name": "Person",
-    }
+    row = {"user_id": "tenant-a", "email": "person@example.com", "display_name": "Person"}
     conn = FakeConnection(rows=[None, row])
     factory = FakeFactory([conn])
     store = PostgresAuthStore(Settings(), factory)
-
     user = store.resolve_token("session-secret")
-
     assert user is not None
     assert user.user_id == "tenant-a"
     assert user.email == "person@example.com"
@@ -135,6 +117,5 @@ def test_postgres_resolve_token_deletes_only_expired_matching_token_then_reads_a
 def test_postgres_blank_session_token_does_not_touch_database():
     factory = FakeFactory()
     store = PostgresAuthStore(Settings(), factory)
-
     assert store.resolve_token("   ") is None
     assert factory.created == []

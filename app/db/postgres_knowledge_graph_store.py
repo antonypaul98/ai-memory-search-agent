@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 import uuid
 from collections.abc import Callable
@@ -157,6 +159,7 @@ class PostgresKnowledgeGraphStore:
         now = _now()
         aliases = sorted(set(aliases or []))
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 "SELECT * FROM kg_entities WHERE user_id = %s AND entity_type = %s "
                 "AND normalized_name = %s FOR UPDATE",
@@ -259,6 +262,7 @@ class PostgresKnowledgeGraphStore:
             raise ValueError("confidence must be between 0 and 1")
         now = _now()
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             self._require_owned_entity(conn, subject_entity_id, user_id)
             self._require_owned_entity(conn, object_entity_id, user_id)
             existing = conn.execute(
@@ -386,6 +390,7 @@ class PostgresKnowledgeGraphStore:
 
     def link_memory_entity(self, link: MemoryEntityLink, *, user_id: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             self._require_owned_entity(conn, link.entity_id, user_id)
             conn.execute(
                 "INSERT INTO kg_memory_entities "

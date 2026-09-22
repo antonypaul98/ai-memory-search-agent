@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_job_repository import ConnectionFactory
 from app.db.postgres_runtime import get_postgres_connection_factory
@@ -108,6 +109,9 @@ def migrate_video_registry_to_postgres(
     videos_inserted = 0
     reflections_inserted = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[0] for row in videos + reflections}):
+            require_active_tenant(target, user_id=owner)
         for row in videos:
             cur = target.execute(
                 """

@@ -8,6 +8,8 @@ stores until the backend facade is wired.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
@@ -62,6 +64,7 @@ class PostgresJobRepository:
         reflection_json = reflection.model_dump_json() if reflection else ""
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO background_jobs (

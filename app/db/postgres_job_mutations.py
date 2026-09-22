@@ -6,6 +6,8 @@ surface and backend wiring are complete and validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
@@ -41,6 +43,7 @@ class PostgresJobMutationStore:
         now_dt = _aware_now(now)
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 SELECT status

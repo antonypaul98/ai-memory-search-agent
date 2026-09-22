@@ -7,6 +7,8 @@ validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -111,6 +113,7 @@ class PostgresCreatorProfileStore:
         avg_duration_sec = total_duration_sec / max(video_count, 1)
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             existing = conn.execute(
                 "SELECT * FROM creator_profiles WHERE user_id = %s AND normalized_name = %s FOR UPDATE",
                 (user_id, normalized),
@@ -184,6 +187,7 @@ class PostgresCreatorProfileStore:
         duration_sec = max(0.0, float(duration_sec or 0))
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             existing = conn.execute(
                 "SELECT * FROM creator_profiles WHERE user_id = %s AND normalized_name = %s FOR UPDATE",
                 (user_id, normalized),

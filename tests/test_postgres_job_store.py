@@ -9,11 +9,16 @@ from app.models.job import BackgroundJob
 
 
 def _store() -> PostgresJobStore:
-    store = PostgresJobStore(lambda: None)
+    # These are facade contract unit tests: avoid constructing production
+    # Postgres collaborators (including AccountErasureFence, which correctly
+    # initializes its durable schema against a real connection).  Each
+    # collaborator used by the facade is replaced below with an explicit mock.
+    store = object.__new__(PostgresJobStore)
     store._repository = MagicMock()
     store._claims = MagicMock()
     store._controls = MagicMock()
     store._mutations = MagicMock()
+    store._account_erasure_fence = MagicMock()
     return store
 
 

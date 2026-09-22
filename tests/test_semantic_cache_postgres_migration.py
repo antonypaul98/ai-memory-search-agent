@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
 
 import sqlite3
 from types import SimpleNamespace
@@ -25,6 +26,8 @@ class _TargetConnection:
         return False
 
     def execute(self, sql: str, params=()):
+        if is_fence_query(sql):
+            return UnfencedCursor()
         if "INSERT INTO semantic_cache" in sql:
             key = (str(params[0]), str(params[1]))
             if key in self.existing:

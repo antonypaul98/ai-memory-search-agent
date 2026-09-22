@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from typing import Any
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -67,6 +69,7 @@ class PostgresEventStore:
         created_at: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO webhook_subscriptions (
@@ -104,6 +107,7 @@ class PostgresEventStore:
         request_id: str | None, payload_json: str, created_at: str,
     ) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """
                 INSERT INTO memory_events (

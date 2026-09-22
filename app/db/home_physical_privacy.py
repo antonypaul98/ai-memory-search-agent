@@ -1,6 +1,8 @@
 """Exact-tenant privacy primitives for Home Agent physical-memory data."""
 from __future__ import annotations
 
+from app.db.postgres_privacy_tables import table_exists
+
 from typing import Any
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -83,6 +85,8 @@ def delete_user_home_physical_data(
 
 
 def _delete_count(conn: Any, statement: str, user_id: str) -> int:
+    if not table_exists(conn, statement.split()[2]):
+        return 0
     result = conn.execute(statement, (user_id,))
     return max(0, int(getattr(result, "rowcount", 0) or 0))
 

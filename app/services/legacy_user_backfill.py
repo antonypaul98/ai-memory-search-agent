@@ -34,6 +34,9 @@ def backfill_legacy_user_ids(
         raise ValueError("batch_size must be at least 1")
 
     runtime_settings = settings or get_settings()
+    from app.db.production_storage_profile import is_complete_postgres_profile
+    if not dry_run and is_complete_postgres_profile(runtime_settings):
+        raise PermissionError("Production legacy vector ownership must not be guessed; use the preview/purge cutover policy")
     collection = get_collection(runtime_settings)
 
     scanned = 0

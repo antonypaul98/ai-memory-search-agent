@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 import pytest
 
 from app.config import Settings
@@ -38,6 +40,8 @@ def test_creator_profile_schema_preserves_tenant_identity_and_deterministic_orde
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return self
 
@@ -67,6 +71,8 @@ def test_creator_profile_reads_are_exact_tenant_and_deterministic():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return FakeResult()
 
@@ -105,6 +111,8 @@ def test_creator_profile_mutations_lock_exact_tenant_identity():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             if "INSERT INTO creator_profiles" in str(statement):
                 return InsertResult(params)
@@ -173,6 +181,8 @@ def test_replace_creator_stats_locks_exact_tenant_identity_before_write():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             if "INSERT INTO creator_profiles" in str(statement):
                 return InsertResult(params)

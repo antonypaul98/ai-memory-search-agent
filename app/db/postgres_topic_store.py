@@ -7,6 +7,8 @@ legacy IntelligenceStore until their own bounded P-03 slices are validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -86,6 +88,7 @@ class PostgresTopicStore:
             raise ValueError("empty topic name")
         now = _now()
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 SELECT * FROM topic_profiles

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from typing import Any
 
@@ -49,6 +51,7 @@ class PostgresImportRunStore:
 
     def create(self, *, import_id: str, user_id: str, connector_id: str, items: list[tuple[str, str]], now: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """INSERT INTO import_runs (
                     import_id, user_id, connector_id, status, total_items,
@@ -116,6 +119,7 @@ class PostgresImportRunStore:
 
     def cancel_items(self, *, import_id: str, user_id: str, now: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """UPDATE import_run_items
                 SET status = 'cancelled', detail = 'Cancelled', updated_at = %s
@@ -151,6 +155,7 @@ class PostgresImportRunStore:
         sets = [f"{key} = %s" for key, _ in selected] + ["updated_at = %s"]
         values = [value for _, value in selected] + [now, import_id, user_id]
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 f"UPDATE import_runs SET {', '.join(sets)} WHERE import_id = %s AND user_id = %s",
                 values,
@@ -158,6 +163,7 @@ class PostgresImportRunStore:
 
     def update_item(self, *, item_id: int, user_id: str, status: str, detail: str, error: str | None, external_id: str, now: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """UPDATE import_run_items
                 SET status = %s, detail = %s, error = %s, external_id = %s, updated_at = %s

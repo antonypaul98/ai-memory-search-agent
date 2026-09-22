@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.knowledge_graph_store import _validate_temporal_window, normalize_entity_name
 from app.db.postgres_job_repository import ConnectionFactory
@@ -104,6 +105,9 @@ def migrate_knowledge_graph_to_postgres(
     existing_relations: set[str] = set()
     existing_links: set[tuple[str, str, str]] = set()
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[1] for row in entities + relations} | {row[2] for row in links}):
+            require_active_tenant(target, user_id=owner)
         for row in entities:
             existing = target.execute(
                 "SELECT entity_id,user_id,entity_type,name,normalized_name,aliases_json,metadata_json,created_at,updated_at "

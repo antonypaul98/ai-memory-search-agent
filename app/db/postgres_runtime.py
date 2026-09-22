@@ -38,11 +38,14 @@ def get_postgres_connection_factory(settings: Settings) -> ConnectionFactory:
     from psycopg.rows import dict_row
 
     def connect() -> Any:
-        return psycopg.connect(
+        conn = psycopg.connect(
             dsn,
             connect_timeout=settings.postgres_connect_timeout_sec,
             row_factory=dict_row,
         )
+        # Fence checks must observe a marker committed while waiting for its lock.
+        conn.isolation_level = psycopg.IsolationLevel.READ_COMMITTED
+        return conn
 
     return connect
 

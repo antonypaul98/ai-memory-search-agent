@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_intelligence_event_store import PostgresIntelligenceEventStore
 from app.db.postgres_job_repository import ConnectionFactory
@@ -71,6 +72,9 @@ def migrate_intelligence_events_to_postgres(
     inserted = 0
     existing_ids: set[int] = set()
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[1] for row in normalized_rows}):
+            require_active_tenant(target, user_id=owner)
         # Preflight every imported serial identity before any row mutation. A
         # non-identical target row with the same id is data loss if silently
         # skipped, so fail closed instead.

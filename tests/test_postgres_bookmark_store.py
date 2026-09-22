@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 import pytest
 
 from app.config import Settings
@@ -63,6 +65,8 @@ def test_postgres_bookmark_schema_and_snapshot_updates_keep_tenant_scope():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append((" ".join(str(statement).split()), params))
             return self
 
@@ -103,6 +107,8 @@ def test_partial_snapshot_never_marks_unseen_bookmarks_removed():
             return False
 
         def execute(self, statement, params=None):
+            if is_fence_query(statement):
+                return UnfencedCursor()
             statements.append(" ".join(str(statement).split()))
             return self
 

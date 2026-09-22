@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import active_vector_write
+
 from typing import Any
 
 from app.config import Settings, get_settings
@@ -58,7 +60,8 @@ class HierarchicalStore:
         }
         if user_id:
             metadata["user_id"] = user_id
-        coll.upsert(ids=[doc_id], embeddings=[embedding], documents=[body], metadatas=[metadata])
+        with active_vector_write(self._settings, user_id=user_id):
+            coll.upsert(ids=[doc_id], embeddings=[embedding], documents=[body], metadatas=[metadata])
 
     def upsert_sections(self, video_id: str, sections: list[MemorySection], embeddings: list[list[float]], *, user_id: str | None = None) -> None:
         if not sections:
@@ -79,7 +82,8 @@ class HierarchicalStore:
             if user_id:
                 metadata["user_id"] = user_id
             metas.append(metadata)
-        coll.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metas)
+        with active_vector_write(self._settings, user_id=user_id):
+            coll.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metas)
 
     def search_level(self, collection_name: str, query_embedding: list[float], *, top_k: int, video_ids: list[str] | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
         coll = self._collection(collection_name)

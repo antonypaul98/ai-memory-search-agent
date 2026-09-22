@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from collections.abc import Callable
 from typing import Any
 
@@ -65,6 +67,7 @@ class PostgresBookmarkStore:
     ) -> None:
         current_ids = {str(item["browser_bookmark_id"]) for item in items}
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             if snapshot_complete:
                 if current_ids:
                     placeholders = ",".join("%s" for _ in current_ids)

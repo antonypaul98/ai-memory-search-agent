@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.postgres_fence_fakes import is_fence_query, UnfencedCursor
+
 from datetime import datetime, timezone
 
 import pytest
@@ -28,6 +30,8 @@ class FakeConnection:
         return False
 
     def execute(self, statement, params=None):
+        if is_fence_query(statement):
+            return UnfencedCursor()
         self.statements.append((" ".join(str(statement).split()), params))
         if self.results:
             return self.results.pop(0)

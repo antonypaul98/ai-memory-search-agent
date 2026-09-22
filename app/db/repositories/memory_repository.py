@@ -11,6 +11,7 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.core.exceptions import ChromaConnectionError
 from app.db.chroma_client import get_collection
+from app.db.account_erasure_fence import active_vector_write
 from app.models.user import LOCAL_DEFAULT_USER_ID
 from app.models.video import SourceType
 from app.services.enrichment_service import deserialize_string_list, serialize_string_list
@@ -117,7 +118,8 @@ class MemoryRepository:
                 "transcript_available": True,
             })
 
-        collection.add(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
+        with active_vector_write(self._settings, user_id=user_id):
+            collection.add(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
         return len(chunks)
 
     def search(

@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
+from app.db.account_erasure_fence import require_active_tenant
 from app.config import Settings, get_settings
 from app.db.postgres_job_repository import ConnectionFactory
 from app.db.postgres_review_schedule_store import PostgresReviewScheduleStore
@@ -102,6 +103,9 @@ def migrate_review_schedules_to_postgres(
     PostgresReviewScheduleStore(factory)
     inserted = 0
     with factory() as target:
+        # Lock all owners in stable order before replaying any source rows.
+        for owner in sorted({row[0] for row in rows}):
+            require_active_tenant(target, user_id=owner)
         for row in rows:
             # Require the registry migration first. Do not retain orphaned
             # derived data merely because a legacy tenant was supplied.

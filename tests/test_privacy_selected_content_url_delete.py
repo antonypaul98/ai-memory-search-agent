@@ -140,4 +140,5 @@ def test_privacy_delete_routes_content_url_cleanup_through_selected_store(monkey
         user_id="tenant-a", video_id="shared-video"
     )
     cache_factory.assert_called_once_with(service._settings)
-    selected_cache.bump_index_version_and_invalidate.assert_called_once_with()
+    selected_cache.invalidate.assert_called_once_with(user_id="tenant-a")
+    selected_cache.bump_index_version_and_invalidate.assert_not_called()

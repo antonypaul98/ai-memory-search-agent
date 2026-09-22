@@ -7,6 +7,8 @@ remaining job CRUD/read surface and backend wiring are migrated and validated.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
@@ -49,6 +51,7 @@ class PostgresJobControlStore:
         event_type = "paused" if paused else "resumed"
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             cur = conn.execute(
                 f"""
                 UPDATE background_jobs
@@ -87,6 +90,7 @@ class PostgresJobControlStore:
         now_dt = _aware_now(now)
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """
                 SELECT status

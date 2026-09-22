@@ -9,6 +9,8 @@ backend factory is wired.
 
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Protocol
@@ -88,10 +90,27 @@ class PostgresJobClaimStore:
             raise ValueError("worker_id is required")
 
         now_dt = _aware_now(now)
+        if user_id is None:
+            # Resolve ownership from canonical jobs, never a denormalized item label.
+            with self._connection_factory() as conn:
+                owners = conn.execute(
+                    "SELECT DISTINCT user_id FROM background_jobs "
+                    "WHERE status IN ('queued', 'running') AND paused=FALSE ORDER BY user_id"
+                ).fetchall()
+            for owner in owners:
+                try:
+                    claimed = self.claim_next_item(worker_id=worker_id, user_id=_field(owner, "user_id", 0), now=now)
+                except PermissionError:
+                    continue
+                if claimed is not None:
+                    return claimed
+            return None
+
+        now_dt = _aware_now(now)
         lease_until = now_dt + timedelta(seconds=self._lease_seconds)
         stale_without_lease = now_dt - timedelta(seconds=self._lease_seconds)
 
-        user_predicate = "AND ji.user_id = %s" if user_id else ""
+        user_predicate = "AND bj.user_id = %s" if user_id else ""
         params: list[Any] = [now_dt, stale_without_lease]
         if user_id:
             params.append(user_id)
@@ -129,6 +148,7 @@ class PostgresJobClaimStore:
         """
 
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(claim_sql, tuple(params)).fetchone()
             if not row:
                 return None
@@ -196,6 +216,13 @@ class PostgresJobClaimStore:
         lease_until = now_dt + timedelta(seconds=self._lease_seconds)
 
         with self._connection_factory() as conn:
+            owner = conn.execute("SELECT user_id FROM background_jobs WHERE job_id=%s", (job_id,)).fetchone()
+            if owner is None:
+                return False
+            try:
+                require_active_tenant(conn, user_id=_field(owner, "user_id", 0))
+            except PermissionError:
+                return False
             cur = conn.execute(
                 """
                 UPDATE job_item_leases jl
@@ -255,6 +282,13 @@ class PostgresJobClaimStore:
         now_dt = _aware_now(now)
 
         with self._connection_factory() as conn:
+            owner = conn.execute("SELECT user_id FROM background_jobs WHERE job_id=%s", (job_id,)).fetchone()
+            if owner is None:
+                return False
+            try:
+                require_active_tenant(conn, user_id=_field(owner, "user_id", 0))
+            except PermissionError:
+                return False
             cur = conn.execute(
                 """
                 UPDATE job_items ji

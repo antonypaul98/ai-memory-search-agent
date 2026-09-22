@@ -1,6 +1,8 @@
 """Postgres persistence for tenant-scoped deterministic agent runtime state."""
 from __future__ import annotations
 
+from app.db.account_erasure_fence import require_active_tenant
+
 from typing import Any
 
 from app.db.postgres_job_repository import ConnectionFactory
@@ -38,19 +40,11 @@ class PostgresAgentRuntimeStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_run ON agent_tool_calls(run_id, id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_tool_calls_tenant ON agent_tool_calls(user_id, run_id, id)")
 
-    @staticmethod
-    def _require_active(conn: Any, *, user_id: str) -> None:
-        row = conn.execute(
-            "SELECT 1 FROM account_erasure_fences WHERE user_id=%s", (user_id,)
-        ).fetchone()
-        if row is not None:
-            raise PermissionError("account erasure is in progress or completed")
-
     def create_run(self, *, run_id: str, user_id: str, agent_id: str, task: str, tool: str,
                    arguments_json: str, policy_tier: str, status: str, message: str,
                    created_at: str) -> None:
         with self._connection_factory() as conn:
-            self._require_active(conn, user_id=user_id)
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 """INSERT INTO agent_runs (
                     run_id, user_id, agent_id, task, tool, arguments_json,
@@ -76,7 +70,7 @@ class PostgresAgentRuntimeStore:
 
     def set_run_running(self, *, user_id: str, run_id: str, updated_at: str) -> None:
         with self._connection_factory() as conn:
-            self._require_active(conn, user_id=user_id)
+            require_active_tenant(conn, user_id=user_id)
             conn.execute(
                 "UPDATE agent_runs SET status='running', message='', updated_at=%s WHERE run_id=%s AND user_id=%s",
                 (updated_at, run_id, user_id),
@@ -85,7 +79,7 @@ class PostgresAgentRuntimeStore:
     def create_tool_call(self, *, user_id: str, run_id: str, tool: str,
                          arguments_json: str, created_at: str) -> int:
         with self._connection_factory() as conn:
-            self._require_active(conn, user_id=user_id)
+            require_active_tenant(conn, user_id=user_id)
             row = conn.execute(
                 """INSERT INTO agent_tool_calls (
                     run_id, user_id, tool, status, arguments_json, created_at
@@ -97,12 +91,14 @@ class PostgresAgentRuntimeStore:
     def mark_failed(self, *, user_id: str, run_id: str, call_id: int,
                     error: str, updated_at: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute("UPDATE agent_tool_calls SET status='failed', error=%s WHERE id=%s AND run_id=%s AND user_id=%s", (error, call_id, run_id, user_id))
             conn.execute("UPDATE agent_runs SET status='failed', message=%s, updated_at=%s WHERE run_id=%s AND user_id=%s", (error, updated_at, run_id, user_id))
 
     def mark_completed(self, *, user_id: str, run_id: str, call_id: int,
                        result_json: str, message: str, updated_at: str) -> None:
         with self._connection_factory() as conn:
+            require_active_tenant(conn, user_id=user_id)
             conn.execute("UPDATE agent_tool_calls SET status='completed', result_json=%s WHERE id=%s AND run_id=%s AND user_id=%s", (result_json, call_id, run_id, user_id))
             conn.execute("UPDATE agent_runs SET status='completed', result_json=%s, message=%s, updated_at=%s WHERE run_id=%s AND user_id=%s", (result_json, message, updated_at, run_id, user_id))
 
