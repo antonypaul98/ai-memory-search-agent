@@ -19,7 +19,7 @@ class Store:
 def session(*, user="tenant-a", source="front-door-camera"):
     return CaptureSession(
         session_id="session-1", user_id=user, source_id=source,
-        started_at=NOW - timedelta(minutes=10), expires_at=NOW + timedelta(minutes=10),
+        started_at=NOW - timedelta(minutes=5), expires_at=NOW + timedelta(minutes=5),
     )
 
 
@@ -75,7 +75,7 @@ def test_expired_session_fails_before_write():
     registry = CaptureSessionRegistry()
     expired = CaptureSession(
         session_id="session-1", user_id="tenant-a", source_id="front-door-camera",
-        started_at=NOW - timedelta(hours=2), expires_at=NOW - timedelta(hours=1),
+        started_at=NOW - timedelta(minutes=10), expires_at=NOW - timedelta(minutes=5),
     )
     registry.register(expired); store = Store()
     with pytest.raises(PermissionError):
