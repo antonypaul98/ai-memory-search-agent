@@ -63,6 +63,7 @@ def test_hardware_smoke_strict_mode_requires_physical_memory_event():
     assert result.passed is False
     assert result.event_required is True
     assert result.events_emitted == 0
+    assert result.failure_reasons() == ("required_physical_memory_event_not_emitted",)
 
 
 def test_hardware_smoke_strict_mode_passes_when_event_is_emitted():
@@ -83,6 +84,7 @@ def test_hardware_smoke_strict_mode_passes_when_event_is_emitted():
 
     assert result.passed is True
     assert result.events_emitted == 1
+    assert result.failure_reasons() == ()
 
 
 def test_hardware_smoke_does_not_pass_without_frame_or_cleanup():
@@ -100,6 +102,7 @@ def test_hardware_smoke_does_not_pass_without_frame_or_cleanup():
     )
 
     assert result.passed is False
+    assert result.failure_reasons() == ("no_frames_processed", "camera_source_not_closed")
 
 
 def test_hardware_smoke_rejects_invalid_bound_before_camera_access():
