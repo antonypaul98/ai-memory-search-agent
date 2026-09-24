@@ -35,6 +35,25 @@ def test_runner_processes_bounded_frames_through_authenticated_capture():
     assert capture.ingest.call_count == 2
 
 
+def test_runner_frame_limit_does_not_pull_an_extra_camera_frame():
+    capture = Mock(); capture.ingest.return_value = ({"stored": True}, None)
+    runner = ContinuousCaptureRunner(registry=registry(), capture=capture)
+    pulls = []
+
+    def source():
+        for offset in range(3):
+            pulls.append(offset)
+            yield frame(offset)
+
+    result = runner.run(
+        session_id="session-1", user_id="tenant-a", source_id="camera-1",
+        location="entry", frames=source(), max_frames=2,
+    )
+    assert result.frames_processed == 2
+    assert result.stopped_reason == "frame_limit"
+    assert pulls == [0, 1]
+
+
 def test_runner_stops_before_frame_when_session_expires():
     capture = Mock(); capture.ingest.return_value = ({"stored": True}, None)
     runner = ContinuousCaptureRunner(registry=registry(expires=START + timedelta(seconds=2)), capture=capture)
