@@ -48,9 +48,12 @@ class ContinuousCaptureRunner:
         processed = 0
         events: list[HomePresenceEvent] = []
         previous_at: datetime | None = None
-        for frame in frames:
-            if processed >= max_frames:
-                return CaptureRunResult(processed, tuple(events), "frame_limit")
+        iterator = iter(frames)
+        while processed < max_frames:
+            try:
+                frame = next(iterator)
+            except StopIteration:
+                return CaptureRunResult(processed, tuple(events), "source_exhausted")
             if frame.observed_at.tzinfo is None or frame.observed_at.utcoffset() is None:
                 raise ValueError("frame observed_at must be timezone-aware")
             if previous_at is not None and frame.observed_at - previous_at < min_interval:
@@ -74,4 +77,4 @@ class ContinuousCaptureRunner:
             if event is not None:
                 events.append(event)
 
-        return CaptureRunResult(processed, tuple(events), "source_exhausted")
+        return CaptureRunResult(processed, tuple(events), "frame_limit")
