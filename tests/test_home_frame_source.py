@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -55,7 +55,7 @@ def test_stream_paces_after_first_frame_without_delaying_initial_capture():
     )
     frames = list(stream)
     assert [frame.image_bytes for frame in frames] == [b"a", b"b"]
-    assert sleeper.call_args_list == [((2.0,),), ((2.0,),)]
+    assert sleeper.call_args_list == [call(2.0), call(2.0)]
 
 
 def test_stream_closes_when_consumer_stops_early():
@@ -92,10 +92,10 @@ def test_adapter_routes_device_stream_to_authenticated_runner_and_closes_source(
     assert result.capture.frames_processed == 1
     assert result.source_closed is True
     assert device.closed == 1
-    call = runner.run.call_args.kwargs
-    assert call["session_id"] == "session-1"
-    assert call["user_id"] == "tenant-a"
-    assert call["source_id"] == "camera-1"
+    call_kwargs = runner.run.call_args.kwargs
+    assert call_kwargs["session_id"] == "session-1"
+    assert call_kwargs["user_id"] == "tenant-a"
+    assert call_kwargs["source_id"] == "camera-1"
 
 
 def test_adapter_paces_stream_with_same_interval_enforced_by_runner():
@@ -115,4 +115,4 @@ def test_adapter_paces_stream_with_same_interval_enforced_by_runner():
     )
     assert result.capture.frames_processed == 2
     assert runner.run.call_args.kwargs["min_interval"] == timedelta(seconds=3)
-    assert sleeper.call_args_list == [((3.0,),), ((3.0,),)]
+    assert sleeper.call_args_list == [call(3.0), call(3.0)]
