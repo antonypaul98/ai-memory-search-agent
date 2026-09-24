@@ -14,10 +14,13 @@ class HardwareSmokeResult:
     events_emitted: int
     stopped_reason: str
     source_closed: bool
+    event_required: bool = False
 
     @property
     def passed(self) -> bool:
-        return self.frames_processed >= 1 and self.source_closed
+        frame_and_cleanup_ok = self.frames_processed >= 1 and self.source_closed
+        event_ok = not self.event_required or self.events_emitted >= 1
+        return frame_and_cleanup_ok and event_ok
 
 
 def run_hardware_smoke(
@@ -25,12 +28,15 @@ def run_hardware_smoke(
     source_id: str, location: str, device_index: int = 0,
     max_frames: int = 3, min_interval: timedelta = timedelta(seconds=1),
     min_confidence: float = 0.8, confirmations: int = 2,
+    require_event: bool = False,
 ) -> HardwareSmokeResult:
     """Run a bounded real-camera acceptance probe through authenticated capture.
 
     Passing proves at least one physical frame traversed the configured authenticated
-    pipeline and that the frame source was released. Presence events are reported but
-    are not required: their emission depends on what the camera actually observes.
+    pipeline and that the frame source was released. By default presence events are
+    reported but not required because their emission depends on what the camera sees.
+    Set ``require_event`` for the stronger physical-memory acceptance run where the
+    scene is deliberately arranged to produce a presence transition.
     """
     if max_frames < 1:
         raise ValueError("max_frames must be >= 1")
@@ -51,4 +57,5 @@ def run_hardware_smoke(
         events_emitted=len(result.capture.events),
         stopped_reason=result.capture.stopped_reason,
         source_closed=result.source_closed,
+        event_required=require_event,
     )

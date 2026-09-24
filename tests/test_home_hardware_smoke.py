@@ -42,6 +42,47 @@ def test_hardware_smoke_routes_bounded_authenticated_probe_and_reports_pass():
     assert result.frames_processed == 2
     assert result.events_emitted == 0
     assert result.source_closed is True
+    assert result.event_required is False
+
+
+def test_hardware_smoke_strict_mode_requires_physical_memory_event():
+    capture = Mock()
+    capture.run.return_value = FrameSourceResult(
+        capture=CaptureRunResult(2, (), "frame_limit"), source_closed=True
+    )
+
+    result = run_hardware_smoke(
+        capture=capture,
+        session_id="session-1",
+        user_id="tenant-a",
+        source_id="camera-1",
+        location="entry",
+        require_event=True,
+    )
+
+    assert result.passed is False
+    assert result.event_required is True
+    assert result.events_emitted == 0
+
+
+def test_hardware_smoke_strict_mode_passes_when_event_is_emitted():
+    capture = Mock()
+    event = Mock()
+    capture.run.return_value = FrameSourceResult(
+        capture=CaptureRunResult(2, (event,), "frame_limit"), source_closed=True
+    )
+
+    result = run_hardware_smoke(
+        capture=capture,
+        session_id="session-1",
+        user_id="tenant-a",
+        source_id="camera-1",
+        location="entry",
+        require_event=True,
+    )
+
+    assert result.passed is True
+    assert result.events_emitted == 1
 
 
 def test_hardware_smoke_does_not_pass_without_frame_or_cleanup():
