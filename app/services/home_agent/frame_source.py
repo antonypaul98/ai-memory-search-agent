@@ -43,11 +43,11 @@ class DeviceFrameStream:
         first = True
         try:
             while True:
-                if not first and self._min_interval is not None:
-                    self._sleeper(self._min_interval.total_seconds())
                 image_bytes = self._device.read()
                 if image_bytes is None:
                     return
+                if not first and self._min_interval is not None:
+                    self._sleeper(self._min_interval.total_seconds())
                 observed_at = self._clock()
                 if observed_at.tzinfo is None or observed_at.utcoffset() is None:
                     raise ValueError("frame source clock must return timezone-aware timestamps")
