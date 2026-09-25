@@ -6,6 +6,7 @@ from app.db.account_erasure_fence import active_vector_write
 
 from typing import Any
 
+from app.db.vector_identity import tenant_vector_id
 from app.config import Settings, get_settings
 from app.db.chroma_client import get_chroma_client
 from app.models.capsule import MemoryCapsule, MemorySection
@@ -25,9 +26,9 @@ class HierarchicalStore:
     @staticmethod
     def _doc_id(level: str, video_id: str, *, user_id: str | None = None, index: int | None = None) -> str:
         """Return a tenant-safe vector id while preserving legacy local ids when unscoped."""
-        parts = [level]
         if user_id:
-            parts.append(user_id)
+            return tenant_vector_id(level, user_id, video_id, index)
+        parts = [level]
         parts.append(video_id)
         if index is not None:
             parts.append(str(index))

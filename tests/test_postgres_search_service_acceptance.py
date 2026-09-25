@@ -34,7 +34,8 @@ def test_search_youtube_selection_fails_closed_without_dsn(monkeypatch, tmp_path
     assert attempts == []
 
 
-def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_path):
+@pytest.mark.parametrize("pipeline", ["flat", "hierarchical", "flat_fallback"])
+def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_path, pipeline):
     if not os.getenv('MEMORY_AGENT_TEST_POSTGRES_DSN'):
         pytest.skip('real Postgres DSN required')
     settings = Settings(
@@ -43,7 +44,8 @@ def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_pat
         postgres_dsn_env='MEMORY_AGENT_TEST_POSTGRES_DSN',
         sqlite_path=str(tmp_path / 'forbidden.db'),
         chroma_persist_dir=str(tmp_path / 'chroma'),
-        hierarchical_retrieval_enabled=False, jobs_enabled=False,
+        hierarchical_retrieval_enabled=pipeline != "flat", jobs_enabled=False,
+        semantic_cache_enabled=False, debug=True,
     )
     attempts = []
 
@@ -66,8 +68,18 @@ def test_real_search_service_postgres_tenants_and_telemetry(monkeypatch, tmp_pat
         )
         service._registry.upsert_video(user_id=user_id, video_id='shared',
                                       url='https://example.test/shared', title=title, channel='fixture')
+    from app.models.capsule import MemoryCapsule, MemorySection
     for user_id, title in ((owner, 'Owner evidence'), (other, 'Other evidence')):
-        response = service.search('evidence', user_id=user_id)
+        service._ahme._store.upsert_capsule(MemoryCapsule(video_id='shared', title=title), [1., 0., 0.], user_id=user_id)
+        service._ahme._store.upsert_sections('shared', [MemorySection(title=title, summary=title, start_time=0., end_time=5.)], [[1., 0., 0.]], user_id=user_id)
+    if pipeline == "flat_fallback":
+        def unavailable(*args, **kwargs):
+            raise RuntimeError("injected hierarchy outage")
+        monkeypatch.setattr(service._ahme._store, "search_level", unavailable)
+    for user_id, title in ((owner, 'Owner evidence'), (other, 'Other evidence')):
+        response = service.search('evidence', user_id=user_id, debug=True)
+        assert response.debug_metrics.pipeline == pipeline
+        assert response.results[0].matched_text.startswith(title)
         assert [item.title for item in response.results] == [title]
         assert service._registry.get_usage('shared', user_id=user_id).search_count == 1
         assert service._yt_store.diagnostics(user_id=user_id).average_search_latency_ms > 0
