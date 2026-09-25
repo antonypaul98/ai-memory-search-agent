@@ -1,5 +1,9 @@
 # P-03 current-main reconciliation — 2026-09-21
 
+> Historical P-03 evidence: code-level Partial/next-work statements below are
+> superseded by the [2026-09-22 implementation closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md).
+> Current gate accounting is in [JARVIS_GATE_LEDGER.md](JARVIS_GATE_LEDGER.md).
+
 Status: **Partial — do not advance Jarvis Gate from 22/29 yet.**
 
 This note reconciles the older P-03 privacy inventory against current `main` at `97d9a2a8a5846a97e41fef8de985f731e951bb6b`. It is intentionally narrow: it records later merged evidence so future acceptance work does not reimplement already-closed slices. The canonical final acceptance document remains `P03_FINAL_ACCEPTANCE_EVIDENCE.md` and must be updated when the remaining account-wide producer fence is proven.

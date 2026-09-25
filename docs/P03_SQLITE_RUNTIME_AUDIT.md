@@ -1,5 +1,9 @@
 # P-03 current runtime audit
 
+> Historical P-03 evidence: code-level Partial/next-work statements below are
+> superseded by the [2026-09-22 implementation closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md).
+> Current gate accounting is in [JARVIS_GATE_LEDGER.md](JARVIS_GATE_LEDGER.md).
+
 ## Current audit — 2026-09-15
 
 P-03 remains **Partial**. #296 merged model-usage privacy integration after

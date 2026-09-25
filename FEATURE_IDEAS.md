@@ -11,6 +11,8 @@
 
 ---
 
+Current P-03/U-03 acceptance: [P-03 closeout](docs/P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md) and [U-03 closeout](docs/U03_DAILY_BRIEFING_ACCEPTANCE.md). Gate accounting: [canonical ledger](docs/JARVIS_GATE_LEDGER.md).
+
 ## 1. Current Features (Shipped or Partial)
 
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria (summary) |
@@ -104,7 +106,7 @@
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
 | P-01 | Readiness vs liveness probes | **Complete** | P0 | S | M | GAP-08 | K8s-ready health split |
 | P-02 | Rate limiting | **Complete (V1)** | P1 | M | M | F-19 | 429 per user/IP |
-| P-03 | Postgres migration | **Partial — implementation acceptance** | P2 | XL | M | GAP-02 | Production-wide Postgres profile |
+| P-03 | Postgres migration | **Complete — repository implementation; live cutover external** | P2 | XL | M | GAP-02 | Production-wide Postgres profile |
 | P-04 | Structured metrics (Prometheus) | **Complete** | P1 | M | L | F-34 | `/metrics` endpoint |
 | P-05 | CI pipeline | **Complete (V1-9)** | P0 | S | L | tests | pytest -q on every PR (`.github/workflows/ci.yml`) |
 | P-06 | Schema tenant keys | **Complete (v9)** | P0 | L | H | F-31 | Registry composite PK + tests |
@@ -119,7 +121,7 @@
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
 | U-01 | Unified command bar | **Partial** (V1-7 extension command) | P2 | M | H | F-18 | Search + chat + capture one input |
 | U-02 | Memory timeline view | Planned | P2 | M | H | F-14 | Browse by date/goal |
-| U-03 | Proactive daily briefing | Planned | P3 | L | H | A-04, N-04 | Morning digest notification |
+| U-03 | Proactive daily briefing | **Accepted composition contract; delivery/scheduling not claimed** | P3 | L | H | A-04, N-04 | Morning digest notification |
 | U-04 | Offline ingest queue | Planned | P2 | M | H | F-18 SW | Queue URLs offline; sync later |
 | U-05 | Voice capture | Planned | P3 | L | M | C-01 | Speech → memory (spec first) |
 | U-06 | Trust badges on results | Partial | P2 | S | H | F-38 | API exists; PWA/extension UI → V1-7b / post-V1 |
