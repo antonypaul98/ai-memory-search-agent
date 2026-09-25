@@ -61,12 +61,12 @@ Current P-03/U-03 acceptance: [P-03 closeout](docs/P03_IMPLEMENTATION_CLOSEOUT_2
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
 | N-01 | Consensus Engine | **Complete** | P2 | L | H | F-09, N-05 | Preserve conflicts; cited source-backed agreement weight |
 | N-02 | Verification Engine | **Complete** | P1 | M | H | F-12 | Deterministic per-claim evidence verification |
-| N-03 | Trust Engine | **Partial** (F-38) | P2 | L | H | F-36 | Foundation complete; UI badges → V1-7b / later |
+| N-03 | Trust Engine | **Complete for current acceptance** | P2 | L | H | F-36 | Foundation complete; UI badges → V1-7b / later |
 | N-04 | Gap Engine | **Complete** | P2 | L | H | F-33, F-14 | Ground missing-knowledge findings in observable coverage/diversity/review state |
-| N-05 | Knowledge Graph store | Planned | P2 | XL | H | F-29 | Entities + relations queryable |
+| N-05 | Knowledge Graph store | **Complete for current acceptance** | P2 | XL | H | F-29 | Entities + relations queryable |
 | N-06 | Reverse Memory | **Complete** | P2 | M | H | N-04 | Grounded next-learning actions from goal gaps |
 | N-07 | Learning Evolution | **Complete** | P3 | XL | H | N-03, F-34 | Bounded tenant-local ranking evolution without evidence mutation/re-ingest |
-| N-08 | Cross-source dedup UI | Planned | P2 | M | M | F-09 dedup | Show duplicate memories; merge action |
+| N-08 | Cross-source dedup UI | **Complete for current acceptance** | P2 | M | M | F-09 dedup | Show duplicate memories; merge action |
 
 ---
 
@@ -119,12 +119,12 @@ Current P-03/U-03 acceptance: [P-03 closeout](docs/P03_IMPLEMENTATION_CLOSEOUT_2
 
 | ID | Feature | Status | Priority | Difficulty | User Value | Dependencies | Acceptance criteria |
 |----|---------|--------|----------|------------|------------|--------------|---------------------|
-| U-01 | Unified command bar | **Partial** (V1-7 extension command) | P2 | M | H | F-18 | Search + chat + capture one input |
-| U-02 | Memory timeline view | Planned | P2 | M | H | F-14 | Browse by date/goal |
+| U-01 | Unified command bar | **Complete for current acceptance** | P2 | M | H | F-18 | Search + chat + capture one input |
+| U-02 | Memory timeline view | **Complete for current acceptance** | P2 | M | H | F-14 | Browse by date/goal |
 | U-03 | Proactive daily briefing | **Accepted composition contract; delivery/scheduling not claimed** | P3 | L | H | A-04, N-04 | Morning digest notification |
-| U-04 | Offline ingest queue | Planned | P2 | M | H | F-18 SW | Queue URLs offline; sync later |
+| U-04 | Offline ingest queue | **Complete for current acceptance** | P2 | M | H | F-18 SW | Queue URLs offline; sync later |
 | U-05 | Voice capture | Planned | P3 | L | M | C-01 | Speech → memory (spec first) |
-| U-06 | Trust badges on results | Partial | P2 | S | H | F-38 | API exists; PWA/extension UI → V1-7b / post-V1 |
+| U-06 | Trust badges on results | **Complete for current acceptance** | P2 | S | H | F-38 | API exists; PWA/extension UI → V1-7b / post-V1 |
 
 ---
 
