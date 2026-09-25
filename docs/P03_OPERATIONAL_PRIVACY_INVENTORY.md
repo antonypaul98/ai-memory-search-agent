@@ -1,5 +1,9 @@
 # P-03 operational privacy inventory
 
+> Historical P-03 evidence: code-level Partial/next-work statements below are
+> superseded by the [2026-09-22 implementation closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md).
+> Current gate accounting is in [JARVIS_GATE_LEDGER.md](JARVIS_GATE_LEDGER.md).
+
 Audit date: 2026-09-15. Baseline: main `8e1cc8ab59ab59c6f2bff153829f75c04c26ab3f`
 (#296). P-03 is **Partial**.
 

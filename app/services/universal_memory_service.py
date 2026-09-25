@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from app.db.vector_identity import tenant_vector_id
 from app.config import Settings, get_settings
 from app.db.memory_store import MemoryStore
 from app.db.memory_store_factory import get_memory_store
@@ -113,15 +114,15 @@ class UniversalMemoryService:
         # Chroma IDs written by MemoryRepository and HierarchicalStore. A
         # source-only reference is ambiguous when two tenants save the same item.
         evidence_ids = [
-            f"{metadata.source_type.value}_{user_id}_{metadata.video_id}_{idx}"
+            tenant_vector_id(metadata.source_type.value, user_id, metadata.video_id, idx)
             for idx in range(chunk_count)
         ]
         embedding_refs = MemoryEmbeddingRefs(
             capsule_doc_id=(
-                f"capsule_{user_id}_{metadata.video_id}" if has_capsule else None
+                tenant_vector_id("capsule", user_id, metadata.video_id) if has_capsule else None
             ),
             section_doc_ids=[
-                f"section_{user_id}_{metadata.video_id}_{idx}"
+                tenant_vector_id("section", user_id, metadata.video_id, idx)
                 for idx in range(len(capsule.sections))
             ],
             evidence_doc_ids=evidence_ids,

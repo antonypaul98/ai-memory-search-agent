@@ -1,21 +1,34 @@
 # Memory Search gate evidence ledger
 
-Updated 2026-09-14. **Reconciliation in progress.**
+Updated: 2026-09-25.
 
-Current P-03 review: main through #282 includes the hierarchy/readiness slices,
-but #283 review found swallowed actual vector-delete errors and unscoped generic
-connector writes. #284/#285 require exact-head acceptance. G02/G15/G26/G29 remain
-Partial; canonical embedding references, legacy inventory failure handling and
-operational privacy still require review. See `P03_FINAL_ACCEPTANCE_EVIDENCE.md`.
-The older per-row remaining-work notes below are historical evidence snapshots;
-this current review supersedes instructions to redo already merged #273–#282.
+**Jarvis Gate: 25/29 cleared — 4 remaining.** G02 is accepted by the implementation
+and exact-head CI evidence in PR #382.
 
+P-03/G26 implementation acceptance is complete (#354/#356). U-03/G27's
+repository-controlled composition contract is accepted (#370/#373). Their older
+Partial/Not Started labels were stale; reconciling them does not earn another
+checkpoint. Current starting main is `cd3d2e61690dbf53943eb49fe938897ce74d4c7c`,
+verified by [main CI #1349](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36016762611).
 
-**Jarvis Gate: 22/29 cleared — 7 remaining** is the historical continuity baseline requested in the latest handoff. It is not a newly verified count. Older 2/29 entries counted a narrower continuation and do not mean merged features disappeared. Neither historical tally has a recoverable original 29-item mapping in the inspected repository.
+The basis for the single 24 → 25 advancement is the existing **G02 retrieval
+and search isolation** contract. Review found ambiguous tenant/source vector IDs,
+so documentation alone could not close it. See [G02 acceptance](G02_RETRIEVAL_ISOLATION_ACCEPTANCE.md)
+for the repair and regression evidence. G28 was already Complete; G29 remains
+Partial. No P-03, U-03, release, Home or Vision work is counted again.
 
-The 29 G-rows below are an explicitly **new candidate normalization** of named repository acceptance areas, not invented historical checkpoint identities. Their statuses describe source-backed scoped feature acceptance; do not sum them into a replacement gate count until the all-version reconciliation is complete. Partial does not discard accepted subfeatures. Cross-cutting production, privacy and stability requirements intentionally remain open even where feature-level closeouts are Complete.
+The running count carries forward the documented P-03 23/29 closeout and the
+accepted U-03 continuation to 24/29, plus this G02 acceptance to 25/29. It is not a sum of the G-rows: these rows were
+introduced as a candidate normalization and do not reconstruct the missing
+historical 29-item mapping. That reconciliation remains explicitly under G29;
+this change neither invents four remaining identities nor declares the final
+Jarvis transition complete.
 
-Evidence baseline: main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272), whose exact PR head `e64a3e16c72f7d869203cb1720bf29e2129364b1` passed [CI 1068](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34836155411). Existing acceptance files and test coverage below are inherited from this green ancestry. A listed test path is coverage evidence, not a claim that a dedicated new acceptance run or production deployment occurred. Commit references identify the most recent source-document revision, not necessarily original implementation.
+Unchanged rows below retain their prior scoped acceptance evidence. “CI baseline
+1068” refers to PR #272 head `e64a3e16c72f7d869203cb1720bf29e2129364b1`,
+[run 34836155411](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/34836155411).
+Later accepted rows cite their own closeouts; deployment evidence is never inferred
+from automated repository checks.
 
 ## G01 — Ingest and evidence indexing
 
@@ -27,11 +40,11 @@ Evidence baseline: main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272), whose
 
 ## G02 — Retrieval and search isolation
 
-- Source IDs: F-09–10. Status: **Partial**.
+- Source IDs: F-09–10. Status: **Complete**.
 - Acceptance: Hierarchical and flat search preserve tenant evidence and metadata.
-- Implementation: `app/services/ahme_engine.py`. Source contract: `MASTER_SPEC.md`.
-- Source revision: `769b3e8 Release v1.9.0 - AHME (AI Hybrid Memory Engine)`. CI: baseline 1068 above; coverage: `tests/test_search*.py`.
-- Remaining: Validate/fix capsule and section tenant filtering; PR #274 covers only flat evidence search.
+- Implementation: `app/services/ahme_engine.py`, `app/services/search_service.py`, `app/db/vector_identity.py`, vector repositories and canonical embedding references.
+- Evidence: [G02 acceptance](G02_RETRIEVAL_ISOLATION_ACCEPTANCE.md); PR #382 repairs ambiguous vector identities and adds real-Chroma collision/replay/reference proof plus real-Postgres flat/hierarchical/fallback SearchService acceptance.
+- Validation: implementation head `c8b2675462d32ed81aba942dbfeb08d6385326c9` passed [CI #1350](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36178736364), including real PostgreSQL/Redis tests, 27 extension tests, version agreement and benchmark. The final documentation head must also pass required CI before merge.
 
 ## G03 — Grounded chat and optional AI
 
@@ -135,7 +148,7 @@ Evidence baseline: main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272), whose
 - Acceptance: Owned export/delete, lossless Markdown, derived-data deletion and retry safety.
 - Implementation: `app/services/privacy_service.py`. Source contract: `docs/closeouts/C08_EXPORT_ADAPTER.md`.
 - Source revision: `4c233bf C-08: record export adapter acceptance`. CI: baseline 1068 above; coverage: `tests/test_privacy_postgres*.py`.
-- Remaining: Core #271/#272 accepted; reconcile deletion/export of newly migrated operational stores before full privacy closeout.
+- Remaining: P-03 operational export/erasure is accepted by #351/#354/#356, not missing implementation. This separate C-08/V1-14 closeout remains outside the single G02 acceptance in #382; no additional checkpoint is credited here.
 
 ## G16 — Canonical records and lifecycle
 
@@ -219,19 +232,19 @@ Evidence baseline: main `d4cb7a2bd2060981dc5fe5da2f5d3e767c711b0b` (#272), whose
 
 ## G26 — Production Postgres acceptance
 
-- Source IDs: P-03 / GAP-02. Status: **Partial**.
+- Source IDs: P-03 / GAP-02. Status: **Complete — repository implementation acceptance**.
 - Acceptance: All supported relational operations select Postgres; zero unintended SQLite writes; safe migration, retry and isolation.
-- Implementation: `app/db/production_storage_profile.py`. Source contract: `docs/P03_POSTGRES_MIGRATION.md`.
-- Source revision: `79a032a P-03: migrate legacy review schedules to Postgres safely (#261)`. CI: baseline 1068 above; coverage: `tests/test_postgres*.py`.
-- Remaining: Finish runtime/caller audit, hierarchy isolation, operational privacy, representative integrated ingest and deployment parity/rollback evidence.
+- Implementation: `app/db/production_storage_profile.py`, selected stores and durable account-erasure fencing.
+- Evidence: [P-03 closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md); #354 head `5251e16be39e6d4c7d4ccccfc7f36514d6ed6cf8`, CI #1291, merge `9bbb4310a98fccef2e9e06ad8538c1b3830ac155`; #356 records the closeout. Regression: `tests/test_postgres_account_fence_acceptance.py`, `tests/test_postgres_combined_privacy_acceptance.py`, production lifespan, migration and privacy suites.
+- External only: actual legacy-deployment cutover/parity/readiness/rollback and backup/WAL/replica retention. No live deployment migration or physical purge is claimed.
 
 ## G27 — Daily briefing
 
-- Source IDs: U-03. Status: **Not Started**.
+- Source IDs: U-03. Status: **Complete — repository-controlled composition contract**.
 - Acceptance: Grounded opt-in daily review/gap digest with explicit notification preferences.
-- Implementation: `See implementation paths in FEATURE_IDEAS.md`. Source contract: `FEATURE_IDEAS.md`.
-- Source revision: `6b894f1 Docs: reconcile validated feature backlog (#112)`. CI: baseline 1068 above; coverage: `No dedicated briefing acceptance located`.
-- Remaining: Define and implement the Memory-only briefing contract after higher-priority P03 gaps; do not assume ReviewAgent supplies scheduling/notifications.
+- Implementation: `app/services/daily_briefing_service.py`.
+- Evidence: [U-03 acceptance](U03_DAILY_BRIEFING_ACCEPTANCE.md); #370 head `20f4f49302f141ec2cb8a6df468055e2b5b24d26`, CI #1326 / run 35891508819, merge `1b0a50fb275fe6ba0ee2b5b3686ea68e108eb2b2`; #373 adds acceptance evidence. Regression: `tests/test_daily_briefing_service.py`.
+- Boundary: deterministic tenant-safe bounded composition, evidence retention and two explicit notification opt-ins. No autonomous scheduler or OS/provider delivery is claimed.
 
 ## G28 — Release package
 

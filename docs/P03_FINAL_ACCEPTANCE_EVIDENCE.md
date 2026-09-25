@@ -1,5 +1,9 @@
 # P-03 Final Acceptance Evidence
 
+> Historical P-03 evidence: code-level Partial/next-work statements below are
+> superseded by the [2026-09-22 implementation closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md).
+> Current gate accounting is in [JARVIS_GATE_LEDGER.md](JARVIS_GATE_LEDGER.md).
+
 Updated: 2026-09-14
 
 Status: **Partial — implementation defects confirmed during exact-head review; deployment-specific cutover remains unexecuted.**

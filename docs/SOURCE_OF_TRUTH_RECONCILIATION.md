@@ -1,6 +1,15 @@
 # Memory Search Source-of-Truth Reconciliation
 
-Updated: 2026-08-30
+Updated: 2026-09-25
+
+Current P-03/G26 and U-03/G27 statuses are accepted at their repository-controlled
+boundaries; see [P-03 closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md),
+[U-03 acceptance](U03_DAILY_BRIEFING_ACCEPTANCE.md), and the
+[canonical ledger](JARVIS_GATE_LEDGER.md). Their pending-audit descriptions below
+are historical, superseded by those closeouts. G29/all-version reconciliation
+remains open; this update is not a final Jarvis transition approval.
+
+## Historical reconciliation baseline — 2026-08-30
 
 Purpose: provide a conservative bridge between validated executable behavior and stale architecture/backlog labels while the root documents are corrected. `MASTER_SPEC.md` remains the canonical feature inventory. This document must never be used to mark a feature complete merely because a service, route, or file exists.
 

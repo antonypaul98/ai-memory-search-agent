@@ -8,6 +8,7 @@ Routes and services must NOT import chroma_client directly.
 from datetime import datetime, timezone
 from typing import Any
 
+from app.db.vector_identity import tenant_vector_id
 from app.config import Settings, get_settings
 from app.core.exceptions import ChromaConnectionError
 from app.db.chroma_client import get_collection
@@ -82,7 +83,7 @@ class MemoryRepository:
         source_value = source_type.value if isinstance(source_type, SourceType) else str(source_type)
 
         for chunk in chunks:
-            doc_id = f"{source_value}_{user_id}_{video_id}_{chunk.chunk_index}"
+            doc_id = tenant_vector_id(source_value, user_id, video_id, chunk.chunk_index)
             ids.append(doc_id)
             documents.append(chunk.text)
             page_number = int(chunk.start_time_sec) if source_type == SourceType.PDF and chunk.start_time_sec >= 1 else 0

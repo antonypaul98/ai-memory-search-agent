@@ -2,6 +2,8 @@
 
 import pytest
 
+from app.db.vector_identity import tenant_vector_id
+
 from app.db.memory_store import MemoryStore
 from app.models.capsule import MemoryCapsule, MemorySection
 from app.models.lifecycle import MemoryLifecycleState
@@ -96,12 +98,12 @@ class TestUniversalMemoryService:
         assert memory.trust is not None
         assert memory.trust.overall > 0
         assert memory.embedding_refs.chunk_count == 4
-        assert memory.embedding_refs.capsule_doc_id == "capsule_user-a_brainvid12345"
+        assert memory.embedding_refs.capsule_doc_id == tenant_vector_id("capsule", "user-a", "brainvid12345")
         assert memory.embedding_refs.section_doc_ids == [
-            "section_user-a_brainvid12345_0"
+            tenant_vector_id("section", "user-a", "brainvid12345", 0)
         ]
         assert memory.embedding_refs.evidence_doc_ids == [
-            f"youtube_user-a_brainvid12345_{idx}" for idx in range(4)
+            tenant_vector_id("youtube", "user-a", "brainvid12345", idx) for idx in range(4)
         ]
         assert memory.relationship_summary.get("concept", 0) >= 1
 
@@ -160,8 +162,8 @@ class TestUniversalMemoryService:
             has_capsule=True,
         )
 
-        assert first.embedding_refs.capsule_doc_id == "capsule_tenant-a_brainvid12345"
-        assert second.embedding_refs.capsule_doc_id == "capsule_tenant-b_brainvid12345"
+        assert first.embedding_refs.capsule_doc_id == tenant_vector_id("capsule", "tenant-a", "brainvid12345")
+        assert second.embedding_refs.capsule_doc_id == tenant_vector_id("capsule", "tenant-b", "brainvid12345")
         assert set(first.embedding_refs.section_doc_ids).isdisjoint(
             second.embedding_refs.section_doc_ids
         )
