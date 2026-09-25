@@ -2,7 +2,7 @@
 
 Updated: 2026-09-25.
 
-**Jarvis Gate: 26/29 cleared — 3 remaining.** G15 privacy/portable-export acceptance is reconciled from already-merged repository evidence; G02 remains accepted by PR #382.
+**Jarvis Gate: 27/29 cleared — 2 remaining.** The source-of-truth acceptance inventory is reconciled against dedicated closeouts for previously stale N/U backlog labels; G15 and G02 remain accepted.
 
 P-03/G26 implementation acceptance is complete (#354/#356). U-03/G27's
 repository-controlled composition contract is accepted (#370/#373). Their older
@@ -260,7 +260,7 @@ from automated repository checks.
 - Acceptance: Every mandatory planned Memory acceptance has evidence; no reproducible isolation defects; inventory reconciled.
 - Implementation: `docs/CURRENT_BUILD_STATE.md`. Source contract: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md`.
 - Source revision: `26591ab Docs: reconcile validated connectors and runtime platform (#110)`. CI: baseline 1068 above; coverage: `.github/workflows/ci.yml`.
-- Remaining: Resolve historical mapping, root-document drift and open mandatory rows; green bounded PRs cannot clear this row.
+- Remaining: Final historical/root-document reconciliation and exact-head stability validation. Previously stale mandatory N/U backlog labels are now tied to dedicated acceptance closeouts; deferred C-09/U-05 and optional P-07 are not pre-transition Memory Search requirements.
 
 ## Deferred scope and reconciliation limits
 
