@@ -2,8 +2,7 @@
 
 Updated: 2026-09-25.
 
-**Jarvis Gate: 25/29 cleared — 4 remaining.** G02 is accepted by the implementation
-and exact-head CI evidence in PR #382.
+**Jarvis Gate: 26/29 cleared — 3 remaining.** G15 privacy/portable-export acceptance is reconciled from already-merged repository evidence; G02 remains accepted by PR #382.
 
 P-03/G26 implementation acceptance is complete (#354/#356). U-03/G27's
 repository-controlled composition contract is accepted (#370/#373). Their older
@@ -144,11 +143,12 @@ from automated repository checks.
 
 ## G15 — Privacy and portable export
 
-- Source IDs: C-08; V1-14. Status: **Partial**.
+- Source IDs: C-08; V1-14. Status: **Complete**.
 - Acceptance: Owned export/delete, lossless Markdown, derived-data deletion and retry safety.
 - Implementation: `app/services/privacy_service.py`. Source contract: `docs/closeouts/C08_EXPORT_ADAPTER.md`.
-- Source revision: `4c233bf C-08: record export adapter acceptance`. CI: baseline 1068 above; coverage: `tests/test_privacy_postgres*.py`.
-- Remaining: P-03 operational export/erasure is accepted by #351/#354/#356, not missing implementation. This separate C-08/V1-14 closeout remains outside the single G02 acceptance in #382; no additional checkpoint is credited here.
+- Evidence: `FEATURE_IDEAS.md` marks both C-08 and V1-14 Complete. C-08's closeout records authenticated tenant-scoped full export plus lossless Markdown round-trip acceptance. P-03's later #351/#354/#356 acceptance extends this boundary through complete production export, operational-history coverage, exact-account confirmed erasure, durable fencing, stale/late-worker protection, neighbor preservation, and retry-safe residual cleanup on real Postgres.
+- Validation: C-08 PR #107 CI #682 passed its round-trip acceptance; P-03 implementation closeout records PR #354 exact head `5251e16be39e6d4c7d4ccccfc7f36514d6ed6cf8` passing required CI #1291 and Home Vision Smoke #40 before merge. Existing privacy suites cover production export/delete and combined real-Postgres acceptance; no live-deployment purge is inferred from CI.
+- Remaining: None in the repository-controlled C-08/V1-14 contract. Live-deployment physical purge/backup-retention evidence remains an operator prerequisite and is not required to claim repository implementation acceptance.
 
 ## G16 — Canonical records and lifecycle
 
