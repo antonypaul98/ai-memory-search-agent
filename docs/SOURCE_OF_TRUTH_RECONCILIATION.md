@@ -6,8 +6,7 @@ Current P-03/G26 and U-03/G27 statuses are accepted at their repository-controll
 boundaries; see [P-03 closeout](P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md),
 [U-03 acceptance](U03_DAILY_BRIEFING_ACCEPTANCE.md), and the
 [canonical ledger](JARVIS_GATE_LEDGER.md). Their pending-audit descriptions below
-are historical, superseded by those closeouts. G29/all-version reconciliation
-remains open; this update is not a final Jarvis transition approval.
+are historical, superseded by those closeouts. G29/all-version reconciliation remains open; this update reconciles validated root backlog labels but is not a final Jarvis transition approval.
 
 ## Historical reconciliation baseline — 2026-08-30
 
@@ -87,15 +86,18 @@ Audit wording against the validated connector framework and current product surf
 
 ## Still pending individual acceptance audit
 
-The following areas must be checked separately rather than promoted from file presence:
+The prior pending-audit list is now reconciled against dedicated closeouts and merged acceptance evidence:
 
-- N-03 / F-38 trust UI/ranking/feedback boundaries beyond the already validated trust foundation;
-- N-08 cross-source duplicate review/merge behavior if distinct from F-33 entity merge;
-- C-09 native mobile share-sheet row against exact acceptance criteria and the master-spec phase boundary; native-mobile work remains deferred before the Jarvis transition unless explicitly promoted out of that boundary;
-- P-03 production Postgres migration: current Postgres job durability is not enough to satisfy GAP-02's users/registry/FTS plus production SQLite-retirement boundary;
-- P-07 embedding microservice;
-- U-01/U-02/U-03/U-04 and any other Memory Search UX rows that are not Jarvis-specific;
-- any remaining version/milestone acceptance criteria referenced by repository roadmaps.
+- N-03/F-38/U-06 trust presentation is accepted by `docs/closeouts/N03_TRUST_ENGINE_CLOSEOUT.md` and its rendering regressions.
+- N-05 is accepted by `docs/closeouts/N05_KNOWLEDGE_GRAPH_STORE_CLOSEOUT.md`; F-33 separately covers the richer graph/entity-merge boundary.
+- N-08 is accepted by `docs/N08_CROSS_SOURCE_DEDUP_ACCEPTANCE.md`.
+- U-01, U-02 and U-04 are accepted by their dedicated closeouts/acceptance regressions.
+- U-03 is accepted at its repository-controlled composition boundary by `docs/U03_DAILY_BRIEFING_ACCEPTANCE.md`.
+- P-03 repository implementation is accepted by `docs/P03_IMPLEMENTATION_CLOSEOUT_2026-09-22.md`; deployment-specific cutover remains external.
+- C-09 native mobile share and U-05 voice are explicitly deferred Jarvis/native scope, not mandatory pre-transition Memory Search rows.
+- P-07 remote embedding is explicitly optional and is not a mandatory pre-transition row.
+
+The remaining G29 work is final historical/root-document reconciliation and exact-head stability validation; no missing implementation is inferred merely from stale roadmap prose.
 
 F-34, F-35, and P-08 no longer belong in the pending-audit list: `docs/closeouts/RUNTIME_PLATFORM_CLOSEOUT.md` and the associated PostgreSQL/Redis CI coverage already establish their documented Memory Search runtime correctness boundary. C-02 through C-08 likewise have dedicated closeouts on `main`; external provider registration, credentials, consent verification, billing, or human approval remain blockers only for live provider deployment, not for those repository-controlled acceptance contracts.
 
