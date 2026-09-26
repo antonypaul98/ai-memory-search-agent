@@ -2,7 +2,7 @@
 
 Updated: 2026-09-25.
 
-**Jarvis Gate: 26/29 cleared — 3 remaining.** G15 privacy/portable-export acceptance is reconciled from already-merged C-08/V1-14 and P-03 privacy evidence; G02 acceptance remains recorded in PR #382.
+**Jarvis Gate: 27/29 cleared — 2 remaining.** Previously stale N/U backlog labels are reconciled to their dedicated acceptance closeouts; G15 privacy/export and G02 retrieval isolation remain accepted.
 The [canonical ledger](JARVIS_GATE_LEDGER.md) owns gate accounting. This current
 snapshot supersedes the dated 22/29/P-03 Partial/U-03 Not Started continuation
 notes formerly in this file; their historical record remains in Git.
@@ -30,8 +30,8 @@ same commit without a reconciliation change; PR #382 reuses it.
 
 ## Scope and external prerequisites
 
-No checkpoint 26 work is authorized by this update. Existing Home/Vision work is
-not counted toward Memory Search. The three-remaining running count is a
+This update performs source-of-truth reconciliation only; no Home/Vision or Jarvis-specific implementation is counted. Existing Home/Vision work is
+not counted toward Memory Search. The two-remaining running count is a
 continuity count, not a newly reconstructed historical roadmap.
 
 P-03's deployment-only prerequisites remain external: if an actual legacy
