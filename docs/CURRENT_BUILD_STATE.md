@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26.
 
-**Jarvis Gate: 28/29 cleared — 1 remaining.**
+**Jarvis Gate: 29/29 cleared — 0 remaining.**
 
 The [canonical ledger](JARVIS_GATE_LEDGER.md) owns continuity accounting; the
 [reconciliation matrix](SOURCE_OF_TRUTH_RECONCILIATION.md) maps mandatory criteria
@@ -23,13 +23,14 @@ The reconciliation PR must pass required exact-head CI before merge.
 - Existing P-03, U-03, G02, G15, N/U inventory and G28 release packaging are not
   counted again. No Home, Career or Vision work contributes to this count.
 
-## Exact remaining 28→29 requirement
+## Final 28→29 closeout
 
-G29 final version/transition stability sign-off on the integrated reconciled main:
-validate its exact revision, resolve any reproducible covered isolation/privacy/
-retry defect, and record final acceptance. This is separate from the completed
-historical/root-document reconciliation and this PR's required CI. No final Jarvis
-transition approval is claimed here; this session does not start that checkpoint.
+G29 final version/transition stability is accepted for the integrated reconciled
+Memory Search tree. PR #385 exact head `5631c6f73ac7ec3dd5de62108e0f0a254c976b7d`
+passed required CI #1357 (run `36207667005`), and its merged main tree at
+`52feac7c4a3385bcd3cdfe55a907b3fbd5de2bd1` has no file delta from that tested
+head. `G29_FINAL_TRANSITION_CLOSEOUT.md` records the final decision and boundaries.
+No mandatory repository-controlled Memory Search acceptance remains open.
 
 ## Preserved external/deferred boundaries
 

@@ -2,7 +2,7 @@
 
 Updated: 2026-09-26.
 
-**Jarvis Gate: 28/29 cleared — 1 remaining.**
+**Jarvis Gate: 29/29 cleared — 0 remaining.**
 
 Starting main for this reconciliation: `159cb2e7b82c5b6a28ccab170708ba09d653b7b9`
 (#384), validated by [CI #1356](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36207110852).
@@ -251,12 +251,13 @@ from automated repository checks.
 
 ## G29 — Final version and transition reconciliation
 
-- Source IDs: All-version acceptance/stability. Status: **Partial**.
+- Source IDs: All-version acceptance/stability. Status: **Complete**.
 - Acceptance: Every mandatory planned Memory acceptance has evidence; no reproducible isolation defects; inventory reconciled.
 - Implementation: `docs/CURRENT_BUILD_STATE.md`. Source contract: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md`.
-- Current reconciliation: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md` maps mandatory contracts, real U-04 repair, historical scope and baseline CI #1356; this PR requires exact-head full CI including PostgreSQL/Redis and new behavioral replay tests.
-- Reconciliation component: **Complete** at 28/29; current root inventory and historical V1/architecture snapshots are explicitly distinguished.
-- Remaining 28→29: final integrated version/transition stability sign-off on the reconciled exact main revision, resolving any reproducible covered isolation/privacy/retry defect and recording the final decision. This PR does not execute that separate checkpoint.
+- Current reconciliation: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md` maps mandatory contracts, real U-04 repair, historical scope and CI evidence through #1357.
+- Final closeout: `docs/G29_FINAL_TRANSITION_CLOSEOUT.md` records the integrated-tree stability decision and preserved external/deferred boundaries.
+- Reconciliation component: **Complete**; current root inventory and historical V1/architecture snapshots are explicitly distinguished.
+- Remaining: None within the repository-controlled Memory Search transition gate.
 
 ## Deferred scope and reconciliation limits
 
