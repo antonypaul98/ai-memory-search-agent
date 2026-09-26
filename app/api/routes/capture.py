@@ -1,6 +1,6 @@
 """Browser extension capture routes."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.api.auth import get_current_user
 from app.models.capture import (
@@ -18,8 +18,13 @@ router = APIRouter(prefix="/capture", tags=["capture"])
 @router.post("/url", response_model=CaptureStatusResponse)
 def capture_url(
     body: CaptureUrlRequest,
+    expected_owner: str | None = Header(default=None, alias="X-Capture-Owner"),
     user: UserPublic = Depends(get_current_user),
 ) -> CaptureStatusResponse:
+    # Offline replay must not cross an account switch, including cookie changes
+    # between its identity read and this write. Ownership still comes from auth.
+    if expected_owner is not None and expected_owner != user.user_id:
+        raise HTTPException(status_code=409, detail="Capture account changed; queued URL retained.")
     service = CaptureService()
     return service.capture_url(body, user_id=user.user_id)
 

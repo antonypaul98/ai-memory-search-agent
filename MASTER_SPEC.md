@@ -2,10 +2,15 @@
 
 **Version:** 2.11  
 **Status:** Single source of truth for production execution — **Version 1 track complete (V1-0 … V1-9)**  
-**Last updated:** 2026-07-30  
+**Last updated:** 2026-09-26
 **Repository:** `ai-memory-search-agent`
 
 ---
+
+Current acceptance evidence: [reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md).
+The [gate ledger](docs/JARVIS_GATE_LEDGER.md) owns the historical continuity count.
+Dated V1 freeze/readiness snapshots and the original phased roadmap are retained
+as history; they do not reopen later accepted Memory Search contracts.
 
 ## 0. Document Purpose
 
@@ -26,8 +31,8 @@ This document inventories every feature in the repository, classifies implementa
 | **`JARVIS_VISION.md`** | Long-term UX north star |
 | **`COMPETITOR_BIBLE.md`** | Market analysis and opportunities |
 | **`FEATURE_IDEAS.md`** | Full backlog with priority / difficulty / value |
-| **`KNOWLEDGE_ENGINE.md`** | AHME + planned intelligence engines |
-| **`AGENT_BIBLE.md`** | Future agent catalog and orchestration |
+| **`KNOWLEDGE_ENGINE.md`** | AHME + accepted bounded intelligence engines |
+| **`AGENT_BIBLE.md`** | Accepted Memory agent catalog + future orchestration |
 | **`CONNECTOR_SDK.md`** | Universal ingestion architecture |
 | **`docs/V1_PRODUCT_SPEC.md`** | V1 Chrome Extension product scope |
 | **`docs/V1_PLATFORM_CAPABILITY_MATRIX.md`** | V1 readiness audit per capability |
@@ -79,7 +84,11 @@ This document inventories every feature in the repository, classifies implementa
 - **One UX** — command bar, timeline, briefings, cited chat — across devices.
 - **Production scale** — multi-tenant auth, distributed jobs, Postgres + managed vectors, event audit bus.
 
-**Maturity today:** Ingest + AHME + chat + PWA + jobs + capture + **Brain layer (F-36–F-38, F-33 foundation)** are **Complete/Partial** on single-node. Agents, consensus/gap engines, connectors SDK, and scale-out remain **Planned**.
+**Current repository maturity:** Ingest, tenant-isolated retrieval, grounded chat,
+Memory agents A-01–A-07, N-01–N-08 intelligence, F-29/C-01–C-08 connectors,
+and Postgres/Redis runtime foundations satisfy their bounded acceptance contracts.
+See the evidence matrix for code, regressions and CI. This does not claim a
+connector marketplace, autonomous Jarvis orchestration or live production deployment.
 
 Full UX narrative: **`JARVIS_VISION.md`**.
 
@@ -206,6 +215,17 @@ An **AI Memory Operating System** that:
 - Eventually orchestrates **autonomous agents** that read/write memory safely.
 
 ### 1.2 Current Maturity
+
+Repository acceptance: authenticated tenant ownership and session lifecycle are
+covered by F-19/F-31 and the P-03 production profile; the bounded Memory agent
+and connector catalog is accepted; V1-0–9 release packaging is complete.
+See [current build state](docs/CURRENT_BUILD_STATE.md) and the per-contract matrix.
+CI validates service-container behavior, not an operator's live deployment.
+
+#### Historical discovery-time maturity snapshot — July 2026
+
+The table and test count below predate the later acceptance closeouts. They are
+preserved as a dated baseline, not current readiness or a remaining task list.
 
 | Layer | Maturity |
 |-------|----------|
@@ -485,14 +505,14 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Complete** (deterministic); **Partial** (LLM path) |
+| **Status** | **Complete — deterministic and optional provider contracts** |
 | **Purpose** | Build structured answers from evidence chunks |
 | **Architecture** | `DeterministicAnswerGenerator`, `AnswerSynthesizer`, `GroundedSynthesis` + optional `LLMProvider` |
 | **Data model** | `StructuredAnswer` |
 | **API endpoints** | Internal to chat |
 | **UI components** | Chat answer rendering |
 | **Background jobs** | None |
-| **Tests** | `tests/test_answer_generator.py`, `tests/test_answer_synthesizer.py` |
+| **Tests** | `tests/test_answer_synthesizer.py`, `tests/test_grounded_synthesis_llm.py`, `tests/test_llm_provider.py` |
 | **Acceptance criteria** | Procedural/conceptual templates work without LLM; LLM optional via `llm_provider` |
 | **Dependencies** | F-16 (optional) |
 
@@ -553,15 +573,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Partial** |
+| **Status** | **Complete — optional/on-demand provider contract** |
 | **Purpose** | Optional Ollama / OpenAI-compatible synthesis and capsules |
 | **Architecture** | `LLMProvider` — `none` (default), `ollama`, `openai_compatible` |
 | **Data model** | N/A |
 | **API endpoints** | None (internal) |
 | **UI components** | N/A |
 | **Background jobs** | None |
-| **Tests** | Covered indirectly; no dedicated LLM integration tests |
-| **Acceptance criteria** | When `llm_provider=none`, full pipeline works deterministically; LLM paths need integration tests before marking Complete |
+| **Tests** | `tests/test_llm_provider.py`, `tests/test_grounded_synthesis_llm.py` |
+| **Acceptance criteria** | `llm_provider=none` remains deterministic; malformed/out-of-window evidence and provider failure fall back. See `docs/F16_LLM_PROVIDER_CLOSEOUT.md`. |
 | **Dependencies** | External LLM endpoint |
 
 ---
@@ -672,15 +692,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Partial** |
+| **Status** | **Complete — opt-in import/resync** |
 | **Purpose** | Import browser bookmarks into capture pipeline |
-| **Architecture** | `CaptureService.capture_bookmarks` → `browser_bookmarks` table |
+| **Architecture** | `ImportManager` + extension bookmark preview/sync |
 | **Data model** | `browser_bookmarks` |
 | **API endpoints** | `POST /api/v1/capture/bookmarks/import` |
-| **UI components** | None dedicated |
-| **Background jobs** | None (batch in request) |
-| **Tests** | None dedicated |
-| **Acceptance criteria** | API accepts bookmark list; **Gap:** no sync UX, no scheduled re-import |
+| **UI components** | Extension folder preview and explicit sync settings |
+| **Background jobs** | Opt-in scheduled extension re-import; absent permission disables sync |
+| **Tests** | `tests/test_phase3_bookmark_sync.py`, `tests/extension/test_bookmarks.mjs` |
+| **Acceptance criteria** | Preview/confirm, deterministic dedup, safe complete/incomplete snapshot reconciliation; `docs/F23_BOOKMARK_IMPORT_CLOSEOUT.md`. |
 | **Dependencies** | F-21 |
 
 ---
@@ -740,15 +760,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Partial** |
+| **Status** | **Complete** |
 | **Purpose** | Compare flat vs AHME; diagnose slow imports |
 | **Architecture** | `scripts/benchmark_ahme.py`, `scripts/trace_imports.py` |
 | **Data model** | `docs/BENCHMARK_AHME.md` output |
 | **API endpoints** | N/A |
 | **UI components** | N/A |
 | **Background jobs** | N/A |
-| **Tests** | N/A |
-| **Acceptance criteria** | Benchmark script produces report; **Gap:** not in CI |
+| **Tests** | CI `AHME benchmark smoke`; `tests/test_ahme.py` |
+| **Acceptance criteria** | Benchmark produces reproducible report and runs in required CI; `docs/F27_F28_OPS_TOOLING_CLOSEOUT.md`. |
 | **Dependencies** | F-09 |
 
 ---
@@ -757,15 +777,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Partial** |
+| **Status** | **Complete** |
 | **Purpose** | Operator scripts for ingest and DB reset |
 | **Architecture** | `scripts/ingest_item.py`, `scripts/reset_db.py` |
 | **Data model** | N/A |
 | **API endpoints** | N/A |
 | **UI components** | N/A |
 | **Background jobs** | N/A |
-| **Tests** | N/A |
-| **Acceptance criteria** | **Missing:** both scripts are TODO stubs |
+| **Tests** | `tests/test_cli_tools.py` |
+| **Acceptance criteria** | Working ingest CLI; reset dry-run, unsafe-target rejection and explicit destructive confirmation. |
 | **Dependencies** | F-08, F-07 |
 
 ---
@@ -774,16 +794,16 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Planned** |
-| **Purpose** | Universal connectors (Notion, PDF, Slack, etc.) |
-| **Architecture** | `app/services/sources/base_source.py`, `youtube_source.py` — **stubs only** |
+| **Status** | **Complete — SDK v1 contract** |
+| **Purpose** | Normalized pluggable supported-source ingestion |
+| **Architecture** | `SourceConnector`, `ConnectorRegistry`, `ConnectorIngestService` |
 | **Data model** | `SourceType` enum exists |
-| **API endpoints** | None |
+| **API endpoints** | Capture/import routes; connector health |
 | **UI components** | None |
 | **Background jobs** | None |
-| **Tests** | None |
-| **Acceptance criteria** | Not started — see Phase 5 roadmap |
-| **Dependencies** | F-32, connector registry (Missing) |
+| **Tests** | `tests/test_connector_sdk_contract.py`, `tests/test_connector_registry_config.py`, `tests/test_universal_connectors.py` |
+| **Acceptance criteria** | Configured contract, normalized evidence/provenance, tenant dedup and secret-safe health; `docs/F29_CONNECTOR_SDK_CLOSEOUT.md`. Marketplace remains future. |
+| **Dependencies** | Shared ingest/capture pipeline and canonical records |
 
 ---
 
@@ -791,15 +811,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Planned** |
+| **Status** | **Complete — local adapter** |
 | **Purpose** | List/delete items without scanning Chroma |
-| **Architecture** | `app/db/sqlite_client.py` — **TODO stub** |
-| **Data model** | Would mirror registry |
+| **Architecture** | `app/db/sqlite_client.py` — tenant-scoped `SQLiteRegistryClient` |
+| **Data model** | Existing registry/reflection rows |
 | **API endpoints** | None |
 | **UI components** | None |
 | **Background jobs** | None |
-| **Tests** | None |
-| **Acceptance criteria** | Stub only; VideoRegistry partially covers this |
+| **Tests** | `tests/test_sqlite_registry_client.py` |
+| **Acceptance criteria** | Tenant-scoped deterministic list/delete without Chroma scan; production uses selected Postgres stores. |
 | **Dependencies** | F-14 |
 
 ---
@@ -825,15 +845,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Missing** |
-| **Purpose** | Autonomous agents that plan, act, and write memory safely |
-| **Architecture** | Not implemented |
-| **Data model** | N/A |
-| **API endpoints** | N/A |
-| **UI components** | N/A |
+| **Status** | **Complete — A-01–A-07 Memory contracts** |
+| **Purpose** | Bounded deterministic Memory agents; explicit approval for writes |
+| **Architecture** | `AgentRuntime` and per-agent services; see `AGENT_BIBLE.md` |
+| **Data model** | Tenant-scoped agent runs, tool calls and approved ingest rules |
+| **API endpoints** | Authenticated `/api/v1/agents/*` |
+| **UI components** | Agent activity/audit surface |
 | **Background jobs** | N/A |
-| **Tests** | N/A |
-| **Acceptance criteria** | See Phase 4 roadmap |
+| **Tests** | `tests/test_agent_runtime.py` and per-agent regressions in the reconciliation matrix |
+| **Acceptance criteria** | Typed tenant-scoped tools, approved writes and audit; generic autonomous orchestration remains future. |
 | **Dependencies** | F-09, F-19, F-33, F-34 |
 
 ---
@@ -842,15 +862,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Partial** (foundation complete; temporal reasoning planned) |
+| **Status** | **Complete — current graph/entity acceptance** |
 | **Purpose** | Entity linking across memories; graph traversal for engines/agents |
-| **Architecture** | `KnowledgeGraphStore`, `KnowledgeGraphService`; SQLite `kg_*` tables (schema v4) |
+| **Architecture** | Selected local/Postgres knowledge graph stores and `KnowledgeGraphService` |
 | **Data model** | `GraphEntity`, `GraphRelation`, `MemoryEntityLink` — types: memory, concept, person, company, project, technology, creator, tag |
 | **API endpoints** | `GET /api/v1/knowledge/entities`, `/entities/{id}`, `/entities/{id}/relations`, `/graph/neighbors`, `/memories/{memory_id}/entities` |
-| **UI components** | None yet |
+| **UI components** | Entity Merge Review UI with explicit confirmation |
 | **Background jobs** | Entity extraction on ingest via `UniversalMemoryService.finalize_ingest` |
-| **Tests** | `tests/test_knowledge_graph.py`, `tests/test_brain_api.py` |
-| **Acceptance criteria** | [x] Entities/relations persisted per user; [x] Memory linked on ingest; [x] Search + neighbor APIs; [ ] Temporal facts; [ ] Cross-source entity merge UI |
+| **Tests** | `tests/test_knowledge_graph.py`, `tests/test_entity_merge.py`, `tests/test_entity_merge_ui.py`, `tests/test_postgres_entity_merge_service.py` |
+| **Acceptance criteria** | [x] Tenant entities/relations; [x] ingest links; [x] neighbor APIs; [x] temporal facts; [x] confirmed merge UI; see `docs/closeouts/F33_KNOWLEDGE_GRAPH_CLOSEOUT.md`. |
 | **Dependencies** | F-36, F-09, schema v4 |
 
 ---
@@ -910,15 +930,15 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Missing** |
+| **Status** | **Complete — durable events and audit** |
 | **Purpose** | Async domain events, metrics, tracing, audit log |
-| **Architecture** | Not implemented |
-| **Data model** | N/A |
-| **API endpoints** | N/A |
+| **Architecture** | `EventBus` with selected local/Postgres persistence |
+| **Data model** | Tenant domain events/subscriptions; correlation and credential redaction |
+| **API endpoints** | Authenticated `/api/v1/events`; separate P-04 metrics |
 | **UI components** | Debug metrics only (search) |
 | **Background jobs** | N/A |
-| **Tests** | N/A |
-| **Acceptance criteria** | See Phase 1 production hardening |
+| **Tests** | `tests/test_event_bus.py`, `tests/test_postgres_event_bus.py` |
+| **Acceptance criteria** | Durable tenant events, request correlation and secret-safe payloads; `docs/closeouts/RUNTIME_PLATFORM_CLOSEOUT.md`. |
 | **Dependencies** | None (foundation for scale) |
 
 ---
@@ -927,20 +947,26 @@ Status legend: **Complete** | **Partial** | **Planned** | **Missing**
 
 | Field | Detail |
 |-------|--------|
-| **Status** | **Missing** |
+| **Status** | **Complete — selected Postgres/Redis job contract** |
 | **Purpose** | Horizontally scalable background processing |
-| **Architecture** | Today: in-process `JobWorker` only |
-| **Data model** | SQLite queue (single writer) |
+| **Architecture** | Postgres authoritative state; Redis opaque wake transport; `JobWorker` |
+| **Data model** | Durable claims/leases and heartbeat/finalization state |
 | **API endpoints** | Same job API |
 | **UI components** | Same |
-| **Background jobs** | **Blocked for multi-worker** |
-| **Tests** | Single-node only |
-| **Acceptance criteria** | See architectural gaps §6 |
+| **Background jobs** | Validated split API/worker profile; unsafe SQLite mode fails closed |
+| **Tests** | `tests/test_distributed_job_runtime_e2e.py`, `tests/test_postgres_job_claims.py`, `tests/test_runtime_safety.py` |
+| **Acceptance criteria** | Atomic claims, leases, retry and stale-worker fencing; no arbitrary deployment-scale guarantee. |
 | **Dependencies** | F-20, F-34 |
 
 ---
 
 ## 4. Status Summary
+
+Current scoped acceptance is recorded per feature above and in the
+[reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md). Do not sum this
+old feature snapshot into the Jarvis continuity count.
+
+### Historical July 2026 inventory snapshot
 
 | Status | Count | Features |
 |--------|-------|----------|
@@ -1049,7 +1075,17 @@ flowchart TB
 
 ---
 
-## 6. Architectural Gaps (Jarvis OS Scale)
+## 6. Architectural Gaps (Jarvis OS Scale) — original design history
+
+The problem/proposal tables below record the original architecture assessment,
+not current defects or mandatory implementation instructions. GAP-01's bounded
+worker correctness is accepted by F-35/P-08; GAP-02 by P-03 implementation;
+GAP-03 by tenant/composite-key and G02 acceptance; GAP-04 by F-34;
+GAP-05 by F-29/C-01–C-08; GAP-06 by F-12/F-16; GAP-09 by F-27/F-28/CI.
+GAP-07's rate-limit baseline is accepted; distributed quota policy remains future.
+GAP-08's readiness split is accepted; P-07 remote embeddings remain optional.
+Managed vector hosting, marketplace, enterprise scaling and live deployments are
+not implied complete. The current evidence matrix governs these distinctions.
 
 ### GAP-01 — Single-Node Process Model
 
@@ -1144,6 +1180,11 @@ in [JARVIS_GATE_LEDGER.md](docs/JARVIS_GATE_LEDGER.md).
 ---
 
 ## 7. Roadmap
+
+The following original phase plan is retained for historical dependencies.
+Phase 1–3 closeouts and the accepted Memory agent/runtime contracts supersede
+already-delivered tasks; Phase 5 marketplace/Jarvis/enterprise ambitions remain
+future unless separately promoted. This is not a new execution authorization.
 
 ### Phase 1 — Foundation (Production Hardening)
 

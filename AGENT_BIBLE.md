@@ -175,6 +175,8 @@ The safest sufficient tier is always preferred.
 
 ## 9. Acceptance State
 
+Current code, regression and CI links: [reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md).
+
 | Item | State |
 |---|---|
 | A-01 Agent Runtime | **Complete for current Memory Search scope** |

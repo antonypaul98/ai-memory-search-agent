@@ -320,4 +320,4 @@ V1-0 Audit ✅ ──► V1-1 Foundation ✅ ──► V1-2 YouTube Agent ✅
 
 All phases **V1-0 … V1-9** are complete in-repo. Human follow-through (record demo video, CWS Dashboard upload, LinkedIn publish) uses the packages in `docs/store/` and `docs/V1_DEMO_SCRIPT.md`.
 
-**Do not start without an explicit Version 2 gate:** Consensus/Gap engines, multi-agent orchestration, Instagram/Reddit/X/LinkedIn connectors, Watch Later production OAuth, Ontology, enterprise RBAC/MCP/multi-tenancy marketplace.
+**Historical V1 freeze:** Later accepted Memory-only engines, agents and connector contracts are recorded in [the current matrix](SOURCE_OF_TRUTH_RECONCILIATION.md); their old freeze is not a current missing-work claim. Broader orchestration, marketplace and live-provider requirements remain outside that acceptance. Original instruction: **Do not start without an explicit Version 2 gate:** Consensus/Gap engines, multi-agent orchestration, Instagram/Reddit/X/LinkedIn connectors, Watch Later production OAuth, Ontology, enterprise RBAC/MCP/multi-tenancy marketplace.

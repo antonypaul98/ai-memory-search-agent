@@ -9,7 +9,7 @@
 
 **AI Memory Agent** is a self-hosted personal memory system for saved **YouTube videos, web pages, PDFs, GitHub repositories, and bookmarks**. It turns fragmented saved content into one searchable knowledge layer with hybrid retrieval, hierarchical memory, grounded answers, citations, privacy controls, and a browser-first capture flow.
 
-**Version 1.9.0** is complete, with production-hardening work implemented. The next product track expands the memory-intelligence layer. See [`MASTER_SPEC.md`](MASTER_SPEC.md) for the canonical inventory.
+**Version 1.9.0** is complete, with production-hardening work implemented. Bounded Memory intelligence, agents and supported connectors now have dedicated acceptance evidence. See [`MASTER_SPEC.md`](MASTER_SPEC.md) for the canonical inventory.
 
 ---
 
@@ -104,17 +104,18 @@ grounded result / cited answer
 ### Implemented
 
 - **Capture:** active-tab save, context-menu save, SSRF-safe web fetch
-- **Connectors:** YouTube, web articles, PDF, GitHub public README/metadata, bookmark import
+- **Connectors:** YouTube, web articles, PDF, GitHub, bookmarks, Drive Docs/PDF, offline Notion ZIP, Readwise CSV, podcast RSS show notes (live provider setup remains external)
 - **Ingest:** extraction → normalization → chunking → embeddings → vector + FTS + universal memory
 - **Retrieval:** AHME hierarchical search, flat fallback, RRF fusion, MMR diversification, semantic cache, deduplication
 - **Ask / RAG:** grounded answers with citations; optional LLM providers; deterministic synthesis without an LLM
 - **Memory intelligence:** topics, learning graph, timeline, roadmaps, duplicates, creators, explainable retrieve
-- **Knowledge graph:** entity/relation foundation and APIs
+- **Knowledge graph:** tenant entities/relations, temporal facts and explicitly confirmed merge review
 - **Jobs:** background playlist/import ingest with pause, resume, retry, cancel
 - **Workspace:** searchable PWA with Ask Memory, imports, playlists, dashboard, privacy controls
 - **Chrome extension:** Observe + Save, command bar, deep links into the Workspace
 - **Auth/privacy:** optional sessions, user-scoped retrieval, export/delete, rate limits, hosted privacy page
-- **Trust/lifecycle:** memory state machine + trust scoring foundation
+- **Trust/lifecycle:** memory state machine, persisted trust and visible confidence badges
+- **Memory agents:** bounded deterministic research/review/triage/gap/consolidation and approved ingest; no generic autonomous side effects
 - **Operations:** Docker, CI, benchmark smoke, metrics, liveness/readiness probes, migration/backfill tooling
 
 ### Planned
@@ -306,7 +307,7 @@ If this project solves a problem you have too, **consider starring the repositor
 | --- | --- |
 | V1 / V1.9.0 | ✅ Complete |
 | Production hardening | ✅ Implemented |
-| Memory intelligence expansion | 🚧 Next |
+| Bounded Memory intelligence / agents | ✅ Accepted contracts; [evidence](docs/SOURCE_OF_TRUTH_RECONCILIATION.md) |
 | Broader autonomous orchestration | 📋 Planned |
 | Connector ecosystem / marketplace | 📋 Planned |
 

@@ -1,27 +1,22 @@
 # Memory Search gate evidence ledger
 
-Updated: 2026-09-25.
+Updated: 2026-09-26.
 
-**Jarvis Gate: 27/29 cleared — 2 remaining.** The source-of-truth acceptance inventory is reconciled against dedicated closeouts for previously stale N/U backlog labels; G15 and G02 remain accepted.
+**Jarvis Gate: 28/29 cleared — 1 remaining.**
 
-P-03/G26 implementation acceptance is complete (#354/#356). U-03/G27's
-repository-controlled composition contract is accepted (#370/#373). Their older
-Partial/Not Started labels were stale; reconciling them does not earn another
-checkpoint. Current starting main is `cd3d2e61690dbf53943eb49fe938897ce74d4c7c`,
-verified by [main CI #1349](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36016762611).
+Starting main for this reconciliation: `159cb2e7b82c5b6a28ccab170708ba09d653b7b9`
+(#384), validated by [CI #1356](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36207110852).
+The [current matrix](SOURCE_OF_TRUTH_RECONCILIATION.md) closes historical/root
+acceptance drift and records the U-04 offline account-switch defect and regression
+repair. Required exact-head PR CI must pass before this status is merged.
 
-The basis for the single 24 → 25 advancement is the existing **G02 retrieval
-and search isolation** contract. Review found ambiguous tenant/source vector IDs,
-so documentation alone could not close it. See [G02 acceptance](G02_RETRIEVAL_ISOLATION_ACCEPTANCE.md)
-for the repair and regression evidence. G28 was already Complete; G29 remains
-Partial. No P-03, U-03, release, Home or Vision work is counted again.
-
-The running count carries forward the documented P-03 23/29 closeout and the
-accepted U-03 continuation to 24/29, plus this G02 acceptance to 25/29. It is not a sum of the G-rows: these rows were
-introduced as a candidate normalization and do not reconstruct the missing
-historical 29-item mapping. That reconciliation remains explicitly under G29;
-this change neither invents four remaining identities nor declares the final
-Jarvis transition complete.
+The continuity sequence is P-03 23, U-03 24, G02/#382 25, G15/#383 26,
+N/U inventory/#384 27, and this remaining root/historical reconciliation 28.
+G28 release packaging was already accepted. None is counted twice. The G-rows
+remain candidate acceptance groups, not a reconstruction of the missing original
+29-item mapping; summing them is not the gate count. G29 remains Partial solely
+for final version/transition stability sign-off, not another generic documentation
+audit. No Home/Career/Vision or Jarvis feature credit is included.
 
 Unchanged rows below retain their prior scoped acceptance evidence. “CI baseline
 1068” refers to PR #272 head `e64a3e16c72f7d869203cb1720bf29e2129364b1`,
@@ -43,7 +38,7 @@ from automated repository checks.
 - Acceptance: Hierarchical and flat search preserve tenant evidence and metadata.
 - Implementation: `app/services/ahme_engine.py`, `app/services/search_service.py`, `app/db/vector_identity.py`, vector repositories and canonical embedding references.
 - Evidence: [G02 acceptance](G02_RETRIEVAL_ISOLATION_ACCEPTANCE.md); PR #382 repairs ambiguous vector identities and adds real-Chroma collision/replay/reference proof plus real-Postgres flat/hierarchical/fallback SearchService acceptance.
-- Validation: implementation head `c8b2675462d32ed81aba942dbfeb08d6385326c9` passed [CI #1350](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36178736364), including real PostgreSQL/Redis tests, 27 extension tests, version agreement and benchmark. The final documentation head must also pass required CI before merge.
+- Validation: implementation head `c8b2675462d32ed81aba942dbfeb08d6385326c9` passed [CI #1350](https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/36178736364), including real PostgreSQL/Redis tests, 27 extension tests, version agreement and benchmark. PR #382 was merged after final-head CI; current baseline CI #1356 also exercises this coverage.
 
 ## G03 — Grounded chat and optional AI
 
@@ -75,7 +70,7 @@ from automated repository checks.
 - Acceptance: Session lifecycle and composite ownership enforce authenticated boundaries.
 - Implementation: `app/db/auth_store.py`. Source contract: `docs/V1_8_AUTH_PRIVACY.md`.
 - Source revision: `769b3e8 Release v1.9.0 - AHME (AI Hybrid Memory Engine)`. CI: baseline 1068 above; coverage: `tests/test_v1_8_auth_privacy.py`.
-- Remaining: Production-wide isolation remains G26/G29; feature closeout is scoped.
+- Remaining: None in this scoped contract; P-03 production isolation is accepted. Final integrated stability remains G29.
 
 ## G07 — Durable jobs and multi-worker claims
 
@@ -123,7 +118,7 @@ from automated repository checks.
 - Acceptance: Normalized registry contract and canonical provenance-preserving ingest.
 - Implementation: `app/services/connector_ingest_service.py`. Source contract: `docs/F29_CONNECTOR_SDK_CLOSEOUT.md`.
 - Source revision: `d11dccb F-29: lock connector SDK contract and closeout evidence (#72)`. CI: baseline 1068 above; coverage: `tests/test_connector_sdk_contract.py`.
-- Remaining: Full production execution across representative connectors remains G26.
+- Remaining: None in SDK v1 scope; representative Postgres connector execution is accepted by P-03. Marketplace/live provider setup is not claimed.
 
 ## G13 — OAuth credential boundary
 
@@ -228,7 +223,7 @@ from automated repository checks.
 - Acceptance: Health split, rate limits, metrics, reproducible benchmark and test-gated changes.
 - Implementation: `app/middleware`. Source contract: `docs/F27_F28_OPS_TOOLING_CLOSEOUT.md`.
 - Source revision: `b5d77d9 Docs: close F-27/F-28 ops tooling acceptance (#99)`. CI: baseline 1068 above; coverage: `tests/test_health.py`.
-- Remaining: Postgres readiness and deployment checks remain G26/G29; no managed observability claim.
+- Remaining: Repository Postgres readiness accepted by P-03; actual deployment checks remain external. No managed observability claim.
 
 ## G26 — Production Postgres acceptance
 
@@ -259,9 +254,10 @@ from automated repository checks.
 - Source IDs: All-version acceptance/stability. Status: **Partial**.
 - Acceptance: Every mandatory planned Memory acceptance has evidence; no reproducible isolation defects; inventory reconciled.
 - Implementation: `docs/CURRENT_BUILD_STATE.md`. Source contract: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md`.
-- Source revision: `26591ab Docs: reconcile validated connectors and runtime platform (#110)`. CI: baseline 1068 above; coverage: `.github/workflows/ci.yml`.
-- Remaining: Final historical/root-document reconciliation and exact-head stability validation. Previously stale mandatory N/U backlog labels are now tied to dedicated acceptance closeouts; deferred C-09/U-05 and optional P-07 are not pre-transition Memory Search requirements.
+- Current reconciliation: `docs/SOURCE_OF_TRUTH_RECONCILIATION.md` maps mandatory contracts, real U-04 repair, historical scope and baseline CI #1356; this PR requires exact-head full CI including PostgreSQL/Redis and new behavioral replay tests.
+- Reconciliation component: **Complete** at 28/29; current root inventory and historical V1/architecture snapshots are explicitly distinguished.
+- Remaining 28→29: final integrated version/transition stability sign-off on the reconciled exact main revision, resolving any reproducible covered isolation/privacy/retry defect and recording the final decision. This PR does not execute that separate checkpoint.
 
 ## Deferred scope and reconciliation limits
 
-P-07 is explicitly optional remote embedding; C-09 is explicitly deferred native share; U-05 and voice/vision/gesture/spatial work are Jarvis-specific. None is silently marked Complete. All F-01–38, N-01–08, A-01–07, C-01–08, mandatory P/U rows and V1 feature/release boundaries are named above. Historical later-version roadmap language must still be compared against these scoped contracts before this candidate inventory becomes authoritative. Existing Home/Career code is preserved but does not clear a Memory Search row.
+P-07 is explicitly optional remote embedding; C-09 is explicitly deferred native share; U-05 and voice/vision/gesture/spatial work are Jarvis-specific. None is silently marked Complete. All F-01–38, N-01–08, A-01–07, C-01–08, mandatory P/U rows and V1 feature/release boundaries are named above. Historical later-version roadmap language is classified in the current matrix; broader optional/deferred ambitions do not reopen these scoped contracts. The historical 29-item mapping is not invented. Existing Home/Career code is preserved but does not clear a Memory Search row.
