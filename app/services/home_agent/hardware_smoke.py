@@ -1,12 +1,9 @@
 """Acceptance contract for a real Home Agent camera smoke run."""
 from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import timedelta
-
 from .camera_capture import OpenCVCameraCapture
 from .frame_source import FrameSourceResult
-
 
 @dataclass(frozen=True)
 class HardwareSmokeResult:
@@ -16,12 +13,20 @@ class HardwareSmokeResult:
     source_closed: bool
     event_required: bool = False
 
+    def failure_reasons(self) -> tuple[str, ...]:
+        """Explain exactly which hardware-acceptance conditions are still unmet."""
+        reasons: list[str] = []
+        if self.frames_processed < 1:
+            reasons.append("no_frames_processed")
+        if not self.source_closed:
+            reasons.append("camera_source_not_closed")
+        if self.event_required and self.events_emitted < 1:
+            reasons.append("required_physical_memory_event_not_emitted")
+        return tuple(reasons)
+
     @property
     def passed(self) -> bool:
-        frame_and_cleanup_ok = self.frames_processed >= 1 and self.source_closed
-        event_ok = not self.event_required or self.events_emitted >= 1
-        return frame_and_cleanup_ok and event_ok
-
+        return not self.failure_reasons()
 
 def run_hardware_smoke(
     *, capture: OpenCVCameraCapture, session_id: str, user_id: str,
@@ -30,26 +35,13 @@ def run_hardware_smoke(
     min_confidence: float = 0.8, confirmations: int = 2,
     require_event: bool = False,
 ) -> HardwareSmokeResult:
-    """Run a bounded real-camera acceptance probe through authenticated capture.
-
-    Passing proves at least one physical frame traversed the configured authenticated
-    pipeline and that the frame source was released. By default presence events are
-    reported but not required because their emission depends on what the camera sees.
-    Set ``require_event`` for the stronger physical-memory acceptance run where the
-    scene is deliberately arranged to produce a presence transition.
-    """
+    """Run a bounded real-camera acceptance probe through authenticated capture."""
     if max_frames < 1:
         raise ValueError("max_frames must be >= 1")
-
     result: FrameSourceResult = capture.run(
-        session_id=session_id,
-        user_id=user_id,
-        source_id=source_id,
-        location=location,
-        device_index=device_index,
-        max_frames=max_frames,
-        min_interval=min_interval,
-        min_confidence=min_confidence,
+        session_id=session_id, user_id=user_id, source_id=source_id,
+        location=location, device_index=device_index, max_frames=max_frames,
+        min_interval=min_interval, min_confidence=min_confidence,
         confirmations=confirmations,
     )
     return HardwareSmokeResult(
