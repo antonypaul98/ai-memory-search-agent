@@ -158,11 +158,9 @@ including closure of its discovered U-04 defect: **28/29**. It does not count th
 features again, treat the already-complete G28 release row as new work, or reconstruct
 the missing original 29-item mapping by summing candidate G-rows.
 
-**Remaining 28→29 requirement:** G29's final version/transition stability sign-off:
-validate the integrated, reconciled release candidate on its exact main revision,
-resolve any reproducible covered isolation/privacy/retry defect, and record the
-final acceptance decision before declaring the Memory Search transition complete.
-This reconciliation PR's CI is a merge requirement, not automatic authorization
-or evidence that the separate final transition decision has been made. No new
-feature or external provider deployment is silently required by that remaining gate.
-This work session stops at 28/29 and does not execute that final checkpoint.
+**Final 28→29 decision:** G29 is accepted by `docs/G29_FINAL_TRANSITION_CLOSEOUT.md`.
+PR #385 exact head passed required CI #1357 (run `36207667005`), and GitHub compare
+shows no file delta between that tested head and merged main `52feac7c4a3385bcd3cdfe55a907b3fbd5de2bd1`.
+No reproducible covered isolation/privacy/retry defect remains open after the U-04
+repair. External provider/deployment/human prerequisites remain outside this
+repository-controlled transition decision. **Jarvis Gate: 29/29 cleared — 0 remaining.**
