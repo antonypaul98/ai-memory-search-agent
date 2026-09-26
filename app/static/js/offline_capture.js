@@ -2,6 +2,24 @@ const DB_NAME = "ai-memory-offline";
 const DB_VERSION = 1;
 const STORE = "capture_urls";
 const MAX_QUEUED = 100;
+// Verified online identity is kept in memory only. Never infer an owner from a URL
+// or replay legacy ownerless entries under the next person to use this browser.
+let ownerContext = null;
+let flushing = null;
+
+function currentToken() {
+  return localStorage.getItem("am_token") || "";
+}
+
+async function resolveOwner() {
+  const token = currentToken();
+  const response = await fetch("/api/v1/auth/me", { headers: authHeaders(token), cache: "no-store" });
+  if (!response.ok) throw new Error("Connect and sign in before saving offline URLs.");
+  const user = await response.json();
+  if (!user.user_id || currentToken() !== token) throw new Error("Account changed. Reconnect before saving offline URLs.");
+  ownerContext = { userId: user.user_id, token };
+  return ownerContext;
+}
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -49,10 +67,15 @@ export async function offlineCaptureCount() {
 export async function enqueueOfflineCapture(url) {
   const normalized = new URL(String(url || "").trim());
   if (!/^https?:$/.test(normalized.protocol)) throw new Error("Only http(s) URLs can be queued.");
+  const owner = ownerContext;
+  if (!owner || owner.token !== currentToken()) {
+    throw new Error("Connect and sign in before saving offline URLs.");
+  }
   const count = await offlineCaptureCount();
   if (count >= MAX_QUEUED) throw new Error("Offline queue is full. Reconnect before saving more URLs.");
   return withStore("readwrite", (store, resolve, reject) => {
     const req = store.add({
+      user_id: owner.userId,
       url: normalized.toString(),
       queued_at: new Date().toISOString(),
     });
@@ -77,22 +100,31 @@ async function removeQueued(id) {
   });
 }
 
-function authHeaders() {
+function authHeaders(token = currentToken()) {
   const headers = { "Content-Type": "application/json" };
-  const token = localStorage.getItem("am_token");
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
 export async function flushOfflineCaptures() {
+  // Online events and startup can overlap; only one replay may own the queue.
+  if (flushing) return flushing;
+  flushing = flushOwnedCaptures().finally(() => { flushing = null; });
+  return flushing;
+}
+
+async function flushOwnedCaptures() {
   if (!navigator.onLine) return { flushed: 0, remaining: await offlineCaptureCount() };
+  const owner = await resolveOwner();
   const items = await queuedItems();
   let flushed = 0;
   for (const item of items) {
+    if (item.user_id !== owner.userId) continue;
+    if (currentToken() !== owner.token) break;
     try {
       const response = await fetch("/api/v1/capture/url", {
         method: "POST",
-        headers: authHeaders(),
+        headers: { ...authHeaders(owner.token), "X-Capture-Owner": owner.userId },
         body: JSON.stringify({ url: item.url }),
       });
       if (!response.ok) {
