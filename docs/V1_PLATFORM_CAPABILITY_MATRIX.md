@@ -1,5 +1,13 @@
 # V1 Platform Capability Matrix
 
+> Historical V1 discovery/readiness snapshot (July 2026). Missing/Partial rows
+> below describe that audit date, not current blockers. V1-0–9 in-repository
+> release completion is recorded in [V1_RELEASE_PLAN.md](V1_RELEASE_PLAN.md);
+> later scoped Memory acceptance is mapped to code/tests/CI in
+> [SOURCE_OF_TRUTH_RECONCILIATION.md](SOURCE_OF_TRUTH_RECONCILIATION.md).
+> Original freeze history is preserved; store submission/demo recording remain human steps.
+
+
 **Audit date:** 2026-07-28  
 **Method:** Repository code inspection + test inventory (**107 tests collected**; brain subset **22 passed** on 2026-07-22). Status **Complete** only when code exists **and** automated tests pass.
 

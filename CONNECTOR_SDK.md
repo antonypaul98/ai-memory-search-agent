@@ -1,11 +1,65 @@
 # CONNECTOR SDK — Universal Ingestion Architecture
 
-**Purpose:** Specification for pluggable content connectors — the ingestion layer of AI Memory OS.  
-**Status:** Architecture phase — **F-29 Planned**; `BaseSource` is a stub.  
-**Last updated:** 2026-07-18  
-**Replaces:** Ad-hoc logic in `IngestService` and `CaptureService` over time (migration, not big-bang).
+**Status:** F-29/C-01 SDK v1 and C-02–C-08 are accepted at the repository-controlled
+boundaries below. Updated: 2026-09-26.
 
----
+## Current executable contract
+
+`app/services/sources/base_source.py` defines the abstract `SourceConnector`:
+`health`, `parse_ref`, `fetch_metadata`, `detect_transcript`, `fetch_transcript`.
+`SourceRef`, `NormalizedItem` and `TranscriptPayload` carry source identity,
+metadata and evidence. It is implemented, not a stub. The older `MemoryPlan` /
+`fetch_batch` protocol below is a design sketch, not the runtime interface.
+
+`ConnectorRegistry` in `app/services/sources/__init__.py` resolves deterministic
+built-in IDs. `CONNECTOR_ENABLED_IDS` restricts enablement; unknown IDs fail closed.
+`ConnectorIngestService` reuses canonical memory, provenance, dedup and tenant
+write boundaries. YouTube retains its dedicated shared ingestion orchestration.
+
+| ID / acceptance | Current boundary | Evidence |
+|---|---|---|
+| F-29 / C-01 | Normalized contract, configuration registry, safe health | [SDK closeout](docs/F29_CONNECTOR_SDK_CLOSEOUT.md) |
+| C-02 | Tenant-encrypted vault, refresh/rotation/revoke and redacted use audit | [OAuth closeout](docs/closeouts/C02_OAUTH_ADAPTER_FRAMEWORK.md) |
+| `youtube.v1` | Video/playlist metadata and transcript ingestion | V1-2; existing ingest/YouTube regressions |
+| `web.v1` / C-03 | SSRF-safe bounded HTML normalization | [Web closeout](docs/closeouts/C03_WEB_ARTICLE_CONNECTOR.md) |
+| `pdf.v1` | PDF extraction and page evidence | V1-4; generic connector and Postgres hierarchy acceptance |
+| `github.v1` | Public repo save; confirmation-gated authenticated starred import | [V1-07](docs/closeouts/V1_07_GITHUB_REPO_SAVE_CLOSEOUT.md), [V1-08](docs/closeouts/V1_08_GITHUB_STARRED_IMPORT_CLOSEOUT.md) |
+| `bookmarks.v1` | Preview/import and explicit opt-in resync | [F-23](docs/F23_BOOKMARK_IMPORT_CLOSEOUT.md) |
+| `gdrive.v1` / C-04 | Scoped Docs/PDF ingestion, provider-ID dedup, safe errors | [Drive closeout](docs/closeouts/C04_GOOGLE_DRIVE_CONNECTOR.md) |
+| `notion.v1` / C-05 | Bounded offline ZIP/Markdown import; safe archive paths | [Notion closeout](docs/closeouts/C05_NOTION_EXPORT_CONNECTOR.md) |
+| `readwise.v1` / C-06 | CSV highlights into evidence, stable dedup and tag retention | [Readwise closeout](docs/closeouts/C06_READWISE_BRIDGE.md) |
+| `podcast.v1` / C-07 | Bounded RSS/Atom show notes, stable episode IDs | [Podcast closeout](docs/closeouts/C07_PODCAST_RSS_CONNECTOR.md) |
+| C-08 | Full tenant export; lossless versioned Markdown parse/round-trip without writes | [Export closeout](docs/closeouts/C08_EXPORT_ADAPTER.md) |
+
+## Current acceptance checklist
+
+- [x] SourceConnector contract enforced by registered built-ins.
+- [x] YouTube and web ingestion regression-covered.
+- [x] Configuration allowlist and secret-safe registry health.
+- [x] Tenant/source provenance and canonical dedup preserved.
+- [x] OAuth refresh, revoke and credential-use audit covered without live secrets.
+- [x] Export retains timestamp/reflection metadata and round-trips losslessly.
+
+Implementation and regression links, including current CI evidence, are in the
+[reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md). Earlier closeout
+phrases such as "pending this PR's CI" refer to their historical merge gates;
+the matrix supplies current validation and does not expand their scope.
+
+## External, deferred and future boundaries
+
+Provider app registration, credentials, consent screens, callback approvals and
+billing are external. Readwise API sync, live Notion OAuth, podcast transcription,
+connector marketplace and async export distribution are not claimed. C-09 native
+share remains deferred; U-04's PWA offline queue is a separate accepted surface.
+No new mandatory AI, external writes or autonomous collection is implied.
+
+## Historical architecture proposal — 2026-07-18
+
+The original design below is retained to preserve history. Its Planned labels,
+unchecked boxes, proposed APIs/env names and migration steps are **not current
+acceptance status**. Use the executable contract above for implementation. In
+particular, scoped JWTs, generic discovery/MemoryPlan APIs, async export jobs and
+CSV/vault packaging are future designs, not falsely claimed runtime features.
 
 ## 1. Design Goals
 

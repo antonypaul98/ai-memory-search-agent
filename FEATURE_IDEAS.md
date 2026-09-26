@@ -128,7 +128,7 @@ Current P-03/U-03 acceptance: [P-03 closeout](docs/P03_IMPLEMENTATION_CLOSEOUT_2
 
 ---
 
-## 1b. V1 Chrome Extension Release (Active Gate)
+## 1b. V1 Chrome Extension Release (historical phases; current scoped status)
 
 **Gate doc:** `MASTER_SPEC.md` §0.7 · **Audit:** `docs/V1_PLATFORM_CAPABILITY_MATRIX.md`
 
@@ -136,22 +136,24 @@ Current P-03/U-03 acceptance: [P-03 closeout](docs/P03_IMPLEMENTATION_CLOSEOUT_2
 |----|------------|--------|-------|------------|--------------|
 | V1-01 | Context observer | **Complete** (V1-1) | V1-1 | L | F-22 |
 | V1-02 | Instant save + async status | **Complete** (V1-1) | V1-1 | M | F-21, F-20 |
-| V1-03 | YouTube in-page metadata | **Partial** (V1-1 baseline) | V1-3 | M | V1-02 |
+| V1-03 | YouTube in-page metadata | **Complete — in-page metadata acceptance** | V1-3 | M | V1-02 |
 | V1-04 | Playlist import UX | **Complete** (V1-6) | V1-6 | M | F-20 |
 | V1-05 | Watch Later OAuth | Deferred (demo fallback) | V1-6/post | XL | C-02, Google verification |
 | V1-06 | Bookmark folder import UI | **Complete** (V1-4 APIs + V1-6 extension) | V1-6 | M | F-23, F-22 |
-| V1-07 | GitHub repo save | Partial (connector exists) | V1-4 | L | C-02 |
-| V1-08 | GitHub starred import | Missing | post-V1 | XL | V1-07, OAuth |
+| V1-07 | GitHub repo save | **Complete — public-repository save** | V1-4 | L | C-02 |
+| V1-08 | GitHub starred import | **Complete — repository preview/confirm contract; provider setup external** | post-V1 | XL | V1-07, OAuth |
 | V1-09 | Web article ingest (searchable) | **Complete** (V1-4) | V1-4 | L | F-21, F-36 |
 | V1-10 | PDF import + page cites | **Complete** (V1-4 + V1-6 extension UI) | V1-4/6 | L | F-36 |
 | V1-11 | Agent command bar | **Complete** (V1-7) | V1-7 | L | F-10, F-11 |
 | V1-12 | Extension search/chat UX | **Complete** (V1-7 command + deep-links) | V1-7 | M | F-18, F-22 |
-| V1-13 | Learning path generator | Missing | V1-7b / post-V1 | L | F-09, F-33 |
+| V1-13 | Learning path generator | **Complete — evidence-only roadmap** | V1-7b / post-V1 | L | F-09, F-33 |
 | V1-14 | Export / delete controls | **Complete** (V1-8) | V1-8 | M | F-19, F-31 |
 | V1-15 | Chrome Web Store listing | **Complete package (V1-9)** — ready to submit; not auto-uploaded | V1-9 | M | V1-8 privacy doc |
 | V1-16 | Demo video + LinkedIn launch | **Materials complete (V1-9)** — script/seed/LinkedIn copy; video/post are human steps | V1-9 | S | V1-03–V1-12 |
 
-**Frozen for V1:** N-01, N-04, N-06, N-07, A-01–A-07, C-01 marketplace.
+V1-03/07/08/13 code and regression evidence: [current reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md). The Phase column retains original delivery planning, not current readiness.
+
+**Historical V1 freeze (superseded for later accepted Memory contracts):** N-01, N-04, N-06, N-07, A-01–A-07, C-01 marketplace.
 
 **V1 track:** Complete (V1-0 … V1-9). See `docs/V1_9_DEMO_STORE_LAUNCH.md`. Do not start Version 2 without an explicit gate.
 

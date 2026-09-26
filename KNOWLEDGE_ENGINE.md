@@ -411,7 +411,7 @@ flowchart TB
 7. N-07 Learning Evolution — done
 ```
 
-This dependency completion does **not** by itself authorize a Jarvis transition. Remaining Memory Search source-of-truth rows, platform gaps, trust/cross-source-dedup work, UX acceptance items, and final stability criteria must still be completed/reconciled first.
+This dependency completion does **not** by itself authorize a Jarvis transition. The accepted trust, cross-source dedup, UX and production contracts are mapped in [the current reconciliation matrix](docs/SOURCE_OF_TRUTH_RECONCILIATION.md). Final transition/stability sign-off remains separate under G29; previously accepted rows are not new implementation tasks.
 
 ---
 
