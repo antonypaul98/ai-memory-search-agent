@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import agent, agents, auth, cache, capture, chat, connector_auth, context, events, feedback, gdrive, health, home_agent, home_agent_query, imports, intelligence, jobs, knowledge, memories, models, playlists, podcasts, privacy, search, usage, videos, youtube
+from app.api.routes import agent, agents, jarvis, auth, cache, capture, chat, connector_auth, context, events, feedback, gdrive, health, home_agent, home_agent_query, imports, intelligence, jobs, knowledge, memories, models, playlists, podcasts, privacy, search, usage, videos, youtube
 from app.config import get_settings
 from app.db.production_storage_profile import is_complete_postgres_profile
 from app.db.runtime_safety import validate_runtime_topology
@@ -65,6 +65,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(privacy.router, prefix="/api/v1")
 app.include_router(agent.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
+app.include_router(jarvis.router, prefix="/api/v1")
 app.include_router(videos.router, prefix="/api/v1")
 app.include_router(youtube.router, prefix="/api/v1")
 app.include_router(intelligence.router, prefix="/api/v1")
