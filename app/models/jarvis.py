@@ -15,6 +15,7 @@ class JarvisRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     context: AgentCommandContext | None = None
     limit: int = Field(default=5, ge=1, le=20)
+    confirm_token: str | None = Field(default=None, max_length=2048)
 
     @field_validator("text")
     @classmethod
