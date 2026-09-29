@@ -31,7 +31,7 @@ class JarvisCoreRuntime:
             request.text,
             user_id=owner,
             context=context,
-            issue_confirm_token=False,
+            issue_confirm_token=True,
         )
         plan = AgentCommandPlan(**plan_dict)
 
@@ -40,9 +40,10 @@ class JarvisCoreRuntime:
         except ValueError:
             intent = CommandIntent.UNKNOWN
 
-        # J01 is intentionally read-only by default. Later Jarvis gates can expose
-        # approved action flows, but no natural-language request may bypass them.
-        if intent not in SAFE_AUTO_EXECUTE:
+        # J02 exposes only the existing explicit confirmation flow for bulk work.
+        # Other write/external intents remain gated; no natural-language request may
+        # acquire authority merely by reaching the Jarvis endpoint.
+        if intent not in SAFE_AUTO_EXECUTE and not plan.bulk:
             return JarvisResponse(
                 plan=plan,
                 executed=False,
@@ -59,6 +60,7 @@ class JarvisCoreRuntime:
             intent=plan.intent,
             query=plan.query,
             original_text=plan.original_text or request.text,
+            confirm_token=request.confirm_token,
             context=context,
             limit=request.limit,
         )

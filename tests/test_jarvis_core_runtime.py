@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.models.jarvis import JarvisRequest
 from app.services.jarvis_core_runtime import JarvisCoreRuntime
+from app.services.command_router import reset_confirm_token_state
 
 
 class TestJarvisCoreRuntime:
@@ -70,6 +71,70 @@ class TestJarvisCoreRuntime:
         assert out.executed is False
         assert out.status == "action_gated"
         execute.assert_not_called()
+
+
+    def test_bulk_action_requires_explicit_confirmation(self, test_settings: Settings) -> None:
+        reset_confirm_token_state()
+        runtime = JarvisCoreRuntime(test_settings)
+        preview = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import bookmarks"),
+        )
+        assert preview.executed is False
+        assert preview.status == "confirm_required"
+        assert preview.plan.requires_confirm is True
+        assert preview.plan.bulk is True
+        assert preview.plan.confirm_token
+
+    def test_bulk_confirmation_is_tenant_bound_and_single_use(self, test_settings: Settings) -> None:
+        reset_confirm_token_state()
+        runtime = JarvisCoreRuntime(test_settings)
+        preview = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import bookmarks"),
+        )
+        token = preview.plan.confirm_token
+        assert token
+
+        wrong_tenant = runtime.run(
+            user_id="tenant-b",
+            request=JarvisRequest(text="import bookmarks", confirm_token=token),
+        )
+        assert wrong_tenant.executed is False
+        assert wrong_tenant.status == "confirm_required"
+
+        confirmed = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import bookmarks", confirm_token=token),
+        )
+        assert confirmed.executed is True
+        assert confirmed.status == "handoff"
+        assert confirmed.result["confirm_consumed"] is True
+
+        replay = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import bookmarks", confirm_token=token),
+        )
+        assert replay.executed is False
+        assert replay.status == "confirm_required"
+
+    def test_tampered_bulk_confirmation_fails_closed(self, test_settings: Settings) -> None:
+        reset_confirm_token_state()
+        runtime = JarvisCoreRuntime(test_settings)
+        preview = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import playlist"),
+        )
+        token = preview.plan.confirm_token
+        assert token
+        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+
+        out = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import playlist", confirm_token=tampered),
+        )
+        assert out.executed is False
+        assert out.status == "confirm_required"
 
     def test_tenant_identity_is_required(self, test_settings: Settings) -> None:
         runtime = JarvisCoreRuntime(test_settings)
