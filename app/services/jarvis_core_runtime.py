@@ -14,6 +14,32 @@ from app.models.jarvis import JarvisRequest, JarvisResponse
 from app.services.command_router import CommandIntent, CommandRouterService, SAFE_AUTO_EXECUTE
 
 
+def _memory_context(result: object, *, limit: int) -> list[dict[str, object]]:
+    """Project bounded, provenance-bearing search evidence into Jarvis context.
+
+    This deliberately does not create a second personal-memory store. Context is
+    derived only from the authenticated tenant's accepted Memory Search result.
+    """
+    if not isinstance(result, dict):
+        return []
+    rows = result.get("results") or result.get("videos") or []
+    if not isinstance(rows, list):
+        return []
+    context: list[dict[str, object]] = []
+    for row in rows[:limit]:
+        if not isinstance(row, dict):
+            continue
+        context.append({
+            "memory_id": row.get("memory_id") or row.get("video_id"),
+            "title": row.get("title"),
+            "matched_text": row.get("matched_text"),
+            "citation_ref": row.get("citation_ref") or row.get("url"),
+            "source_type": row.get("source_type"),
+            "relevance_score": row.get("relevance_score"),
+        })
+    return context
+
+
 class JarvisCoreRuntime:
     """Plan and execute one bounded Jarvis turn over accepted Memory services."""
 
@@ -70,4 +96,9 @@ class JarvisCoreRuntime:
             status=str(outcome.get("status") or "error"),
             message=str(outcome.get("message") or ""),
             result=outcome.get("result"),
+            memory_context=(
+                _memory_context(outcome.get("result"), limit=request.limit)
+                if intent in {CommandIntent.SEARCH, CommandIntent.ASK}
+                else []
+            ),
         )
