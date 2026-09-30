@@ -39,9 +39,9 @@ class DeviceFrameStream:
         self.closed = False
 
     def __iter__(self) -> Iterator[CaptureFrame]:
-        self._device.open()
         first = True
         try:
+            self._device.open()
             while True:
                 image_bytes = self._device.read()
                 if image_bytes is None:
@@ -76,8 +76,12 @@ class ContinuousCaptureSourceAdapter:
         stream = DeviceFrameStream(
             device=device, clock=clock, min_interval=min_interval, sleeper=self._sleeper,
         )
-        capture = self._runner.run(
-            session_id=session_id, user_id=user_id, source_id=source_id,
-            location=location, frames=stream, **runner_kwargs,
-        )
+        iterator = iter(stream)
+        try:
+            capture = self._runner.run(
+                session_id=session_id, user_id=user_id, source_id=source_id,
+                location=location, frames=iterator, **runner_kwargs,
+            )
+        finally:
+            iterator.close()
         return FrameSourceResult(capture=capture, source_closed=stream.closed)

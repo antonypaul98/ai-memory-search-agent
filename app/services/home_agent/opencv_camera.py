@@ -35,7 +35,12 @@ class OpenCVCameraDevice:
             raise RuntimeError("camera is already open")
         capture_factory, encoder = self._bindings()
         capture = capture_factory(self._device_index)
-        if not capture.isOpened():
+        try:
+            opened = capture.isOpened()
+        except BaseException:
+            capture.release()
+            raise
+        if not opened:
             capture.release()
             raise RuntimeError(f"unable to open camera device {self._device_index}")
         self._encoder = encoder
