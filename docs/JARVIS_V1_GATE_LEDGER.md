@@ -2,7 +2,7 @@
 
 Updated: 2026-09-30.
 
-**Jarvis V1 Gate: 2/12 cleared — 10 remaining.**
+**Jarvis V1 Gate: 3/12 cleared — 9 remaining.**
 
 Jarvis V1 starts only after the Memory Search transition reached 29/29 on main
 (PR #386, merge `82338ad523b1c7d2601800b6b5b1db710dc642bc`). Jarvis credits do not
@@ -50,16 +50,24 @@ cross-tenant rejection and replay rejection.
 
 ## J03 — Context and personal memory
 
-Integration: **PR #391, pending final exact-head CI and merge.**
+Integration: **PR #391 merged; acceptance recorded by this CI-gated receipt.**
+
+- Exact repaired head: `36d0c4f2f72afb35dbe47ec78b16e5377ee0094a`.
+- CI run `36669438702`: 1,376 Python tests passed, 1 skipped;
+  30 extension tests and AHME benchmark passed.
+- Merge: `324164bc685b8b2c11c0bc618fa38371952a5eb3`, fetched locally;
+  includes Home merge `55c8ff214c0eb6fab38645528b943133629b8a79`.
+- Combined Jarvis/Home targeted regressions: 54 passed on that merged main.
+- This receipt requires fresh exact-head CI before integration and final main CI
+  verification. Branch-local or pending CI is not an acceptance credit.
 
 Reuses the authenticated tenant's existing Memory Search results and actual chat
 `sources`, preserving timestamp citations and bounded result count. Failed commands
 and non-memory actions do not project context. No parallel memory store is added.
-Local targeted suite: 14 passed. The previous head's successful CI is not used to
-claim acceptance for the repaired head.
+Local targeted suite: 14 passed. The repaired head passed its own exact-head CI; no earlier-head result substitutes for it.
 
-Remaining J03–J12:
-J03 context/personal memory; J04 voice; J05 vision/Home;
+Remaining J04–J12:
+J04 voice; J05 vision/Home;
 J06 screen/device awareness; J07 computer-use actions; J08 proactive triggers;
 J09 multi-device continuity; J10 gestures; J11 spatial interface; J12 integrated
 stability/security/release.

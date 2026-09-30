@@ -20,5 +20,22 @@ must pass on the exact head before merge. Tests use injected/mock devices, never
 a physical webcam in CI.
 
 **Physical Mac webcam acceptance: PENDING.** No physical camera was accessed.
-After software integration, execute the documented hardware smoke on a consenting
-Mac with a real camera and retain its bounded frames/event/cleanup evidence.
+Next hardware action: on a consenting Mac, configure the authenticated capture
+stack and invoke `app.services.home_agent.hardware_smoke.run_hardware_smoke`
+with a real OpenCV device and `require_event=True`; retain bounded frame,
+physical-memory event and cleanup evidence. There is currently no dedicated
+hardware-smoke CLI. CI mocks cannot satisfy this acceptance.
+
+## Verified software integration
+
+- PR #392 merged as `55c8ff214c0eb6fab38645528b943133629b8a79`.
+- Exact head `bb167c8856e292331c535c144c18c65574d54dd9` passed CI
+  `36669705131`: 1,384 Python tests passed, 1 skipped; 30 extension tests
+  and AHME benchmark passed.
+- Exact-head trained-vision/PostgreSQL smoke `36669705081` succeeded.
+- Main was fetched and its 40 focused capture regressions passed.
+- Later combined main `324164bc685b8b2c11c0bc618fa38371952a5eb3` includes
+  J03 and Home; all 54 combined targeted regressions passed.
+- Final integrated CI remains mandatory for this receipt and its merged main.
+  The superseded Home-only main CI was cancelled by the later J03 merge, not
+  counted as successful. Physical Mac acceptance stays pending.
