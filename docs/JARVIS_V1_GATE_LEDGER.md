@@ -1,8 +1,8 @@
 # Jarvis V1 Gate Ledger
 
-Updated: 2026-09-26.
+Updated: 2026-09-30.
 
-**Jarvis V1 Gate: 1/12 cleared — 11 remaining.**
+**Jarvis V1 Gate: 2/12 cleared — 10 remaining.**
 
 Jarvis V1 starts only after the Memory Search transition reached 29/29 on main
 (PR #386, merge `82338ad523b1c7d2601800b6b5b1db710dc642bc`). Jarvis credits do not
@@ -10,7 +10,7 @@ recount Memory Search acceptance.
 
 ## J01 — Core runtime
 
-Status: **Complete pending required PR CI and merged-main verification.**
+Status: **Verified on main through PR #387.**
 
 Acceptance:
 - one authenticated natural-language Jarvis entry point;
@@ -31,10 +31,35 @@ Regression:
 
 Evidence:
 - Branch starts from Memory Search final merge `82338ad523b1c7d2601800b6b5b1db710dc642bc`.
-- Exact-head PR CI and merged-main SHA are recorded after required checks pass.
+- Exact-head `6c5506bb56e25518e36bdfffda97e7d1ca8bda45`: CI run
+  `36209411798` succeeded.
+- Merge `b87eb8d11a7e3e5d05b5be5aa7674c3f5125112f` is an ancestor of
+  fetched main `ef1ed00f7916d81b690d4f930130dc30d04e3ff2`.
 
-Remaining J02–J12:
-J02 permissions/action safety; J03 context/personal memory; J04 voice; J05 vision/Home;
+## J02 — Permissions and action safety
+
+Status: **Verified on main through PR #390.**
+
+Reuses tenant-bound, expiring, single-use confirmation for bulk handoff; other
+writes remain gated. Regression coverage includes missing/tampered tokens,
+cross-tenant rejection and replay rejection.
+
+- Exact-head `5d03725577c6fdc17ca8e5caf7ad1d788181eee9`: CI run
+  `36529911799` succeeded.
+- Merge/current fetched main: `ef1ed00f7916d81b690d4f930130dc30d04e3ff2`.
+
+## J03 — Context and personal memory
+
+Integration: **PR #391, pending final exact-head CI and merge.**
+
+Reuses the authenticated tenant's existing Memory Search results and actual chat
+`sources`, preserving timestamp citations and bounded result count. Failed commands
+and non-memory actions do not project context. No parallel memory store is added.
+Local targeted suite: 14 passed. The previous head's successful CI is not used to
+claim acceptance for the repaired head.
+
+Remaining J03–J12:
+J03 context/personal memory; J04 voice; J05 vision/Home;
 J06 screen/device awareness; J07 computer-use actions; J08 proactive triggers;
 J09 multi-device continuity; J10 gestures; J11 spatial interface; J12 integrated
 stability/security/release.

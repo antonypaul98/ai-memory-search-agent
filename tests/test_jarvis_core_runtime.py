@@ -145,6 +145,100 @@ class TestJarvisCoreRuntime:
             assert "user_id is required" in str(exc)
 
 
+    def test_search_projects_bounded_provenance_context(self, test_settings: Settings) -> None:
+        runtime = JarvisCoreRuntime(test_settings)
+        with patch.object(runtime._commands, "execute") as execute:
+            execute.return_value = {
+                "ok": True,
+                "status": "executed",
+                "message": "Found results.",
+                "result": {
+                    "results": [
+                        {
+                            "memory_id": "m1",
+                            "title": "One",
+                            "matched_text": "alpha",
+                            "citation_ref": "c1",
+                            "source_type": "web",
+                            "relevance_score": 0.9,
+                        },
+                        {
+                            "memory_id": "m2",
+                            "title": "Two",
+                            "matched_text": "beta",
+                            "citation_ref": "c2",
+                            "source_type": "youtube",
+                            "relevance_score": 0.8,
+                        },
+                    ]
+                },
+            }
+            out = runtime.run(
+                user_id="tenant-a",
+                request=JarvisRequest(text="find vector databases", limit=1),
+            )
+
+        assert out.executed is True
+        assert len(out.memory_context) == 1
+        assert out.memory_context[0] == {
+            "memory_id": "m1",
+            "title": "One",
+            "matched_text": "alpha",
+            "citation_ref": "c1",
+            "source_type": "web",
+            "relevance_score": 0.9,
+        }
+        assert execute.call_args.kwargs["user_id"] == "tenant-a"
+
+    def test_non_memory_action_never_projects_personal_context(self, test_settings: Settings) -> None:
+        reset_confirm_token_state()
+        runtime = JarvisCoreRuntime(test_settings)
+        preview = runtime.run(
+            user_id="tenant-a",
+            request=JarvisRequest(text="import bookmarks"),
+        )
+        assert preview.executed is False
+        assert preview.memory_context == []
+
+    def test_ask_projects_only_returned_authenticated_memory_evidence(self, test_settings: Settings) -> None:
+        runtime = JarvisCoreRuntime(test_settings)
+        with patch.object(runtime._commands, "execute") as execute:
+            execute.return_value = {
+                "ok": True,
+                "status": "executed",
+                "message": "Answered from memory.",
+                "result": {
+                    "results": [
+                        {
+                            "memory_id": "m9",
+                            "title": "Tenant result",
+                            "matched_text": "grounded",
+                            "citation_ref": "mem://m9",
+                            "source_type": "memory",
+                            "relevance_score": 1.0,
+                        }
+                    ],
+                    "answer": "grounded answer",
+                },
+            }
+            out = runtime.run(
+                user_id="tenant-a",
+                request=JarvisRequest(text="what did I save about MCP?", limit=3),
+            )
+
+        assert out.memory_context == [
+            {
+                "memory_id": "m9",
+                "title": "Tenant result",
+                "matched_text": "grounded",
+                "citation_ref": "mem://m9",
+                "source_type": "memory",
+                "relevance_score": 1.0,
+            }
+        ]
+        assert execute.call_args.kwargs["user_id"] == "tenant-a"
+
+
 class TestJarvisCoreRuntimeAPI:
     def test_authenticated_route_uses_current_tenant(self, client: TestClient) -> None:
         with patch("app.services.jarvis_core_runtime.CommandRouterService.execute") as execute:
@@ -172,3 +266,27 @@ class TestJarvisCoreRuntimeAPI:
         assert response.status_code == 200
         assert response.json()["status"] == "action_gated"
         execute.assert_not_called()
+
+
+def test_context_projects_real_chat_response_schema():
+    from app.models.chat import ChatResponse, ChatSource
+    from app.services.jarvis_core_runtime import _memory_context
+    response = ChatResponse(answer='Grounded answer', grounded=True, sources=[
+        ChatSource(video_id='m1', title='Evidence', url='https://example.com/video',
+                   matched_text='Saved text', relevance_score=0.9,
+                   timestamp_url='https://example.com/video?t=12')
+    ])
+    context = _memory_context(response.model_dump(), limit=1)
+    assert len(context) == 1
+    assert context[0]['memory_id'] == 'm1'
+    assert context[0]['citation_ref'] == 'https://example.com/video?t=12'
+    assert context[0]['matched_text'] == 'Saved text'
+
+
+def test_failed_command_does_not_project_context(test_settings):
+    runtime = JarvisCoreRuntime(test_settings)
+    with patch.object(runtime._commands, 'execute', return_value={
+        'ok': False, 'status': 'error', 'result': {'results': [{'memory_id': 'm1'}]}
+    }):
+        out = runtime.run(user_id='tenant-a', request=JarvisRequest(text='find saved notes'))
+    assert out.memory_context == []

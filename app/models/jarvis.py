@@ -34,3 +34,4 @@ class JarvisResponse(BaseModel):
     status: str
     message: str = ""
     result: dict[str, Any] | None = None
+    memory_context: list[dict[str, Any]] = Field(default_factory=list)
