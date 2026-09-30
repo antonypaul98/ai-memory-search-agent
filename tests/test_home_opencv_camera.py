@@ -59,3 +59,14 @@ def test_encode_failure_raises_and_close_releases_camera():
         device.read()
     device.close()
     capture.release.assert_called_once_with()
+
+
+def test_open_probe_exception_releases_camera():
+    capture = Mock()
+    capture.isOpened.side_effect = RuntimeError('probe failed')
+    device = OpenCVCameraDevice(capture_factory=Mock(return_value=capture), encoder=Mock())
+    with pytest.raises(RuntimeError, match='probe failed'):
+        device.open()
+    capture.release.assert_called_once_with()
+    device.close()
+    capture.release.assert_called_once_with()

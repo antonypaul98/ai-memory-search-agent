@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
+import math
 from .camera_capture import OpenCVCameraCapture
 from .frame_source import FrameSourceResult
 
@@ -36,8 +37,21 @@ def run_hardware_smoke(
     require_event: bool = False,
 ) -> HardwareSmokeResult:
     """Run a bounded real-camera acceptance probe through authenticated capture."""
-    if max_frames < 1:
+    if type(max_frames) is not int or max_frames < 1:
         raise ValueError("max_frames must be >= 1")
+    if type(confirmations) is not int or confirmations < 1:
+        raise ValueError("confirmations must be >= 1")
+    if type(device_index) is not int or device_index < 0:
+        raise ValueError("device_index must be a non-negative integer")
+    if not isinstance(min_interval, timedelta) or min_interval.total_seconds() <= 0:
+        raise ValueError("min_interval must be positive")
+    if (type(min_confidence) not in (int, float) or not math.isfinite(min_confidence)
+            or not 0 <= min_confidence <= 1):
+        raise ValueError("min_confidence must be between 0 and 1")
+    if require_event and max_frames < confirmations + 1:
+        raise ValueError(
+            "strict hardware acceptance requires max_frames >= confirmations + 1"
+        )
     result: FrameSourceResult = capture.run(
         session_id=session_id, user_id=user_id, source_id=source_id,
         location=location, device_index=device_index, max_frames=max_frames,

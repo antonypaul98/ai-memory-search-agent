@@ -116,3 +116,28 @@ def test_adapter_paces_stream_with_same_interval_enforced_by_runner():
     assert result.capture.frames_processed == 2
     assert runner.run.call_args.kwargs["min_interval"] == timedelta(seconds=3)
     assert sleeper.call_args_list == [call(3.0)]
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_adapter_closes_retained_iterator_on_early_exit_or_error(fail):
+    retained = []
+    def consume(**kwargs):
+        iterator = kwargs['frames']
+        retained.append(iterator)
+        next(iterator)
+        if fail:
+            raise RuntimeError('consumer failed')
+        return CaptureRunResult(1, (), 'frame_limit')
+    runner = Mock()
+    runner.run.side_effect = consume
+    device = Device([b'a', b'b'])
+    adapter = ContinuousCaptureSourceAdapter(runner=runner, sleeper=Mock())
+    kwargs = dict(device=device, clock=clock([START]), session_id='s',
+                  user_id='tenant-a', source_id='camera', location='entry')
+    if fail:
+        with pytest.raises(RuntimeError, match='consumer failed'):
+            adapter.run_device(**kwargs)
+    else:
+        assert adapter.run_device(**kwargs).source_closed is True
+    assert device.closed == 1
+    assert list(retained[0]) == []
