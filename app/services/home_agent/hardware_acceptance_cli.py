@@ -54,7 +54,13 @@ def main(argv=None):
     parser.add_argument("--allow-physical-camera",action="store_true")
     args=parser.parse_args(argv)
     try:
-        validate_config(**vars(args))
+        validate_config(
+            session_id=args.session_id, user_id=args.user_id, source_id=args.source_id,
+            location=args.location, device_index=args.device_index, max_frames=args.max_frames,
+            confirmations=args.confirmations, min_interval_seconds=args.min_interval_seconds,
+            min_confidence=args.min_confidence, require_event=args.require_event,
+            allow_physical_camera=args.allow_physical_camera,
+        )
         factory=load_factory(args.capture_factory)
         result=run_cli(factory,session_id=args.session_id,user_id=args.user_id,source_id=args.source_id,location=args.location,device_index=args.device_index,max_frames=args.max_frames,confirmations=args.confirmations,min_interval_seconds=args.min_interval_seconds,min_confidence=args.min_confidence,require_event=args.require_event)
         print(json.dumps(result.__dict__,sort_keys=True,default=str))
