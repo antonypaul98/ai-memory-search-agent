@@ -117,3 +117,24 @@ def test_hardware_smoke_rejects_invalid_bound_before_camera_access():
             max_frames=0,
         )
     capture.run.assert_not_called()
+
+
+def test_hardware_smoke_rejects_invalid_confirmations_before_camera_access():
+    capture = Mock()
+    with pytest.raises(ValueError, match="confirmations"):
+        run_hardware_smoke(
+            capture=capture, session_id="session-1", user_id="tenant-a",
+            source_id="camera-1", location="entry", confirmations=0,
+        )
+    capture.run.assert_not_called()
+
+
+def test_hardware_smoke_rejects_impossible_strict_window_before_camera_access():
+    capture = Mock()
+    with pytest.raises(ValueError, match="strict hardware acceptance"):
+        run_hardware_smoke(
+            capture=capture, session_id="session-1", user_id="tenant-a",
+            source_id="camera-1", location="entry", max_frames=2,
+            confirmations=2, require_event=True,
+        )
+    capture.run.assert_not_called()

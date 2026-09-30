@@ -38,6 +38,12 @@ def run_hardware_smoke(
     """Run a bounded real-camera acceptance probe through authenticated capture."""
     if max_frames < 1:
         raise ValueError("max_frames must be >= 1")
+    if confirmations < 1:
+        raise ValueError("confirmations must be >= 1")
+    if require_event and max_frames < confirmations + 1:
+        raise ValueError(
+            "strict hardware acceptance requires max_frames >= confirmations + 1"
+        )
     result: FrameSourceResult = capture.run(
         session_id=session_id, user_id=user_id, source_id=source_id,
         location=location, device_index=device_index, max_frames=max_frames,
