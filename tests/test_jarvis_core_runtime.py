@@ -266,3 +266,27 @@ class TestJarvisCoreRuntimeAPI:
         assert response.status_code == 200
         assert response.json()["status"] == "action_gated"
         execute.assert_not_called()
+
+
+def test_context_projects_real_chat_response_schema():
+    from app.models.chat import ChatResponse, ChatSource
+    from app.services.jarvis_core_runtime import _memory_context
+    response = ChatResponse(answer='Grounded answer', grounded=True, sources=[
+        ChatSource(video_id='m1', title='Evidence', url='https://example.com/video',
+                   matched_text='Saved text', relevance_score=0.9,
+                   timestamp_url='https://example.com/video?t=12')
+    ])
+    context = _memory_context(response.model_dump(), limit=1)
+    assert len(context) == 1
+    assert context[0]['memory_id'] == 'm1'
+    assert context[0]['citation_ref'] == 'https://example.com/video?t=12'
+    assert context[0]['matched_text'] == 'Saved text'
+
+
+def test_failed_command_does_not_project_context(test_settings):
+    runtime = JarvisCoreRuntime(test_settings)
+    with patch.object(runtime._commands, 'execute', return_value={
+        'ok': False, 'status': 'error', 'result': {'results': [{'memory_id': 'm1'}]}
+    }):
+        out = runtime.run(user_id='tenant-a', request=JarvisRequest(text='find saved notes'))
+    assert out.memory_context == []

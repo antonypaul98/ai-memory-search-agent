@@ -22,7 +22,7 @@ def _memory_context(result: object, *, limit: int) -> list[dict[str, object]]:
     """
     if not isinstance(result, dict):
         return []
-    rows = result.get("results") or result.get("videos") or []
+    rows = result.get("results") or result.get("videos") or result.get("sources") or []
     if not isinstance(rows, list):
         return []
     context: list[dict[str, object]] = []
@@ -33,7 +33,7 @@ def _memory_context(result: object, *, limit: int) -> list[dict[str, object]]:
             "memory_id": row.get("memory_id") or row.get("video_id"),
             "title": row.get("title"),
             "matched_text": row.get("matched_text"),
-            "citation_ref": row.get("citation_ref") or row.get("url"),
+            "citation_ref": row.get("citation_ref") or row.get("timestamp_url") or row.get("url"),
             "source_type": row.get("source_type"),
             "relevance_score": row.get("relevance_score"),
         })
@@ -98,7 +98,7 @@ class JarvisCoreRuntime:
             result=outcome.get("result"),
             memory_context=(
                 _memory_context(outcome.get("result"), limit=request.limit)
-                if intent in {CommandIntent.SEARCH, CommandIntent.ASK}
+                if outcome.get("ok") and intent in {CommandIntent.SEARCH, CommandIntent.ASK}
                 else []
             ),
         )
