@@ -1,11 +1,14 @@
-# V1-9 — CI (P-05): run the test suite on every push / PR.
+# CI event contract: see docs/WORKFLOW_RELIABILITY.md.
 name: CI
 
 on:
   push:
-    branches: [main, "cursor/**", "codex/**"]
+    branches: [main, "cursor/**", "codex/**", "jarvis/**", "home-vision/**"]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -55,7 +58,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
+
+      - name: Environment diagnostics
+        env:
+          MEMORY_AGENT_TEST_POSTGRES_DSN: "postgresql://postgres:postgres@127.0.0.1:5432/memory_agent_test"
+          MEMORY_AGENT_TEST_REDIS_URL: "redis://127.0.0.1:6379/0"
+        run: python scripts/ci_diagnostics.py
 
       - name: Verify VERSION ↔ extension manifest
         run: |
@@ -76,7 +85,7 @@ jobs:
           PWA_ENABLED: "true"
           MEMORY_AGENT_TEST_POSTGRES_DSN: "postgresql://postgres:postgres@127.0.0.1:5432/memory_agent_test"
           MEMORY_AGENT_TEST_REDIS_URL: "redis://127.0.0.1:6379/0"
-        run: pytest -q
+        run: python -m pytest -q
 
       - name: AHME benchmark smoke
         env:

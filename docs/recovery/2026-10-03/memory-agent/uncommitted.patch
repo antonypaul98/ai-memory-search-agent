@@ -1,0 +1,134 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 12cdb97..d2192a4 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -3,7 +3,7 @@ name: CI
+ 
+ on:
+   push:
+-    branches: [main, "cursor/**", "codex/**"]
++    branches: [main, "cursor/**", "codex/**", "work/**", "build/**", "jarvis/**", "home-vision/**"]
+   pull_request:
+     branches: [main]
+ 
+diff --git a/app/api/routes/jarvis.py b/app/api/routes/jarvis.py
+index 23b45b3..07cd6d2 100644
+--- a/app/api/routes/jarvis.py
++++ b/app/api/routes/jarvis.py
+@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
+ from app.api.auth import get_current_user
+ from app.api.dependencies import get_app_settings
+ from app.config import Settings
+-from app.models.jarvis import JarvisRequest, JarvisResponse
++from app.models.jarvis import JarvisRequest, JarvisResponse, JarvisVoiceRequest, JarvisVoiceResponse
+ from app.models.user import UserPublic
+ from app.services.jarvis_core_runtime import JarvisCoreRuntime
+ 
+@@ -25,3 +25,16 @@ def run_jarvis(
+         return JarvisCoreRuntime(settings).run(user_id=user.user_id, request=body)
+     except ValueError as exc:
+         raise HTTPException(status_code=400, detail=str(exc)) from exc
++
++
++@router.post("/voice", response_model=JarvisVoiceResponse)
++def run_jarvis_voice(
++    body: JarvisVoiceRequest,
++    user: UserPublic = Depends(get_current_user),
++    settings: Settings = Depends(get_app_settings),
++) -> JarvisVoiceResponse:
++    """Provider-neutral transcript ingress; no audio decoding or extra authority."""
++    try:
++        return JarvisCoreRuntime(settings).run_voice(user_id=user.user_id, request=body)
++    except ValueError as exc:
++        raise HTTPException(status_code=400, detail=str(exc)) from exc
+diff --git a/app/models/jarvis.py b/app/models/jarvis.py
+index fb4997e..d4aad66 100644
+--- a/app/models/jarvis.py
++++ b/app/models/jarvis.py
+@@ -2,9 +2,9 @@
+ 
+ from __future__ import annotations
+ 
+-from typing import Any
++from typing import Any, Literal
+ 
+-from pydantic import BaseModel, Field, field_validator
++from pydantic import BaseModel, ConfigDict, Field, field_validator
+ 
+ from app.models.agent import AgentCommandContext, AgentCommandPlan
+ 
+@@ -29,7 +29,9 @@ class JarvisRequest(BaseModel):
+ class JarvisVoiceRequest(BaseModel):
+     """Bounded transcript ingress that delegates to the existing Jarvis runtime."""
+ 
+-    transcript: str = Field(min_length=1, max_length=2000)
++    model_config = ConfigDict(extra="forbid")
++
++    transcript: str = Field(strict=True, min_length=1, max_length=2000)
+     context: AgentCommandContext | None = None
+     limit: int = Field(default=5, ge=1, le=20)
+     confirm_token: str | None = Field(default=None, max_length=2048)
+@@ -37,6 +39,13 @@ class JarvisVoiceRequest(BaseModel):
+     @field_validator("transcript")
+     @classmethod
+     def strip_transcript(cls, value: str) -> str:
++        # Reject invalid Unicode and control payloads before hashing/routing.
++        try:
++            value.encode("utf-8")
++        except UnicodeEncodeError as exc:
++            raise ValueError("Transcript must be valid Unicode.") from exc
++        if any(ord(char) < 32 and char not in "\n\r\t" for char in value):
++            raise ValueError("Transcript contains unsupported control characters.")
+         cleaned = value.strip()
+         if not cleaned:
+             raise ValueError("Jarvis voice transcript cannot be empty.")
+@@ -61,3 +70,15 @@ class JarvisResponse(BaseModel):
+     message: str = ""
+     result: dict[str, Any] | None = None
+     memory_context: list[dict[str, Any]] = Field(default_factory=list)
++
++
++class JarvisVoiceProvenance(BaseModel):
++    """Ingress attribution, not proof of a microphone or a speaker's identity."""
++
++    model_config = ConfigDict(frozen=True, extra="forbid")
++    source_type: Literal["voice_transcript"] = "voice_transcript"
++    transcript_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
++
++
++class JarvisVoiceResponse(JarvisResponse):
++    input_provenance: JarvisVoiceProvenance
+diff --git a/app/services/jarvis_core_runtime.py b/app/services/jarvis_core_runtime.py
+index 261ede7..fdf1a65 100644
+--- a/app/services/jarvis_core_runtime.py
++++ b/app/services/jarvis_core_runtime.py
+@@ -8,9 +8,14 @@ actions remain behind the existing confirmation/handoff boundaries.
+ 
+ from __future__ import annotations
+ 
++from hashlib import sha256
++
+ from app.config import Settings, get_settings
+ from app.models.agent import AgentCommandPlan
+-from app.models.jarvis import JarvisRequest, JarvisResponse
++from app.models.jarvis import (
++    JarvisRequest, JarvisResponse, JarvisVoiceRequest, JarvisVoiceResponse,
++    JarvisVoiceProvenance,
++)
+ from app.services.command_router import CommandIntent, CommandRouterService, SAFE_AUTO_EXECUTE
+ 
+ 
+@@ -102,3 +107,13 @@ class JarvisCoreRuntime:
+                 else []
+             ),
+         )
++
++    def run_voice(self, *, user_id: str, request: JarvisVoiceRequest) -> JarvisVoiceResponse:
++        """Run validated transcript data through the identical text authority boundary."""
++        outcome = self.run(user_id=user_id, request=request.to_jarvis_request())
++        return JarvisVoiceResponse(
++            **outcome.model_dump(),
++            input_provenance=JarvisVoiceProvenance(
++                transcript_sha256=sha256(request.transcript.encode("utf-8")).hexdigest(),
++            ),
++        )
