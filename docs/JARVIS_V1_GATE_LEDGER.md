@@ -1,8 +1,8 @@
 # Jarvis V1 Gate Ledger
 
-Updated: 2026-09-30.
+Updated: 2026-10-03.
 
-**Jarvis V1 Gate: 3/12 cleared — 9 remaining.**
+**Jarvis V1 Gate: 4/12 cleared — 8 remaining.**
 
 Jarvis V1 starts only after the Memory Search transition reached 29/29 on main
 (PR #386, merge `82338ad523b1c7d2601800b6b5b1db710dc642bc`). Jarvis credits do not
@@ -66,8 +66,8 @@ Reuses the authenticated tenant's existing Memory Search results and actual chat
 and non-memory actions do not project context. No parallel memory store is added.
 Local targeted suite: 14 passed. The repaired head passed its own exact-head CI; no earlier-head result substitutes for it.
 
-Remaining J04–J12:
-J04 voice; J05 vision/Home;
+Remaining J05–J12:
+J05 vision/Home;
 J06 screen/device awareness; J07 computer-use actions; J08 proactive triggers;
 J09 multi-device continuity; J10 gestures; J11 spatial interface; J12 integrated
 stability/security/release.
@@ -87,3 +87,8 @@ acceptance is pending.
 Local Python 3.11.16 at `a228a875976f4c0d939933b9bd102527bd944345`: 49 passed,
 zero skipped across Jarvis core, command router and unified command acceptance.
 The acceptance receipt revision must pass its own exact-head CI before merge.
+
+J04 completion: PR #394 merged as `f7713adfcbe961660b2759cbfcfc2eda103aad17` after exact-head CI
+`37155231659` at `2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6`. Merged-main CI `37155654485`
+succeeded; 49 targeted tests passed on merged main. J04 is accepted as bounded
+transcript ingress. J05 not started; physical camera acceptance remains pending.
