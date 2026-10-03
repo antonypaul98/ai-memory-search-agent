@@ -71,3 +71,19 @@ J04 voice; J05 vision/Home;
 J06 screen/device awareness; J07 computer-use actions; J08 proactive triggers;
 J09 multi-device continuity; J10 gestures; J11 spatial interface; J12 integrated
 stability/security/release.
+
+## J04 — Bounded voice transcript ingress
+
+Status: implementation locally validated; PR #394 pending exact-head CI and merged-main verification. No new gate credited until acceptance.
+
+`POST /api/v1/jarvis/voice` accepts a nonblank transcript of at most 2,000
+characters and converts it to the existing Jarvis request. Authenticated tenant,
+context, result limit and confirmation token pass through the same runtime.
+Write gating, bulk single-use confirmation and J03 provenance remain unchanged.
+This is transcript ingress only: no microphone capture or speech recognition
+is claimed. J05 is not started. Home remains read-only; physical Mac camera
+acceptance is pending.
+
+Local Python 3.11.16 at `a228a875976f4c0d939933b9bd102527bd944345`: 49 passed,
+zero skipped across Jarvis core, command router and unified command acceptance.
+The acceptance receipt revision must pass its own exact-head CI before merge.
