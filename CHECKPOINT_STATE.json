@@ -1,0 +1,23 @@
+{
+  "repository": "antonypaul98/ai-memory-search-agent",
+  "current_checkpoint": "J04 voice ingress",
+  "active_branch": "jarvis/j04-voice-ingress",
+  "main_sha_at_start": "df502796f387993cdf1958dec9ba081e5b21e326",
+  "current_branch_sha": "3e39f40642ea651ce3b91bac5aa66ea4de8a4fc2",
+  "sha_semantics": "Observed pre-stabilization feature head; refresh with git rev-parse HEAD at session start. Never store a self-referential commit SHA.",
+  "branch_remote_status": "Observed present and ahead of main; infrastructure commit receipt is Git history. Refresh before coding.",
+  "local_test_status": "Not run in stabilization; no feature acceptance inferred.",
+  "pr_number": null,
+  "ci_status": "No active-head run expected before repair: push filter excluded jarvis/**; no active PR.",
+  "merge_status": "Feature branch not merged by stabilization",
+  "external_acceptance_required": [
+    "physical Mac camera: pending; separate from software/simulated acceptance"
+  ],
+  "known_blocker": "Review unapplied recovery patches before future feature development; no current feature acceptance claimed.",
+  "next_action": "Run scripts/session_preflight.py; inspect recovery archive and current GitHub evidence; resume features only in a separately authorized feature run.",
+  "feature_checkpoint_advanced": false,
+  "diagnostic_import": "app",
+  "diagnostic_postgres_variables": [
+    "MEMORY_AGENT_TEST_POSTGRES_DSN"
+  ]
+}
