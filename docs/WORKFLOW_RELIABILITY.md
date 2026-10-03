@@ -38,7 +38,7 @@ No PR is opened for a skipped commit (required checks could remain pending).
 Future normal commits must not copy that marker; expected push/PR events will
 run the documented workflows. CI execution after these edits is not claimed.
 
-## Audit evidence and recovery
+## Historical first-pass audit evidence (superseded by current state)
 
 No active-head run expected before repair: push filter excluded jarvis/**; no active PR.
 
@@ -78,3 +78,41 @@ existing documented hardware_smoke.run_hardware_smoke entry point with bounded
 frames and require_event=True; record physical-memory event and camera cleanup
 evidence. Do not invent a CLI or treat the archived CLI patch as merged code.
 No camera is opened by the new diagnostics.
+
+## Follow-up live audit and current operating contract
+
+Run 37108335065 failed in Environment diagnostics: ModuleNotFoundError for app caused by direct-script sys.path. Corrected by adding source root; regression covers direct invocation.
+
+Current observations, CI SHA/event/URL, PR, and last-session blocker are in
+CHECKPOINT_STATE.json. observed_feature_sha identifies the last source/test
+commit; observed_branch_sha identifies the fetched branch head. The current
+repository SHA is resolved with git rev-parse HEAD, never a self-reference.
+Local tests not run this session are not failures. Historical CI successes are
+not evidence for a later skipped head. Prior local receipts are attributed,
+not re-executed.
+
+Core CI uses workflow+ref concurrency: a newer push cancels the previous push
+on that ref; PR and push refs are separate and may both run. Cancellation is
+not a pass. Existing timeouts, interpreter pins, dependency ranges, PostgreSQL
+services and workflow permissions are retained. No dependency migration.
+
+The commit-message validator rejects standard Actions skip directives on
+ordinary commits. An explicit infrastructure exception requires an audited
+file list; install/integrate the local hook as described in AGENTS.md, and call
+the same validator before API writes. Hooks cannot enforce remote API behavior
+or control the external scheduler.
+
+Bounded infrastructure validation: python -m unittest discover -s scripts/tests
+-p 'test_*.py'. No product suites, database matrices or camera access needed.
+The Memory direct-script import regression uses real isolated Python import
+resolution and a source-only fixture, with only pip-check mocked.
+
+This follow-up intentionally skips feature-suite CI. For AIR's existing PR #9,
+the prior successful SHA remains recorded; the new infrastructure head is
+not claimed validated. No PR is merged, marked complete or handed to replay.
+
+On every stop, persist the five-field blocker receipt into CHECKPOINT_STATE,
+commit/synchronize it, and verify remote SHA. .git/session-preflight.json alone
+is ephemeral. Missing API/shell credentials, Actions service outages, quotas,
+runner availability, the external hourly scheduler and a physical Mac cannot
+be repaired solely by repository code. Report that exact external layer.
