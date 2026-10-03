@@ -25,7 +25,7 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if require_event and max_frames < confirmations + 1:
         raise ValueError("strict hardware acceptance requires max_frames >= confirmations + 1")
 
-def load_factory(spec):
+def load_capture_factory(spec):
     module_name, separator, attribute = spec.partition(":")
     if not separator:
         raise ValueError("capture factory must use module:callable syntax")
@@ -61,7 +61,7 @@ def main(argv=None):
             min_confidence=args.min_confidence, require_event=args.require_event,
             allow_physical_camera=args.allow_physical_camera,
         )
-        factory=load_factory(args.capture_factory)
+        factory=load_capture_factory(args.capture_factory)
         result=run_cli(factory,session_id=args.session_id,user_id=args.user_id,source_id=args.source_id,location=args.location,device_index=args.device_index,max_frames=args.max_frames,confirmations=args.confirmations,min_interval_seconds=args.min_interval_seconds,min_confidence=args.min_confidence,require_event=args.require_event)
         print(json.dumps(result.__dict__,sort_keys=True,default=str))
         return 0 if result.passed else 1

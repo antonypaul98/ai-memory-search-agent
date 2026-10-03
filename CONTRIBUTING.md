@@ -20,9 +20,9 @@ The project values **small, testable improvements** over large framework rewrite
 ```bash
 python3.11 -m venv .venv_clean
 source .venv_clean/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 cp .env.example .env
-pytest -q
+python -m pytest -q
 ```
 
 Start the app:
@@ -35,7 +35,7 @@ JOBS_ENABLED=true AUTH_ENABLED=false PWA_ENABLED=true \
 ## Contribution workflow
 
 1. Open or choose a focused issue.
-2. Create a branch from `main`.
+2. Read `AGENTS.md` and run the startup preflight. Resume the recorded branch for existing work; create a branch from current `origin/main` only for separately scoped new work.
 3. Keep the change narrowly scoped.
 4. Add or update tests.
 5. Run the relevant tests locally.

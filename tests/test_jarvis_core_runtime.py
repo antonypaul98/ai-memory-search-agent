@@ -290,3 +290,52 @@ def test_failed_command_does_not_project_context(test_settings):
     }):
         out = runtime.run(user_id='tenant-a', request=JarvisRequest(text='find saved notes'))
     assert out.memory_context == []
+
+
+def test_voice_route_reuses_authenticated_core_runtime(client: TestClient) -> None:
+    with patch("app.services.jarvis_core_runtime.CommandRouterService.execute") as execute:
+        execute.return_value = {
+            "ok": True, "status": "executed", "message": "Found 0 result(s).",
+            "result": {"query": "MCP", "results": []},
+        }
+        response = client.post("/api/v1/jarvis/voice", json={"transcript": "  find MCP  "})
+    assert response.status_code == 200
+    assert response.json()["plan"]["intent"] == "search"
+    assert execute.call_args.kwargs["user_id"]
+
+
+def test_voice_route_preserves_write_gate(client: TestClient) -> None:
+    with patch("app.services.jarvis_core_runtime.CommandRouterService.execute") as execute:
+        response = client.post("/api/v1/jarvis/voice", json={"transcript": "save"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "action_gated"
+    execute.assert_not_called()
+
+
+def test_voice_route_rejects_empty_and_oversized_transcripts(client: TestClient) -> None:
+    assert client.post("/api/v1/jarvis/voice", json={"transcript": "   "}).status_code == 422
+    assert client.post("/api/v1/jarvis/voice", json={"transcript": "x" * 2001}).status_code == 422
+
+
+def test_voice_bulk_confirmation_remains_tenant_bound_and_single_use(client: TestClient) -> None:
+    reset_confirm_token_state()
+    preview = client.post("/api/v1/jarvis/voice", json={"transcript": "import bookmarks"})
+    assert preview.status_code == 200
+    token = preview.json()["plan"]["confirm_token"]
+    assert token
+
+    confirmed = client.post(
+        "/api/v1/jarvis/voice",
+        json={"transcript": "import bookmarks", "confirm_token": token},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "handoff"
+    assert confirmed.json()["result"]["confirm_consumed"] is True
+
+    replay = client.post(
+        "/api/v1/jarvis/voice",
+        json={"transcript": "import bookmarks", "confirm_token": token},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["status"] == "confirm_required"
+    assert replay.json()["executed"] is False

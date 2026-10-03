@@ -1,0 +1,246 @@
+diff --git a/app/services/home_agent/hardware_acceptance_cli.py b/app/services/home_agent/hardware_acceptance_cli.py
+index 27dff8f..ccab34c 100644
+--- a/app/services/home_agent/hardware_acceptance_cli.py
++++ b/app/services/home_agent/hardware_acceptance_cli.py
+@@ -1,73 +1,196 @@
+-"""Strict physical Mac acceptance boundary for the existing OpenCV capture path."""
++"""Bounded physical acceptance around the existing authenticated camera stack.
++
++The factory is trusted operator code, never an API/client supplied import path.
++A spawned process bounds native camera/detector calls that cannot be interrupted
++by Python timers. Timeout is always FAIL, never evidence of successful cleanup.
++"""
+ from __future__ import annotations
++
+ import argparse
+ import importlib
+ import json
++import math
++import multiprocessing
++import platform
+ from datetime import timedelta
+ 
++from .camera_capture import OpenCVCameraCapture
+ from .hardware_smoke import run_hardware_smoke
++from .opencv_camera import OpenCVCameraDevice
++
+ 
+-def validate_config(session_id,user_id,source_id,location,device_index,max_frames,confirmations,min_interval_seconds,min_confidence,require_event,allow_physical_camera):
+-    if not all(str(v).strip() for v in (session_id,user_id,source_id,location)):
+-        raise ValueError("session_id, user_id, source_id and location are required")
+-    if not allow_physical_camera:
+-        raise ValueError("physical camera access requires explicit opt-in")
+-    if type(device_index) is not int or device_index < 0:
+-        raise ValueError("device_index must be a non-negative integer")
+-    if type(max_frames) is not int or max_frames < 1:
+-        raise ValueError("max_frames must be >= 1")
+-    if type(confirmations) is not int or confirmations < 1:
+-        raise ValueError("confirmations must be >= 1")
+-    if min_interval_seconds <= 0:
+-        raise ValueError("min_interval_seconds must be positive")
+-    if not 0.0 <= min_confidence <= 1.0:
++def validate_config(session_id, user_id, source_id, location, device_index,
++                    max_frames, confirmations, min_interval_seconds,
++                    min_confidence, require_event, allow_physical_camera,
++                    max_duration_seconds=60):
++    if not all(isinstance(v, str) and 0 < len(v.strip()) <= 256
++               for v in (session_id, user_id, source_id, location)):
++        raise ValueError("bounded session_id, user_id, source_id and location are required")
++    if allow_physical_camera is not True:
++        raise ValueError("physical camera access is disabled without explicit opt-in")
++    if type(device_index) is not int or not 0 <= device_index <= 32:
++        raise ValueError("device_index must be an integer between 0 and 32")
++    if type(max_frames) is not int or not 1 <= max_frames <= 300:
++        raise ValueError("max_frames must be >= 1 and <= 300")
++    if type(confirmations) is not int or not 1 <= confirmations <= 31:
++        raise ValueError("confirmations must be between 1 and 31")
++    for name, value, upper in (("min_interval_seconds", min_interval_seconds, 10),
++                               ("max_duration_seconds", max_duration_seconds, 300)):
++        if type(value) not in (int, float) or not math.isfinite(value) or not 0 < value <= upper:
++            raise ValueError(f"{name} must be finite, positive and <= {upper}")
++    if type(min_confidence) not in (int, float) or not math.isfinite(min_confidence) or not 0 <= min_confidence <= 1:
+         raise ValueError("min_confidence must be between 0 and 1")
++    if type(require_event) is not bool:
++        raise ValueError("require_event must be boolean")
+     if require_event and max_frames < confirmations + 1:
+         raise ValueError("strict hardware acceptance requires max_frames >= confirmations + 1")
+ 
+-def load_factory(spec):
++
++def load_capture_factory(spec):
+     module_name, separator, attribute = spec.partition(":")
+-    if not separator:
++    if not separator or not module_name or not attribute.isidentifier():
+         raise ValueError("capture factory must use module:callable syntax")
+     factory = getattr(importlib.import_module(module_name), attribute, None)
+     if not callable(factory):
+         raise ValueError("capture factory is not callable")
+     return factory
+ 
++
+ def run_cli(capture_factory, **kwargs):
++    """Injectable software boundary; this result alone is NOT physical acceptance."""
++    validate_config(**kwargs)
++    kwargs.pop("allow_physical_camera")
++    kwargs.pop("max_duration_seconds", None)
+     capture = capture_factory()
+-    return run_hardware_smoke(capture=capture, min_interval=timedelta(seconds=kwargs.pop("min_interval_seconds")), **kwargs)
++    return run_hardware_smoke(capture=capture,
++                              min_interval=timedelta(seconds=kwargs.pop("min_interval_seconds")),
++                              **kwargs)
++
++
++def _empty_report():
++    return dict(software_contract_passed=False, camera_opened=False,
++                frames_captured=0, required_evidence_produced=False,
++                cleanup_succeeded=False, physical_acceptance="FAIL")
++
++
++def _worker(connection, spec, config):
++    report = _empty_report()
++    devices = []
++    try:
++        validate_config(**config)
++        capture = load_capture_factory(spec)()
++        # Do not certify an injected mock or alternative device as a real camera.
++        if type(capture) is not OpenCVCameraCapture or capture._device_factory is not OpenCVCameraDevice:
++            raise ValueError("physical acceptance requires the standard OpenCV camera capture")
++
++        def tracked_device(**kwargs):
++            device = OpenCVCameraDevice(**kwargs)
++            devices.append(device)
++            original_open, original_read, original_close = device.open, device.read, device.close
++
++            def opened():
++                original_open()
++                report["camera_opened"] = True
++
++            def read():
++                frame = original_read()
++                if frame is not None:
++                    report["frames_captured"] += 1
++                return frame
++
++            def closed():
++                original_close()
++                report["cleanup_succeeded"] = True
++
++            device.open, device.read, device.close = opened, read, closed
++            return device
++
++        capture._device_factory = tracked_device
++        result = run_cli(lambda: capture, **config)
++        report.update(software_contract_passed=result.passed,
++                      required_evidence_produced=result.events_emitted > 0,
++                      frames_processed=result.frames_processed,
++                      events_emitted=result.events_emitted,
++                      stopped_reason=result.stopped_reason,
++                      failure_reasons=result.failure_reasons())
++        if (result.passed and result.stopped_reason == "frame_limit"
++                and report["camera_opened"] and report["cleanup_succeeded"]
++                and report["required_evidence_produced"] and platform.system() == "Darwin"):
++            report["physical_acceptance"] = "PASS"
++    except Exception as exc:
++        # Avoid exposing credentials, images, or arbitrary detector exception text.
++        report["error_type"] = type(exc).__name__
++    finally:
++        for device in devices:
++            try:
++                device.close()
++            except Exception:
++                report["cleanup_succeeded"] = False
++                report["physical_acceptance"] = "FAIL"
++        connection.send(report)
++        connection.close()
++
++
++def run_bounded(spec, config, *, context=None):
++    """Timeout includes factory loading, camera I/O and inference; no stuck threads."""
++    validate_config(**config)
++    context = context or multiprocessing.get_context("spawn")
++    reader, writer = context.Pipe(duplex=False)
++    process = context.Process(target=_worker, args=(writer, spec, config))
++    try:
++        process.start()
++        writer.close()
++        if reader.poll(config["max_duration_seconds"]):
++            try:
++                result = reader.recv()
++            except EOFError:
++                result = {**_empty_report(), "error_type": "WorkerExited"}
++        else:
++            result = {**_empty_report(), "error_type": "Timeout", "cleanup_succeeded": None}
++        process.join(timeout=1)
++        if process.is_alive():
++            process.terminate()
++            process.join(timeout=1)
++            if process.is_alive():
++                process.kill()
++                process.join(timeout=1)
++            result["physical_acceptance"] = "FAIL"
++            result["worker_forced_exit"] = True
++        return result
++    finally:
++        if process.pid is not None and process.is_alive():
++            process.kill()
++            process.join(timeout=1)
++        reader.close()
++        writer.close()
++
+ 
+ def main(argv=None):
+-    parser=argparse.ArgumentParser(description="Strict Home Agent Mac/webcam acceptance runner")
+-    parser.add_argument("--capture-factory",required=True)
+-    parser.add_argument("--session-id",required=True)
+-    parser.add_argument("--user-id",required=True)
+-    parser.add_argument("--source-id",required=True)
+-    parser.add_argument("--location",required=True)
+-    parser.add_argument("--device-index",type=int,default=0)
+-    parser.add_argument("--max-frames",type=int,default=3)
+-    parser.add_argument("--confirmations",type=int,default=2)
+-    parser.add_argument("--min-interval-seconds",type=float,default=1.0)
+-    parser.add_argument("--min-confidence",type=float,default=0.8)
+-    parser.add_argument("--require-event",action="store_true")
+-    parser.add_argument("--allow-physical-camera",action="store_true")
+-    args=parser.parse_args(argv)
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--capture-factory", required=True, help="trusted local module:callable returning authenticated OpenCVCameraCapture")
++    for name in ("session-id", "user-id", "source-id", "location"):
++        parser.add_argument(f"--{name}", required=True)
++    parser.add_argument("--device-index", type=int, default=0)
++    parser.add_argument("--max-frames", type=int, default=30)
++    parser.add_argument("--confirmations", type=int, default=2)
++    parser.add_argument("--min-interval-seconds", type=float, default=1.0)
++    parser.add_argument("--max-duration-seconds", type=float, default=60.0)
++    parser.add_argument("--min-confidence", type=float, default=0.8)
++    parser.add_argument("--require-event", action="store_true", default=True,
++                        help="physical acceptance always requires multi-frame presence evidence")
++    parser.add_argument("--allow-physical-camera", action="store_true")
++    config = vars(parser.parse_args(argv))
++    spec = config.pop("capture_factory")
+     try:
+-        validate_config(
+-            session_id=args.session_id, user_id=args.user_id, source_id=args.source_id,
+-            location=args.location, device_index=args.device_index, max_frames=args.max_frames,
+-            confirmations=args.confirmations, min_interval_seconds=args.min_interval_seconds,
+-            min_confidence=args.min_confidence, require_event=args.require_event,
+-            allow_physical_camera=args.allow_physical_camera,
+-        )
+-        factory=load_factory(args.capture_factory)
+-        result=run_cli(factory,session_id=args.session_id,user_id=args.user_id,source_id=args.source_id,location=args.location,device_index=args.device_index,max_frames=args.max_frames,confirmations=args.confirmations,min_interval_seconds=args.min_interval_seconds,min_confidence=args.min_confidence,require_event=args.require_event)
+-        print(json.dumps(result.__dict__,sort_keys=True,default=str))
+-        return 0 if result.passed else 1
+-    except (ValueError,RuntimeError) as exc:
+-        print(json.dumps({"passed":False,"error":str(exc)},sort_keys=True))
++        validate_config(**config)
++        report = run_bounded(spec, config)
++    except Exception as exc:
++        report = {**_empty_report(), "error_type": type(exc).__name__}
++        print(json.dumps(report, sort_keys=True))
+         return 2
++    print(json.dumps(report, sort_keys=True))
++    return 0 if report["physical_acceptance"] == "PASS" else 1
++
+ 
+ if __name__ == "__main__":
+     raise SystemExit(main())

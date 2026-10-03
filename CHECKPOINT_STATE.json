@@ -1,0 +1,83 @@
+{
+  "repository": "antonypaul98/ai-memory-search-agent",
+  "current_checkpoint": "J04 voice ingress",
+  "active_branch": "main",
+  "main_sha_at_start": "e080a4cdd2a1349ff3dc927ad233f32bee1ef388",
+  "current_branch_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+  "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
+  "branch_remote_status": "Merged main verified; no checkpoint branch work remains.",
+  "local_test_status": "Python 3.11.16: 49 passed, zero skipped, rerun on merged main f7713adfcbe961660b2759cbfcfc2eda103aad17",
+  "pr_number": 394,
+  "ci_status": "Exact PR-head 37155231659 and merged-main 37155654485 succeeded; completion receipt requires its own normal main CI.",
+  "merge_status": "MERGED AND VERIFIED",
+  "external_acceptance_required": [
+    "physical Mac camera: pending; separate from software/simulated acceptance"
+  ],
+  "known_blocker": null,
+  "next_action": "STOP. Current checkpoint complete; do not start the next checkpoint in this run.",
+  "feature_checkpoint_advanced": true,
+  "diagnostic_import": "app",
+  "diagnostic_postgres_variables": [
+    "MEMORY_AGENT_TEST_POSTGRES_DSN"
+  ],
+  "schema_version": 2,
+  "observed_at_utc": "2026-10-03T21:43:48.007927+00:00",
+  "observed_branch_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+  "observed_feature_sha": "2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6",
+  "current_repository_sha": null,
+  "current_repository_sha_command": "git rev-parse HEAD",
+  "prior_local_test_receipt": {
+    "reported_result": "Not run in stabilization; no feature acceptance inferred.",
+    "reported_sha": "3e39f40642ea651ce3b91bac5aa66ea4de8a4fc2",
+    "reexecuted_this_run": false
+  },
+  "pr_state": {
+    "number": 394,
+    "state": "merged",
+    "head_sha": "2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6",
+    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/394",
+    "merge_commit_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17"
+  },
+  "ci_state": {
+    "pr_run": {
+      "id": 37155231659,
+      "sha": "2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "merged_main_run": {
+      "id": 37155654485,
+      "sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  },
+  "stabilization_scope": "J04 product acceptance; Memory Search complete/unchanged; Home read-only",
+  "last_session_exit": {
+    "BLOCKED_LAYER": null,
+    "BLOCKER": null,
+    "SAFE_WORK_COMPLETED": "PR #394 merged after exact-head green CI; merged-main CI and 49 local tests passed. Completion receipt follows.",
+    "REMOTE_SHA": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+    "NEXT_ACTION": "STOP. Current checkpoint complete; do not start the next checkpoint in this run."
+  },
+  "infrastructure_validation": {
+    "interpreter": "Python 3.12.14 (available audit runtime; not a full pinned-CI environment run)",
+    "passed": 16,
+    "skipped": 0,
+    "skip_reason": null,
+    "yaml": "All existing workflow YAML parsed",
+    "product_tests": "not_run",
+    "physical_camera": "not_run",
+    "new_head_CI": "intentionally_not_run"
+  },
+  "checkpoint_status": "COMPLETE",
+  "writer": "JARVIS",
+  "home_physical_camera_accepted": false,
+  "shell_transport_limitation": "Shell Git push unavailable; authorized connected GitHub publication in use.",
+  "checkpoint_branch": "jarvis/j04-voice-ingress",
+  "verified_main_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+  "merge_commit_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17",
+  "final_pr_head": "2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6"
+}

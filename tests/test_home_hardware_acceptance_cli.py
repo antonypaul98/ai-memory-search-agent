@@ -8,7 +8,7 @@ from app.services.home_agent import hardware_acceptance_cli as cli
 
 
 def test_validation_rejects_physical_camera_without_explicit_opt_in():
-    with pytest.raises(ValueError, match="physical camera access is disabled"):
+    with pytest.raises(ValueError, match="physical camera access requires explicit opt-in"):
         cli.validate_config(
             session_id="s",
             user_id="u",
