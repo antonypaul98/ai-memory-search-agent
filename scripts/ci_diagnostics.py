@@ -9,6 +9,10 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
+# Direct script execution puts scripts/, not the source checkout, on sys.path.
+# Memory is source-layout only (requirements.txt, no installable project).
+if (root / 'app').is_dir():
+    sys.path.insert(0, str(root))
 state = json.loads((root / 'CHECKPOINT_STATE.json').read_text())
 expected = (root / '.python-version').read_text().strip()
 actual = f'{sys.version_info.major}.{sys.version_info.minor}'
