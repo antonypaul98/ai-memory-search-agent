@@ -25,7 +25,7 @@ def test_validation_rejects_physical_camera_without_explicit_opt_in():
 
 
 def test_validation_requires_extra_frame_for_event_confirmation():
-    with pytest.raises(ValueError, match="max_frames >= confirmations + 1"):
+    with pytest.raises(ValueError, match=r"max_frames >= confirmations \+ 1"):
         cli.validate_config(
             session_id="s",
             user_id="u",
