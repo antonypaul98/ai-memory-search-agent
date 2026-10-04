@@ -92,3 +92,9 @@ J04 completion: PR #394 merged as `f7713adfcbe961660b2759cbfcfc2eda103aad17` aft
 `37155231659` at `2d212bf7de1ae71aaa53b0bba3fc29c58f4907a6`. Merged-main CI `37155654485`
 succeeded; 49 targeted tests passed on merged main. J04 is accepted as bounded
 transcript ingress. J05 not started; physical camera acceptance remains pending.
+
+## J05 — Vision/Home software ingress
+
+IN PROGRESS. Authenticated physical-memory query slice is defined in
+`docs/J05_HOME_QUERY_ACCEPTANCE.md`. No fifth gate credit until complete acceptance;
+physical Mac-camera evidence remains pending.

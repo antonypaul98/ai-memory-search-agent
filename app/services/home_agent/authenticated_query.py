@@ -15,6 +15,8 @@ class AuthenticatedHomeAgentQuery:
         return self.service.where_is(user_id=self.user.user_id,object_name=object_name,min_confidence=min_confidence)
     def where_is_before_departure(self, *, object_name:str, min_confidence:float=.5, event_min_confidence:float=.5, limit:int=100)->WhereAnswer|None:
         return self.service.where_is_before_departure(user_id=self.user.user_id,object_name=object_name,min_confidence=min_confidence,event_min_confidence=event_min_confidence,limit=limit)
+    def where_is_between(self, *, object_name:str, since:datetime, until:datetime, min_confidence:float=.5, limit:int=100)->WhereAnswer|None:
+        return self.service.where_is_between(user_id=self.user.user_id,object_name=object_name,since=since,until=until,min_confidence=min_confidence,limit=limit)
     def where_is_today(self, *, object_name:str, min_confidence:float=.5, now:datetime|None=None, limit:int=100)->WhereAnswer|None:
         resolved_now=now or datetime.now(timezone.utc)
         if resolved_now.tzinfo is None: raise ValueError("now must be timezone-aware")

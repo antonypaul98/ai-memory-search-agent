@@ -33,7 +33,7 @@ def execute_home_query(*,text:str,query:AuthenticatedHomeAgentQuery,min_confiden
         if intent.time_scope=="today": answer=query.where_is_today(object_name=intent.object_name,min_confidence=min_confidence,now=now,limit=max(limit,100))
         elif intent.time_scope in ("yesterday","this_morning"):
             since,until=(_local_day_bounds(timezone_name=query.user.timezone_name,day_offset=-1,now=now) if intent.time_scope=="yesterday" else _this_morning_bounds(timezone_name=query.user.timezone_name,now=now))
-            history=query.movement_history(object_name=intent.object_name,min_confidence=min_confidence,limit=max(limit,100),since=since,until=until); answer=history[-1] if history else None
+            answer=query.where_is_between(object_name=intent.object_name,min_confidence=min_confidence,limit=max(limit,100),since=since,until=until) if since < until else None
         else: answer=query.where_is(object_name=intent.object_name,min_confidence=min_confidence)
     elif intent.kind=="location_history":
         since=until=None
