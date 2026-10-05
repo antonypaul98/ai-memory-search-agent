@@ -87,17 +87,16 @@ def test_this_morning_history_uses_authenticated_timezone_and_noon_bound():
 
 def test_this_morning_before_noon_caps_at_now_and_preserves_evidence():
     service = MagicMock(spec=HomeAgentQueryService)
-    event = MovementEvent(
-        object_name="keys", from_location="desk", to_location="kitchen",
-        moved_at="2026-09-22T12:30:00+00:00", confidence=0.93,
-        source_id="camera-kitchen", from_evidence_id="frame-desk", to_evidence_id="frame-kitchen",
+    answer = WhereAnswer(
+        object_name="keys", location="kitchen", observed_at="2026-09-22T12:30:00+00:00",
+        confidence=0.93, source_id="camera-kitchen", evidence_id="frame-kitchen",
     )
-    service.movement_history.return_value = [event]
+    service.where_is_between.return_value = answer
     result = execute_home_query(text="Where did I last see my keys this morning?", query=_query(service), timezone_name="UTC", now=datetime(2026, 9, 22, 13, 30, tzinfo=timezone.utc))
     assert result.status == "answered"
-    assert result.answer is event
-    assert result.answer.to_evidence_id == "frame-kitchen"
-    service.movement_history.assert_called_once_with(
+    assert result.answer is answer
+    assert result.answer.evidence_id == "frame-kitchen"
+    service.where_is_between.assert_called_once_with(
         user_id="owner-a", object_name="keys", min_confidence=0.5, limit=100,
         since=datetime(2026, 9, 22, 4, 0, tzinfo=timezone.utc), until=datetime(2026, 9, 22, 13, 30, tzinfo=timezone.utc),
     )

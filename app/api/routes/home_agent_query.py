@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_home_agent_query_service
@@ -18,6 +18,13 @@ class NaturalLanguageQueryRequest(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
     min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     limit: int = Field(default=20, ge=1, le=100)
+
+    @field_validator("text")
+    @classmethod
+    def nonblank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Home query cannot be blank")
+        return value.strip()
 
     class Config:
         extra = "forbid"
@@ -48,6 +55,9 @@ class NaturalLanguageQueryResponse(BaseModel):
     evidence_id: str | None = None
     destination_evidence_id: str | None = None
     movements: list[MovementEventResponse] | None = None
+    evidence_frame_id: str | None = None
+    evidence_image_sha256: str | None = None
+    evidence_detector_id: str | None = None
 
 
 def _movement_response(event: MovementEvent) -> MovementEventResponse:
@@ -100,6 +110,9 @@ def natural_language_query(
             confidence=answer.confidence,
             source_id=answer.source_id,
             evidence_id=answer.evidence_id,
+            evidence_frame_id=answer.evidence_frame_id,
+            evidence_image_sha256=answer.evidence_image_sha256,
+            evidence_detector_id=answer.evidence_detector_id,
         )
 
     assert isinstance(answer, BeforeLocationAnswer)

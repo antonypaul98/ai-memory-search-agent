@@ -15,6 +15,10 @@ class _Query:
         self.calls.append(("movement_history", kwargs))
         return [SimpleNamespace(location="desk", evidence_id="frame-yesterday")]
 
+    def where_is_between(self, **kwargs):
+        self.calls.append(("where_is_between", kwargs))
+        return SimpleNamespace(location="desk", evidence_id="frame-yesterday")
+
     def where_is(self, **kwargs):
         self.calls.append(("where_is", kwargs))
         return SimpleNamespace(location="garage", evidence_id="frame-latest")
