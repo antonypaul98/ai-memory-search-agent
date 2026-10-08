@@ -56,6 +56,30 @@ jobs:
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > artifacts/browser-demo/server.log 2>&1 &
           echo $! > artifacts/browser-demo/server.pid
 
+
+      - name: Diagnose Dashboard HTTP dependencies individually
+        run: |
+          python - <<'PY'
+          import time
+          import urllib.request
+          endpoints = (
+              "/api/v1/agent/status",
+              "/api/v1/intelligence/insights",
+              "/api/v1/imports?limit=8",
+              "/api/v1/connectors/health",
+              "/api/v1/intelligence/timeline?mode=recently_saved&limit=8",
+              "/api/v1/intelligence/topics?limit=8",
+              "/api/v1/memories?limit=12",
+          )
+          for path in endpoints:
+              start = time.monotonic()
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8000" + path, timeout=12) as response:
+                      print("PROBE", path, response.status, "elapsed_sec", round(time.monotonic()-start,1), flush=True)
+              except Exception as exc:
+                  print("PROBE FAIL", path, type(exc).__name__, str(exc)[:180], flush=True)
+          PY
+
       - name: Exercise and record Chromium UI
         run: python scripts/record_browser_demo.py
 
