@@ -42,7 +42,9 @@ def main():
             print("PASS", name, flush=True)
         except Exception as error:
             results.append({"step": name, "pass": False, "reason": str(error)})
-            raise
+            errors.append(f"{name}: {error}")
+            print("FAIL", name, str(error)[:300], flush=True)
+            return False
 
     try:
         verify("Server readiness", wait_for_server)
@@ -58,7 +60,7 @@ def main():
             try:
                 def dashboard():
                     page.goto(BASE + "/#dashboard", wait_until="domcontentloaded")
-                    page.locator("#view-dashboard .stat-card").first.wait_for(timeout=120000)
+                    page.locator("#view-dashboard .stat-card").first.wait_for(timeout=35000)
                     assert page.locator("#view-dashboard .stat-card").count() >= 3
                     page.screenshot(path=str(ROOT/"screenshots"/"01-dashboard.png"))
                     page.wait_for_timeout(1600)
@@ -75,14 +77,14 @@ def main():
                     page.locator('.nav-link[data-route="search"]').click()
                     page.locator("#search-q").fill(SEARCH)
                     page.locator("#search-btn").click()
-                    page.locator("#search-results .result-card", has_text=TITLE).first.wait_for(timeout=120000)
+                    page.locator("#search-results .result-card", has_text=TITLE).first.wait_for(timeout=35000)
                     page.screenshot(path=str(ROOT/"screenshots"/"02-semantic-search.png"))
                     page.wait_for_timeout(2300)
                 verify("Browser search renders matched passage", ui_search)
 
                 def detail():
                     page.locator("#search-results .result-card", has_text=TITLE).first.locator("button[data-open]").click()
-                    page.locator("#view-memory h2", has_text=TITLE).first.wait_for(timeout=120000)
+                    page.locator("#view-memory h2", has_text=TITLE).first.wait_for(timeout=35000)
                     assert "automated fixture" in page.locator("#view-memory").inner_text().lower()
                     page.screenshot(path=str(ROOT/"screenshots"/"03-memory-detail.png"))
                     page.wait_for_timeout(2100)
@@ -100,7 +102,7 @@ def main():
                     page.locator('.nav-link[data-route="ask"]').click()
                     page.locator("#ask-q").fill(ASK)
                     page.locator("#ask-btn").click()
-                    page.locator("#ask-answer .answer-card").wait_for(timeout=120000)
+                    page.locator("#ask-answer .answer-card").wait_for(timeout=35000)
                     assert TITLE in page.locator("#ask-answer").inner_text(), "Fixture absent from evidence list"
                     assert page.locator("#ask-answer .answer-body").inner_text().strip()
                     page.screenshot(path=str(ROOT/"screenshots"/"04-ask-cited-answer.png"))
