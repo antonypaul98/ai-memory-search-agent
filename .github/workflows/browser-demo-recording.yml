@@ -28,8 +28,8 @@ jobs:
       HIERARCHICAL_RETRIEVAL_ENABLED: "false"
       LLM_PROVIDER: "none"
       MEMORY_AGENT_DEMO_E2E: "1"
-      SQLITE_PATH: ${{ runner.temp }}/memory-agent-demo-e2e/videos.db
-      CHROMA_PERSIST_DIR: ${{ runner.temp }}/memory-agent-demo-e2e/chroma
+      SQLITE_PATH: /tmp/memory-agent-demo-e2e/videos.db
+      CHROMA_PERSIST_DIR: /tmp/memory-agent-demo-e2e/chroma
     steps:
       - uses: actions/checkout@v4
 
