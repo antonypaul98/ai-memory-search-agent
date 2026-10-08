@@ -177,3 +177,21 @@ def test_cli_rejects_nonfinite_numbers_before_loading_factory(monkeypatch, flag,
         f"{flag}={value}",
     ]) == 2
     assert loaded == []
+
+@pytest.mark.parametrize("value", ["1e308", "0.0000001"])
+def test_cli_rejects_unrepresentable_intervals_before_loading_factory(monkeypatch, value):
+    loaded = []
+
+    def fail_load(_):
+        loaded.append(True)
+        raise AssertionError("camera factory must not load for invalid interval")
+
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    assert cli.main([
+        "--capture-factory", "does.not.matter:factory",
+        "--session-id", "s", "--user-id", "u",
+        "--source-id", "cam", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+        f"--min-interval-seconds={value}",
+    ]) == 2
+    assert loaded == []
