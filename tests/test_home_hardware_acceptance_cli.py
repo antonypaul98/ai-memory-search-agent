@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from types import SimpleNamespace
 
 import pytest
@@ -195,3 +197,25 @@ def test_cli_rejects_unrepresentable_intervals_before_loading_factory(monkeypatc
         f"--min-interval-seconds={value}",
     ]) == 2
     assert loaded == []
+
+
+def test_missing_factory_module_is_bounded_json_error(capsys):
+    rc = cli.main([
+        "--capture-factory", "missing_home_factory_module_20261008:factory",
+        "--session-id", "session", "--user-id", "user",
+        "--source-id", "source", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "capture factory module could not be imported"
+    }
+
+
+def test_factory_import_error_keeps_exception_chain():
+    try:
+        cli.load_capture_factory("missing_home_factory_module_20261008:factory")
+    except ValueError as exc:
+        assert isinstance(exc.__cause__, ImportError)
+    else:
+        raise AssertionError("expected a bounded ValueError")
