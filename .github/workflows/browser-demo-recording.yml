@@ -49,7 +49,7 @@ jobs:
       - name: Seed real embedded synthetic fixtures
         run: |
           mkdir -p artifacts/browser-demo
-          python scripts/seed_browser_demo.py
+          python -m scripts.seed_browser_demo
 
       - name: Start isolated Memory Agent
         run: |
