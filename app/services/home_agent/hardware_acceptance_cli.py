@@ -22,6 +22,13 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if (type(min_interval_seconds) not in (int, float)
             or not math.isfinite(min_interval_seconds) or min_interval_seconds <= 0):
         raise ValueError("min_interval_seconds must be finite and positive")
+    # Validate timedelta representability before loading the capture factory.
+    try:
+        interval = timedelta(seconds=min_interval_seconds)
+    except OverflowError as exc:
+        raise ValueError("min_interval_seconds exceeds timedelta range") from exc
+    if interval <= timedelta(0):
+        raise ValueError("min_interval_seconds must be at least one microsecond")
     if (type(min_confidence) not in (int, float)
             or not math.isfinite(min_confidence) or not 0.0 <= min_confidence <= 1.0):
         raise ValueError("min_confidence must be finite and between 0 and 1")
