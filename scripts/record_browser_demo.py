@@ -128,7 +128,7 @@ def main():
         errors.append(traceback.format_exc()[-4000:])
     if not output_video or not Path(output_video).is_file() or Path(output_video).stat().st_size <= 0:
         errors.append("No non-empty browser recording")
-    passed = len(results) == 6 and all(r["pass"] for r in results) and not errors
+    passed = len(results) == 7 and all(r["pass"] for r in results) and not errors
     report = {
         "passed": passed, "checks": results, "errors": errors,
         "video": output_video, "data": "isolated synthetic fixtures, NOT live YouTube",
