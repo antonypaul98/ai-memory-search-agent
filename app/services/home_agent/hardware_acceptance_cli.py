@@ -41,7 +41,11 @@ def load_capture_factory(spec):
     module_name, separator, attribute = spec.partition(":")
     if not separator:
         raise ValueError("capture factory must use module:callable syntax")
-    factory = getattr(importlib.import_module(module_name), attribute, None)
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise ValueError("capture factory module could not be imported") from exc
+    factory = getattr(module, attribute, None)
     if not callable(factory):
         raise ValueError("capture factory is not callable")
     return factory
