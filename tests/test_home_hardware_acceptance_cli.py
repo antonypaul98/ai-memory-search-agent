@@ -41,6 +41,23 @@ def test_validation_requires_extra_frame_for_event_confirmation():
         )
 
 
+def test_validation_rejects_physical_acceptance_without_required_event():
+    with pytest.raises(ValueError, match="requires --require-event"):
+        cli.validate_config(
+            session_id="s",
+            user_id="u",
+            source_id="cam",
+            location="home",
+            device_index=0,
+            max_frames=3,
+            confirmations=2,
+            min_interval_seconds=1.0,
+            min_confidence=0.8,
+            require_event=False,
+            allow_physical_camera=True,
+        )
+
+
 def test_validation_rejects_invalid_configuration_before_factory():
     with pytest.raises(ValueError, match="max_frames must be >= 1"):
         cli.validate_config(
@@ -110,5 +127,53 @@ def test_cli_validation_does_not_load_factory_without_physical_opt_in(monkeypatc
         "--user-id", "u",
         "--source-id", "cam",
         "--location", "home",
+    ]) == 2
+    assert loaded == []
+
+
+def test_cli_rejects_missing_event_requirement_before_loading_factory(monkeypatch):
+    loaded = []
+
+    def fail_load(_):
+        loaded.append(True)
+        raise AssertionError("factory must not load when --require-event is missing")
+
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    assert cli.main([
+        "--capture-factory", "does.not.matter:factory",
+        "--session-id", "s",
+        "--user-id", "u",
+        "--source-id", "cam",
+        "--location", "home",
+        "--allow-physical-camera",
+    ]) == 2
+    assert loaded == []
+
+
+@pytest.mark.parametrize("flag,value", [
+    ("--min-interval-seconds", "nan"),
+    ("--min-interval-seconds", "inf"),
+    ("--min-interval-seconds", "-inf"),
+    ("--min-confidence", "nan"),
+    ("--min-confidence", "inf"),
+    ("--min-confidence", "-inf"),
+])
+def test_cli_rejects_nonfinite_numbers_before_loading_factory(monkeypatch, flag, value):
+    loaded = []
+
+    def fail_load(_):
+        loaded.append(True)
+        raise AssertionError("camera factory must not load for nonfinite configuration")
+
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    assert cli.main([
+        "--capture-factory", "does.not.matter:factory",
+        "--session-id", "s",
+        "--user-id", "u",
+        "--source-id", "cam",
+        "--location", "home",
+        "--allow-physical-camera",
+        "--require-event",
+        f"{flag}={value}",
     ]) == 2
     assert loaded == []

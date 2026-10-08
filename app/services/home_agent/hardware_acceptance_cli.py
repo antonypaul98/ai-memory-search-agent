@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 from datetime import timedelta
 
 from .hardware_smoke import run_hardware_smoke
@@ -18,10 +19,14 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
         raise ValueError("max_frames must be >= 1")
     if type(confirmations) is not int or confirmations < 1:
         raise ValueError("confirmations must be >= 1")
-    if min_interval_seconds <= 0:
-        raise ValueError("min_interval_seconds must be positive")
-    if not 0.0 <= min_confidence <= 1.0:
-        raise ValueError("min_confidence must be between 0 and 1")
+    if (type(min_interval_seconds) not in (int, float)
+            or not math.isfinite(min_interval_seconds) or min_interval_seconds <= 0):
+        raise ValueError("min_interval_seconds must be finite and positive")
+    if (type(min_confidence) not in (int, float)
+            or not math.isfinite(min_confidence) or not 0.0 <= min_confidence <= 1.0):
+        raise ValueError("min_confidence must be finite and between 0 and 1")
+    if not require_event:
+        raise ValueError("physical hardware acceptance requires --require-event")
     if require_event and max_frames < confirmations + 1:
         raise ValueError("strict hardware acceptance requires max_frames >= confirmations + 1")
 
