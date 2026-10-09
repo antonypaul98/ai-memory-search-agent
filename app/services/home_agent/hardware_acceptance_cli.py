@@ -9,7 +9,7 @@ from datetime import timedelta
 from .hardware_smoke import run_hardware_smoke
 
 def validate_config(session_id,user_id,source_id,location,device_index,max_frames,confirmations,min_interval_seconds,min_confidence,require_event,allow_physical_camera):
-    if not all(str(v).strip() for v in (session_id,user_id,source_id,location)):
+    if not all(isinstance(v, str) and v.strip() for v in (session_id,user_id,source_id,location)):
         raise ValueError("session_id, user_id, source_id and location are required")
     if not allow_physical_camera:
         raise ValueError("physical camera access requires explicit opt-in")

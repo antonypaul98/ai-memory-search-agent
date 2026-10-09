@@ -219,3 +219,17 @@ def test_factory_import_error_keeps_exception_chain():
         assert isinstance(exc.__cause__, ImportError)
     else:
         raise AssertionError("expected a bounded ValueError")
+
+
+@pytest.mark.parametrize("field", ["session_id", "user_id", "source_id", "location"])
+@pytest.mark.parametrize("bad_value", [None, 0, False, "  "])
+def test_validation_rejects_nonstring_or_blank_identity(field, bad_value):
+    config = dict(
+        session_id="session", user_id="tenant", source_id="camera", location="kitchen",
+        device_index=0, max_frames=3, confirmations=2,
+        min_interval_seconds=1.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
+    config[field] = bad_value
+    with pytest.raises(ValueError, match="session_id, user_id, source_id and location are required"):
+        cli.validate_config(**config)
