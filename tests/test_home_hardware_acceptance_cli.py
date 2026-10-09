@@ -110,9 +110,38 @@ def test_run_cli_uses_injected_capture_and_never_constructs_a_camera_directly(mo
         min_interval_seconds=1.0,
         min_confidence=0.8,
         require_event=True,
+        allow_physical_camera=True,
     )
     assert result.passed is True
     assert called == {"factory": 1, "smoke": 1}
+
+
+
+@pytest.mark.parametrize("flag,bad_value", [
+    ("allow_physical_camera", False),
+    ("allow_physical_camera", 1),
+    ("allow_physical_camera", "true"),
+    ("require_event", False),
+    ("require_event", 1),
+    ("require_event", "true"),
+])
+def test_direct_runner_rejects_missing_or_invalid_consent_before_factory(flag, bad_value):
+    constructed = []
+
+    def factory():
+        constructed.append(True)
+        raise AssertionError("capture factory must not run without strict consent")
+
+    config = dict(
+        session_id="session", user_id="tenant", source_id="camera", location="kitchen",
+        device_index=0, max_frames=3, confirmations=2,
+        min_interval_seconds=1.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
+    config[flag] = bad_value
+    with pytest.raises(ValueError):
+        cli.run_cli(factory, **config)
+    assert constructed == []
 
 
 def test_cli_validation_does_not_load_factory_without_physical_opt_in(monkeypatch):
