@@ -11,7 +11,7 @@ from .hardware_smoke import run_hardware_smoke
 def validate_config(session_id,user_id,source_id,location,device_index,max_frames,confirmations,min_interval_seconds,min_confidence,require_event,allow_physical_camera):
     if not all(isinstance(v, str) and v.strip() for v in (session_id,user_id,source_id,location)):
         raise ValueError("session_id, user_id, source_id and location are required")
-    if not allow_physical_camera:
+    if allow_physical_camera is not True:
         raise ValueError("physical camera access requires explicit opt-in")
     if type(device_index) is not int or device_index < 0:
         raise ValueError("device_index must be a non-negative integer")
@@ -32,7 +32,7 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if (type(min_confidence) not in (int, float)
             or not math.isfinite(min_confidence) or not 0.0 <= min_confidence <= 1.0):
         raise ValueError("min_confidence must be finite and between 0 and 1")
-    if not require_event:
+    if require_event is not True:
         raise ValueError("physical hardware acceptance requires --require-event")
     if require_event and max_frames < confirmations + 1:
         raise ValueError("strict hardware acceptance requires max_frames >= confirmations + 1")

@@ -233,3 +233,20 @@ def test_validation_rejects_nonstring_or_blank_identity(field, bad_value):
     config[field] = bad_value
     with pytest.raises(ValueError, match="session_id, user_id, source_id and location are required"):
         cli.validate_config(**config)
+
+
+@pytest.mark.parametrize("field,error", [
+    ("allow_physical_camera", "physical camera access requires explicit opt-in"),
+    ("require_event", "physical hardware acceptance requires --require-event"),
+])
+@pytest.mark.parametrize("bad_value", [1, 1.0, "true", "True", [True], {"enabled": True}, -1])
+def test_validation_rejects_truthy_nonboolean_consent_or_event_flags(field, error, bad_value):
+    config = dict(
+        session_id="session", user_id="tenant", source_id="camera", location="kitchen",
+        device_index=0, max_frames=3, confirmations=2,
+        min_interval_seconds=1.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
+    config[field] = bad_value
+    with pytest.raises(ValueError, match=error):
+        cli.validate_config(**config)
