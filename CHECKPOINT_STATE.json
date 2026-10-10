@@ -3,27 +3,27 @@
   "current_checkpoint": "Home hardware-acceptance CLI software integration",
   "active_branch": "home-vision/mac-hardware-cli",
   "main_sha_at_start": "a555b902b23e0e8392c73f34813140cc7f9e8f23",
-  "current_branch_sha": "3f9ce14b80707a793ad970220fc44ee99761cde1",
+  "current_branch_sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "J05 software slice merged to main and merged-main CI verified.",
-  "local_test_status": "Full repository tests not run locally in this run; previous isolated synthetic checks do not prove repository acceptance.",
+  "branch_remote_status": "Home hardware-CLI PR #397 open; exact-head 1d40979e Core CI and Home Vision Smoke passed; new bounded malformed-factory validation patch awaiting exact-head CI.",
+  "local_test_status": "Prior isolated malformed-factory checks reported 13 passing cases; new repository regressions not run locally in this run. CI at new head pending.",
   "pr_number": 397,
-  "ci_status": "Core CI #37902529165 and Home Vision Smoke #37902529201 in progress at code SHA 3f9ce14b80707a793ad970220fc44ee99761cde1; result pending.",
+  "ci_status": "Prior PR-head 1d40979ed889c0e179b7fca026c8dc18a228d093: Core CI #37933464615 SUCCESS; Home Vision Smoke #37933464771 SUCCESS. New patch head: not yet validated; CI pending.",
   "merge_status": "NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": null,
-  "next_action": "Verify new PR-head Core CI and Home Vision Smoke, then review/merge PR #397 if green; verify merged-main CI and handoff to Jarvis.",
+  "next_action": "Verify exact new PR-head Core CI and Home Vision Smoke after publication; review PR #397 and merge only if both succeed; verify merged-main CI and hand off to Jarvis.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-04T21:02:55Z",
-  "observed_branch_sha": "3f9ce14b80707a793ad970220fc44ee99761cde1",
-  "observed_feature_sha": "3f9ce14b80707a793ad970220fc44ee99761cde1",
+  "observed_at_utc": "2026-10-10T01:58:47.929Z",
+  "observed_branch_sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
+  "observed_feature_sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -32,23 +32,23 @@
     "reexecuted_this_run": false
   },
   "pr_state": {
-    "number": 395,
-    "state": "merged",
-    "head_sha": "f8c126a7157c747cca24363286f869d1fa3bd28d",
-    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/395",
-    "merge_commit_sha": "889947fdd32f1b8f25e1151483d90109fe217a20"
+    "number": 397,
+    "state": "open_draft",
+    "head_sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
+    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/397",
+    "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 37216955296,
-      "sha": "f8c126a7157c747cca24363286f869d1fa3bd28d",
+      "id": 37933464615,
+      "sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 37216955399,
-      "sha": "f8c126a7157c747cca24363286f869d1fa3bd28d",
+      "id": 37933464771,
+      "sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -65,9 +65,9 @@
   "last_session_exit": {
     "BLOCKED_LAYER": null,
     "BLOCKER": null,
-    "SAFE_WORK_COMPLETED": "Published strict-boolean Home camera acceptance validation and 14 parametrized regressions at 3f9ce14b80707a793ad970220fc44ee99761cde1",
-    "REMOTE_SHA": "3f9ce14b80707a793ad970220fc44ee99761cde1",
-    "NEXT_ACTION": "Verify new PR-head Core CI and Home Vision Smoke, then review/merge PR #397 if green; verify merged-main CI and handoff to Jarvis."
+    "SAFE_WORK_COMPLETED": "Prepared one bounded Home malformed capture-factory validation and regression patch; previously green CI applies only to prior 1d40979e head; new head requires CI.",
+    "REMOTE_SHA": "1d40979ed889c0e179b7fca026c8dc18a228d093",
+    "NEXT_ACTION": "Verify exact new PR-head Core CI and Home Vision Smoke after publication; review PR #397 and merge only if both succeed; verify merged-main CI and hand off to Jarvis."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -116,12 +116,12 @@
   "home_workstream": {
     "writer": "HOME",
     "follower": "JARVIS",
-    "published_code_sha": "3f9ce14b80707a793ad970220fc44ee99761cde1",
+    "published_code_sha": "1d40979ed889c0e179b7fca026c8dc18a228d093",
     "pr_number": 397,
     "regression_cases_added": 14,
-    "core_ci_run": 37902529165,
-    "home_smoke_run": 37902529201,
-    "ci_conclusion": "pending",
+    "core_ci_run": 37933464615,
+    "home_smoke_run": 37933464771,
+    "ci_conclusion": "success_at_prior_head; pending_new_head",
     "physical_camera_accepted": false,
     "follow_on_feature_issue": 398
   }

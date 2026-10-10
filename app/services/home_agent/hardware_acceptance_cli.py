@@ -38,12 +38,15 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
         raise ValueError("strict hardware acceptance requires max_frames >= confirmations + 1")
 
 def load_capture_factory(spec):
+    if not isinstance(spec, str):
+        raise ValueError("capture factory must use module:callable syntax")
     module_name, separator, attribute = spec.partition(":")
-    if not separator:
+    if (not separator or not module_name.strip() or not attribute.isidentifier()
+            or module_name.startswith(".")):
         raise ValueError("capture factory must use module:callable syntax")
     try:
         module = importlib.import_module(module_name)
-    except ImportError as exc:
+    except (ImportError, TypeError) as exc:
         raise ValueError("capture factory module could not be imported") from exc
     factory = getattr(module, attribute, None)
     if not callable(factory):

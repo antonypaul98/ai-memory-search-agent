@@ -279,3 +279,32 @@ def test_validation_rejects_truthy_nonboolean_consent_or_event_flags(field, erro
     config[field] = bad_value
     with pytest.raises(ValueError, match=error):
         cli.validate_config(**config)
+
+
+@pytest.mark.parametrize("spec", [
+    "..:factory", ".:factory", ":factory", "json:", "json",
+    "json:factory.name", None, 4, " :factory", "json:  ",
+])
+def test_capture_factory_rejects_malformed_module_path_as_bounded_value_error(spec):
+    with pytest.raises(ValueError, match="capture factory must use module:callable syntax"):
+        cli.load_capture_factory(spec)
+
+
+def test_capture_factory_accepts_callable_and_rejects_noncallable():
+    import json as json_module
+    assert cli.load_capture_factory("json:loads") is json_module.loads
+    with pytest.raises(ValueError, match="capture factory is not callable"):
+        cli.load_capture_factory("json:__name__")
+
+
+def test_cli_malformed_capture_factory_returns_bounded_json_error(capsys):
+    rc = cli.main([
+        "--capture-factory", "..:factory",
+        "--session-id", "session", "--user-id", "user",
+        "--source-id", "source", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "capture factory must use module:callable syntax"
+    }
