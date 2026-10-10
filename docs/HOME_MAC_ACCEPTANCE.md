@@ -23,8 +23,9 @@ a physical webcam in CI.
 Next hardware action: on a consenting Mac, configure the authenticated capture
 stack and invoke `app.services.home_agent.hardware_smoke.run_hardware_smoke`
 with a real OpenCV device and `require_event=True`; retain bounded frame,
-physical-memory event and cleanup evidence. There is currently no dedicated
-hardware-smoke CLI. CI mocks cannot satisfy this acceptance.
+physical-memory event and cleanup evidence. The dedicated hardware-acceptance
+CLI is on the unmerged `home-vision/mac-hardware-cli` branch, not yet on `main`.
+CI mocks cannot satisfy physical-camera acceptance.
 
 ## Verified software integration
 
@@ -39,3 +40,14 @@ hardware-smoke CLI. CI mocks cannot satisfy this acceptance.
 - Final integrated CI remains mandatory for this receipt and its merged main.
   The superseded Home-only main CI was cancelled by the later J03 merge, not
   counted as successful. Physical Mac acceptance stays pending.
+
+## Pending hardware-acceptance CLI release
+
+- Entry point: `python -m app.services.home_agent.hardware_acceptance_cli`.
+- On a consenting Mac only, provide a trusted local `--capture-factory module:callable`, authenticated `--session-id`, `--user-id`, `--source-id`, `--location`, plus both `--allow-physical-camera` and `--require-event`.
+- Validation rejects nonfinite or unrepresentable intervals, invalid confidence, unbounded or inconsistent frame/confirmation settings, and missing consent before loading the camera factory.
+- The diagnostic CLI enforces a maximum of **120 frames** even with explicit camera consent; this does not substitute for a wall-clock timeout or real-device acceptance.
+- Frame spacing is capped at **10 seconds** before loading a camera adapter, preventing accidentally unbounded interval settings; this is not a wall-clock timeout.
+- The cumulative minimum frame-spacing budget `(max_frames - 1) * min_interval_seconds` must be at most **120 seconds**. This does not guarantee a real elapsed-time deadline or protect against a stalled camera driver.
+- Require exact final PR-head core CI and Home Vision Smoke, then merged-main CI, before software handoff to Jarvis. Successful push CI alone does not complete the PR acceptance gate.
+- Physical acceptance remains **PENDING** until an observed real camera memory event and cleanup receipt on a consenting Mac. Never commit private frames, tokens or personal session identifiers.
