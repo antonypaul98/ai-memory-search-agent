@@ -51,7 +51,8 @@ def load_capture_factory(spec):
         raise ValueError("capture factory must use module:callable syntax")
     try:
         module = importlib.import_module(module_name)
-    except (ImportError, TypeError) as exc:
+    except Exception as exc:
+        # Adapter import failures can include private local device paths.
         raise ValueError("capture factory module could not be imported") from exc
     factory = getattr(module, attribute, None)
     if not callable(factory):
@@ -63,9 +64,16 @@ def run_cli(capture_factory, *, allow_physical_camera=False, **kwargs):
     validate_config(allow_physical_camera=allow_physical_camera, **kwargs)
     try:
         capture = capture_factory()
-    except OSError as exc:
+    except Exception as exc:
+        # Do not expose adapter/device details in CLI diagnostics.
         raise ValueError("camera capture factory could not be initialized") from exc
-    return run_hardware_smoke(capture=capture, min_interval=timedelta(seconds=kwargs.pop("min_interval_seconds")), **kwargs)
+    try:
+        return run_hardware_smoke(capture=capture, min_interval=timedelta(seconds=kwargs.pop("min_interval_seconds")), **kwargs)
+    except OSError:
+        # The CLI handles camera I/O errors with a separate bounded code.
+        raise
+    except Exception as exc:
+        raise ValueError("camera acceptance execution failed") from exc
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description="Strict Home Agent Mac/webcam acceptance runner")

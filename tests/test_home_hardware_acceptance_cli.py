@@ -390,3 +390,56 @@ def test_cli_capture_io_error_returns_redacted_structured_json(monkeypatch, caps
     assert json.loads(capsys.readouterr().out) == {
         "passed": False, "error": "camera I/O error during acceptance"
     }
+
+@pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
+def test_cli_redacts_runtime_adapter_errors(monkeypatch, capsys, error_type):
+    monkeypatch.setattr(cli, "load_capture_factory", lambda _: lambda: object())
+
+    def failing_smoke(**_):
+        raise error_type("/private/camera/device0: session-secret")
+
+    monkeypatch.setattr(cli, "run_hardware_smoke", failing_smoke)
+    rc = cli.main([
+        "--capture-factory", "local_fixture:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "kitchen",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "camera acceptance execution failed"
+    }
+
+
+def test_cli_redacts_factory_runtime_error(monkeypatch, capsys):
+    def failing_factory():
+        raise RuntimeError("/private/camera/device0: session-secret")
+
+    monkeypatch.setattr(cli, "load_capture_factory", lambda _: failing_factory)
+    rc = cli.main([
+        "--capture-factory", "local_fixture:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "kitchen",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "camera capture factory could not be initialized"
+    }
+
+
+def test_cli_redacts_import_runtime_error(monkeypatch, capsys):
+    def failing_import(_):
+        raise RuntimeError("/private/camera/device0: session-secret")
+
+    monkeypatch.setattr(cli.importlib, "import_module", failing_import)
+    rc = cli.main([
+        "--capture-factory", "local_fixture:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "kitchen",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "capture factory module could not be imported"
+    }
