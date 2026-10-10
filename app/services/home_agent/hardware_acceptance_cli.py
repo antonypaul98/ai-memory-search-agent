@@ -10,6 +10,7 @@ from .hardware_smoke import run_hardware_smoke
 
 # Physical acceptance is a short diagnostic, not an unrestricted camera session.
 MAX_HARDWARE_ACCEPTANCE_FRAMES = 120
+MAX_HARDWARE_ACCEPTANCE_INTERVAL_SECONDS = 10.0
 
 def validate_config(session_id,user_id,source_id,location,device_index,max_frames,confirmations,min_interval_seconds,min_confidence,require_event,allow_physical_camera):
     if not all(isinstance(v, str) and v.strip() for v in (session_id,user_id,source_id,location)):
@@ -27,6 +28,8 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if (type(min_interval_seconds) not in (int, float)
             or not math.isfinite(min_interval_seconds) or min_interval_seconds <= 0):
         raise ValueError("min_interval_seconds must be finite and positive")
+    if min_interval_seconds > MAX_HARDWARE_ACCEPTANCE_INTERVAL_SECONDS:
+        raise ValueError("min_interval_seconds must be <= 10")
     # Validate timedelta representability before loading the capture factory.
     try:
         interval = timedelta(seconds=min_interval_seconds)

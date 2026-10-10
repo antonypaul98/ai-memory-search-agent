@@ -466,3 +466,48 @@ def test_cli_redacts_factory_module_attribute_lookup_failure(monkeypatch, capsys
     assert json.loads(capsys.readouterr().out) == {
         "passed": False, "error": "capture factory attribute could not be resolved"
     }
+
+
+@pytest.mark.parametrize("seconds", [10.01, 3600.0])
+def test_cli_rejects_excessive_frame_interval_before_factory(monkeypatch, capsys, seconds):
+    loaded = []
+    def fail_load(spec):
+        loaded.append(spec)
+        raise AssertionError("camera factory must not load for excessive interval")
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    rc = cli.main([
+        "--capture-factory", "does.not.matter:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+        "--min-interval-seconds", str(seconds),
+    ])
+    assert rc == 2
+    assert loaded == []
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "min_interval_seconds must be <= 10"
+    }
+
+
+def test_direct_runner_rejects_excessive_interval_before_factory():
+    constructed = []
+    def factory():
+        constructed.append(True)
+        raise AssertionError("capture must not be constructed")
+    with pytest.raises(ValueError, match="min_interval_seconds must be <= 10"):
+        cli.run_cli(
+            factory, session_id="session", user_id="tenant", source_id="camera",
+            location="home", device_index=0, max_frames=3, confirmations=2,
+            min_interval_seconds=3600.0, min_confidence=0.8,
+            require_event=True, allow_physical_camera=True,
+        )
+    assert constructed == []
+
+
+def test_acceptance_allows_ten_second_interval_boundary():
+    cli.validate_config(
+        session_id="session", user_id="tenant", source_id="camera",
+        location="home", device_index=0, max_frames=3, confirmations=2,
+        min_interval_seconds=10.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
