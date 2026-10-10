@@ -511,3 +511,50 @@ def test_acceptance_allows_ten_second_interval_boundary():
         min_interval_seconds=10.0, min_confidence=0.8,
         require_event=True, allow_physical_camera=True,
     )
+
+
+@pytest.mark.parametrize("frames,seconds", [(120, 10.0), (120, 1.01), (14, 10.0)])
+def test_cli_rejects_excessive_total_minimum_pacing_before_factory(monkeypatch, capsys, frames, seconds):
+    loaded = []
+    def fail_load(spec):
+        loaded.append(spec)
+        raise AssertionError("camera factory must not load for excessive pacing")
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    rc = cli.main([
+        "--capture-factory", "unused_camera:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+        "--max-frames", str(frames),
+        "--min-interval-seconds", str(seconds),
+    ])
+    assert rc == 2
+    assert loaded == []
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "minimum frame pacing budget must be <= 120 seconds"
+    }
+
+
+def test_direct_runner_rejects_excessive_total_pacing_before_capture():
+    constructed = []
+    def factory():
+        constructed.append(True)
+        raise AssertionError("capture must not be constructed")
+    with pytest.raises(ValueError, match="minimum frame pacing budget must be <= 120 seconds"):
+        cli.run_cli(
+            factory, session_id="session", user_id="tenant", source_id="camera",
+            location="home", device_index=0, max_frames=120, confirmations=2,
+            min_interval_seconds=10.0, min_confidence=0.8,
+            require_event=True, allow_physical_camera=True,
+        )
+    assert constructed == []
+
+
+@pytest.mark.parametrize("frames,seconds", [(120, 1.0), (13, 10.0)])
+def test_minimum_pacing_budget_accepts_boundary_without_opening_camera(frames, seconds):
+    cli.validate_config(
+        session_id="session", user_id="tenant", source_id="camera",
+        location="home", device_index=0, max_frames=frames, confirmations=2,
+        min_interval_seconds=seconds, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )

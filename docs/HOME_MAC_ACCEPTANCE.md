@@ -48,5 +48,6 @@ CI mocks cannot satisfy physical-camera acceptance.
 - Validation rejects nonfinite or unrepresentable intervals, invalid confidence, unbounded or inconsistent frame/confirmation settings, and missing consent before loading the camera factory.
 - The diagnostic CLI enforces a maximum of **120 frames** even with explicit camera consent; this does not substitute for a wall-clock timeout or real-device acceptance.
 - Frame spacing is capped at **10 seconds** before loading a camera adapter, preventing accidentally unbounded interval settings; this is not a wall-clock timeout.
+- The cumulative minimum frame-spacing budget `(max_frames - 1) * min_interval_seconds` must be at most **120 seconds**. This does not guarantee a real elapsed-time deadline or protect against a stalled camera driver.
 - Require exact final PR-head core CI and Home Vision Smoke, then merged-main CI, before software handoff to Jarvis. Successful push CI alone does not complete the PR acceptance gate.
 - Physical acceptance remains **PENDING** until an observed real camera memory event and cleanup receipt on a consenting Mac. Never commit private frames, tokens or personal session identifiers.
