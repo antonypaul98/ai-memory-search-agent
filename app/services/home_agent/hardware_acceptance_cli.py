@@ -54,7 +54,11 @@ def load_capture_factory(spec):
     except Exception as exc:
         # Adapter import failures can include private local device paths.
         raise ValueError("capture factory module could not be imported") from exc
-    factory = getattr(module, attribute, None)
+    try:
+        factory = getattr(module, attribute, None)
+    except Exception as exc:
+        # Module-level __getattr__ may include private camera/device details.
+        raise ValueError("capture factory attribute could not be resolved") from exc
     if not callable(factory):
         raise ValueError("capture factory is not callable")
     return factory

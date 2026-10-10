@@ -443,3 +443,26 @@ def test_cli_redacts_import_runtime_error(monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == {
         "passed": False, "error": "capture factory module could not be imported"
     }
+
+
+def test_cli_redacts_factory_module_attribute_lookup_failure(monkeypatch, capsys):
+    """A module __getattr__ error must never expose device paths or secrets."""
+    import types
+
+    module = types.ModuleType("synthetic_camera_adapter")
+
+    def fail_lookup(_name):
+        raise RuntimeError("/private/camera/device0: synthetic-secret")
+
+    module.__getattr__ = fail_lookup
+    monkeypatch.setattr(cli.importlib, "import_module", lambda _: module)
+    rc = cli.main([
+        "--capture-factory", "synthetic_camera_adapter:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "kitchen",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "capture factory attribute could not be resolved"
+    }
