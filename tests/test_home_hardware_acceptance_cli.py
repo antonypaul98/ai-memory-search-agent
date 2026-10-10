@@ -357,3 +357,36 @@ def test_hardware_acceptance_allows_maximum_frame_budget_without_opening_camera(
         min_interval_seconds=1.0, min_confidence=0.8,
         require_event=True, allow_physical_camera=True,
     )
+
+def test_direct_factory_oserror_is_bounded_without_exposing_device_path():
+    def failing_factory():
+        raise OSError("/private/camera/device0: permission denied")
+
+    with pytest.raises(ValueError, match="camera capture factory could not be initialized") as error:
+        cli.run_cli(
+            failing_factory, session_id="session", user_id="tenant",
+            source_id="camera", location="kitchen", device_index=0,
+            max_frames=3, confirmations=2, min_interval_seconds=1.0,
+            min_confidence=0.8, require_event=True, allow_physical_camera=True,
+        )
+    assert isinstance(error.value.__cause__, OSError)
+    assert "/private/" not in str(error.value)
+
+
+def test_cli_capture_io_error_returns_redacted_structured_json(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "load_capture_factory", lambda _: lambda: object())
+
+    def failing_smoke(**_):
+        raise OSError("/private/camera/device0: disconnected")
+
+    monkeypatch.setattr(cli, "run_hardware_smoke", failing_smoke)
+    rc = cli.main([
+        "--capture-factory", "local_fixture:factory",
+        "--session-id", "session", "--user-id", "tenant",
+        "--source-id", "camera", "--location", "kitchen",
+        "--allow-physical-camera", "--require-event",
+    ])
+    assert rc == 2
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "camera I/O error during acceptance"
+    }

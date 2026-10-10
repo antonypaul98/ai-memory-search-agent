@@ -61,7 +61,10 @@ def load_capture_factory(spec):
 def run_cli(capture_factory, *, allow_physical_camera=False, **kwargs):
     """Validate direct Python calls before constructing a physical capture."""
     validate_config(allow_physical_camera=allow_physical_camera, **kwargs)
-    capture = capture_factory()
+    try:
+        capture = capture_factory()
+    except OSError as exc:
+        raise ValueError("camera capture factory could not be initialized") from exc
     return run_hardware_smoke(capture=capture, min_interval=timedelta(seconds=kwargs.pop("min_interval_seconds")), **kwargs)
 
 def main(argv=None):
@@ -91,6 +94,10 @@ def main(argv=None):
         result=run_cli(factory,session_id=args.session_id,user_id=args.user_id,source_id=args.source_id,location=args.location,device_index=args.device_index,max_frames=args.max_frames,confirmations=args.confirmations,min_interval_seconds=args.min_interval_seconds,min_confidence=args.min_confidence,require_event=args.require_event,allow_physical_camera=args.allow_physical_camera)
         print(json.dumps(result.__dict__,sort_keys=True,default=str))
         return 0 if result.passed else 1
+    except OSError:
+        # Do not expose device paths or driver details in the diagnostic output.
+        print(json.dumps({"passed":False,"error":"camera I/O error during acceptance"},sort_keys=True))
+        return 2
     except (ValueError,RuntimeError) as exc:
         print(json.dumps({"passed":False,"error":str(exc)},sort_keys=True))
         return 2
