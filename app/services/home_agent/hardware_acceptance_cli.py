@@ -8,6 +8,9 @@ from datetime import timedelta
 
 from .hardware_smoke import run_hardware_smoke
 
+# Physical acceptance is a short diagnostic, not an unrestricted camera session.
+MAX_HARDWARE_ACCEPTANCE_FRAMES = 120
+
 def validate_config(session_id,user_id,source_id,location,device_index,max_frames,confirmations,min_interval_seconds,min_confidence,require_event,allow_physical_camera):
     if not all(isinstance(v, str) and v.strip() for v in (session_id,user_id,source_id,location)):
         raise ValueError("session_id, user_id, source_id and location are required")
@@ -17,6 +20,8 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
         raise ValueError("device_index must be a non-negative integer")
     if type(max_frames) is not int or max_frames < 1:
         raise ValueError("max_frames must be >= 1")
+    if max_frames > MAX_HARDWARE_ACCEPTANCE_FRAMES:
+        raise ValueError(f"max_frames must be <= {MAX_HARDWARE_ACCEPTANCE_FRAMES}")
     if type(confirmations) is not int or confirmations < 1:
         raise ValueError("confirmations must be >= 1")
     if (type(min_interval_seconds) not in (int, float)

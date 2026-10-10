@@ -308,3 +308,52 @@ def test_cli_malformed_capture_factory_returns_bounded_json_error(capsys):
     assert json.loads(capsys.readouterr().out) == {
         "passed": False, "error": "capture factory must use module:callable syntax"
     }
+
+
+@pytest.mark.parametrize("frames", [121, 1_000_000])
+def test_hardware_acceptance_rejects_excessive_frames_before_factory(monkeypatch, frames, capsys):
+    loaded = []
+
+    def fail_load(spec):
+        loaded.append(spec)
+        raise AssertionError("factory must not load for an excessive frame budget")
+
+    monkeypatch.setattr(cli, "load_capture_factory", fail_load)
+    rc = cli.main([
+        "--capture-factory", "does.not.matter:factory",
+        "--session-id", "session", "--user-id", "user",
+        "--source-id", "camera", "--location", "home",
+        "--allow-physical-camera", "--require-event",
+        "--max-frames", str(frames),
+    ])
+    assert rc == 2
+    assert loaded == []
+    assert json.loads(capsys.readouterr().out) == {
+        "passed": False, "error": "max_frames must be <= 120"
+    }
+
+
+def test_direct_hardware_acceptance_rejects_excessive_frames_before_capture():
+    constructed = []
+
+    def factory():
+        constructed.append(True)
+        raise AssertionError("capture must not be constructed")
+
+    with pytest.raises(ValueError, match="max_frames must be <= 120"):
+        cli.run_cli(
+            factory, session_id="session", user_id="user", source_id="camera",
+            location="home", device_index=0, max_frames=121, confirmations=2,
+            min_interval_seconds=1.0, min_confidence=0.8,
+            require_event=True, allow_physical_camera=True,
+        )
+    assert constructed == []
+
+
+def test_hardware_acceptance_allows_maximum_frame_budget_without_opening_camera():
+    cli.validate_config(
+        session_id="session", user_id="user", source_id="camera",
+        location="home", device_index=0, max_frames=120, confirmations=119,
+        min_interval_seconds=1.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
