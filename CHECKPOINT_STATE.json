@@ -1,29 +1,29 @@
 {
   "repository": "antonypaul98/ai-memory-search-agent",
-  "current_checkpoint": "Home hardware-acceptance CLI software integration",
-  "active_branch": "home-vision/mac-hardware-cli",
-  "main_sha_at_start": "a555b902b23e0e8392c73f34813140cc7f9e8f23",
-  "current_branch_sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
+  "current_checkpoint": "Jarvis V1 browser demo and recording integration",
+  "active_branch": "codex/demo-e2e-recording",
+  "main_sha_at_start": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+  "current_branch_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Home PR #397 open draft at 0d7d6f6a792b76a4e0ba75c995cceac7189027cb, 21 ahead and zero behind main b138ae66. Exact-head PR Core CI #38066055968 and Home Vision Smoke #38066055967 succeeded.",
-  "local_test_status": "Exact-head GitHub CI pytest and Home Vision Smoke succeeded at 0d7d6f6a792b76a4e0ba75c995cceac7189027cb. Local tests not rerun; physical camera acceptance pending.",
-  "pr_number": 397,
-  "ci_status": "Exact-head PR Core CI #38066055968 and Home Vision Smoke #38066055967 SUCCESS at 0d7d6f6a792b76a4e0ba75c995cceac7189027cb; integration pending.",
-  "merge_status": "NOT MERGED",
+  "branch_remote_status": "Home PR #397 merged into main 74a5def6d708c248db6410f5f2f9c57280c408b1; Jarvis PR #396 open at be889a4f98afda1d02d997d76c7e8da533274ed2, 7 ahead / 30 behind main, mergeable per GitHub; preserve branch, no rebase.",
+  "local_test_status": "No local product tests run in this handoff. Jarvis exact-head CI #37810425295 and browser recording #37810415401 SUCCESS; Home PR exact-head CI #38147063954 and Home smoke #38147063961 SUCCESS; merged-main CI #38159418147 SUCCESS. Physical Mac camera PENDING.",
+  "pr_number": 396,
+  "ci_status": "Home PR #397 merged-main CI #38159418147 SUCCESS at 74a5def6d708c248db6410f5f2f9c57280c408b1; Jarvis PR #396 exact-head CI #37810425295 and browser demo #37810415401 SUCCESS at be889a4f98afda1d02d997d76c7e8da533274ed2; Jarvis integration and merged-main CI pending.",
+  "merge_status": "HOME #397 MERGED AND MAIN VERIFIED; JARVIS #396 NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Ready-for-review mutation rejected by execution safety checks; review and integration require authorized user action.",
-  "next_action": "Review and merge PR #397 only after authorization at exact expected head 0d7d6f6a792b76a4e0ba75c995cceac7189027cb; verify merged-main CI and hand off writer to Jarvis.",
+  "known_blocker": null,
+  "next_action": "As sole Jarvis writer, recheck PR #396 exact head, safety/review/CI and mergeability; guarded merge if eligible; verify merged-main CI; update Jarvis demo integration receipt. Do not infer physical Mac camera acceptance.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-10T16:58:00Z",
-  "observed_branch_sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
-  "observed_feature_sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
+  "observed_at_utc": "2026-10-11T18:58:58Z",
+  "observed_branch_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+  "observed_feature_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -32,30 +32,30 @@
     "reexecuted_this_run": false
   },
   "pr_state": {
-    "number": 397,
-    "state": "open_draft",
-    "head_sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
-    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/397",
+    "number": 396,
+    "state": "open_ready",
+    "head_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/396",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 38066055968,
-      "sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
+      "id": 37810425295,
+      "sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
     },
-    "home_vision_smoke": {
-      "id": 38066055967,
-      "sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
-      "event": "pull_request",
+    "browser_demo": {
+      "id": 37810415401,
+      "sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+      "event": "push",
       "status": "completed",
       "conclusion": "success"
     },
     "merged_main_run": {
-      "id": 37229282112,
-      "sha": "889947fdd32f1b8f25e1151483d90109fe217a20",
+      "id": 38159418147,
+      "sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
       "event": "push",
       "status": "completed",
       "conclusion": "success"
@@ -63,20 +63,20 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "GitHub PR integration mutation",
-    "BLOCKER": "Ready-for-review operation rejected by execution safety checks",
-    "SAFE_WORK_COMPLETED": "Verified exact-head PR Core CI and Home Vision Smoke success at 0d7d6f6a792b76a4e0ba75c995cceac7189027cb; reconciled stale checkpoint state; physical camera acceptance remains pending.",
-    "REMOTE_SHA": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
-    "NEXT_ACTION": "Authorized review/merge PR #397, verify merged-main CI, hand off to Jarvis."
+    "BLOCKED_LAYER": null,
+    "BLOCKER": null,
+    "SAFE_WORK_COMPLETED": "Verified Home #397 merge and exact merged-main CI, reconciled canonical single-writer handoff to Jarvis, preserving external physical camera acceptance pending.",
+    "REMOTE_SHA": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+    "NEXT_ACTION": "Guarded Jarvis #396 integration and merged-main CI."
   },
   "checkpoint_status": "IN_PROGRESS",
-  "writer": "HOME",
+  "writer": "JARVIS",
   "home_physical_camera_accepted": false,
   "shell_transport_limitation": "Shell Git push unavailable; authorized connected GitHub publication in use.",
-  "checkpoint_branch": "home-vision/mac-hardware-cli",
-  "verified_main_sha": "889947fdd32f1b8f25e1151483d90109fe217a20",
-  "merge_commit_sha": "889947fdd32f1b8f25e1151483d90109fe217a20",
-  "final_pr_head": "f8c126a7157c747cca24363286f869d1fa3bd28d",
+  "checkpoint_branch": "codex/demo-e2e-recording",
+  "verified_main_sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+  "merge_commit_sha": null,
+  "final_pr_head": null,
   "prior_checkpoint_evidence": {
     "ci_state": {
       "pr_run": {
@@ -114,15 +114,28 @@
     "merge_commit_sha": "889947fdd32f1b8f25e1151483d90109fe217a20"
   },
   "home_workstream": {
-    "writer": "HOME",
-    "follower": "JARVIS",
-    "published_code_sha": "0d7d6f6a792b76a4e0ba75c995cceac7189027cb",
+    "writer": "JARVIS",
+    "follower": "HOME",
+    "published_code_sha": "1aaa5f1ba2438e80f09b9ac9851645264c3b0244",
     "pr_number": 397,
     "regression_cases_added": 14,
-    "core_ci_run": 38066055968,
-    "home_smoke_run": 38066055967,
-    "ci_conclusion": "success_at_published_head; integration_pending",
+    "core_ci_run": 38147063954,
+    "home_smoke_run": 38147063961,
+    "ci_conclusion": "success_at_exact_head_and_merged_main",
     "physical_camera_accepted": false,
-    "follow_on_feature_issue": 398
+    "follow_on_feature_issue": 398,
+    "merge_status": "MERGED",
+    "merge_commit_sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+    "merged_main_ci_run": 38159418147
+  },
+  "home_software_handoff": {
+    "released_at_utc": "2026-10-11T18:58:58Z",
+    "release_comment": "https://github.com/antonypaul98/ai-memory-search-agent/pull/397#issuecomment-6110038140",
+    "final_pr_head": "1aaa5f1ba2438e80f09b9ac9851645264c3b0244",
+    "merge_commit_sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+    "merged_main_ci_run": 38159418147,
+    "writer_released": "HOME",
+    "next_writer": "JARVIS",
+    "physical_camera_accepted": false
   }
 }
