@@ -45,8 +45,9 @@ def run_hardware_smoke(
         raise ValueError("device_index must be a non-negative integer")
     if not isinstance(min_interval, timedelta) or min_interval.total_seconds() <= 0:
         raise ValueError("min_interval must be positive")
-    if (type(min_confidence) not in (int, float) or not math.isfinite(min_confidence)
-            or not 0 <= min_confidence <= 1):
+    if (type(min_confidence) not in (int, float)
+            or not 0 <= min_confidence <= 1
+            or (type(min_confidence) is float and not math.isfinite(min_confidence))):
         raise ValueError("min_confidence must be between 0 and 1")
     if require_event and max_frames < confirmations + 1:
         raise ValueError(

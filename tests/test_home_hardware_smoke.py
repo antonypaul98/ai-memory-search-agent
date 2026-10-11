@@ -144,6 +144,7 @@ def test_hardware_smoke_rejects_impossible_strict_window_before_camera_access():
     {'max_frames': True}, {'max_frames': 1.5}, {'confirmations': True},
     {'confirmations': 1.5}, {'device_index': -1}, {'min_confidence': float('nan')},
     {'min_confidence': 1.1}, {'min_interval': timedelta(0)},
+    {'min_confidence': 10**400}, {'min_confidence': -(10**400)},
 ])
 def test_invalid_configuration_never_reaches_camera(invalid):
     capture = Mock()
