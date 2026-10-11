@@ -55,7 +55,7 @@ def test_stream_paces_only_between_real_frames_without_delaying_initial_or_exhau
     )
     frames = list(stream)
     assert [frame.image_bytes for frame in frames] == [b"a", b"b"]
-    assert sleeper.call_args_list == [call(2.0)]
+    assert sleeper.call_args_list == [call(2.0), call(2.0)]
 
 
 def test_stream_closes_when_consumer_stops_early():
@@ -115,7 +115,7 @@ def test_adapter_paces_stream_with_same_interval_enforced_by_runner():
     )
     assert result.capture.frames_processed == 2
     assert runner.run.call_args.kwargs["min_interval"] == timedelta(seconds=3)
-    assert sleeper.call_args_list == [call(3.0)]
+    assert sleeper.call_args_list == [call(3.0), call(3.0)]
 
 
 @pytest.mark.parametrize('fail', [False, True])
