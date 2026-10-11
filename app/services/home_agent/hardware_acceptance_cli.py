@@ -28,7 +28,8 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if type(confirmations) is not int or confirmations < 1:
         raise ValueError("confirmations must be >= 1")
     if (type(min_interval_seconds) not in (int, float)
-            or not math.isfinite(min_interval_seconds) or min_interval_seconds <= 0):
+            or min_interval_seconds <= 0
+            or (type(min_interval_seconds) is float and not math.isfinite(min_interval_seconds))):
         raise ValueError("min_interval_seconds must be finite and positive")
     if min_interval_seconds > MAX_HARDWARE_ACCEPTANCE_INTERVAL_SECONDS:
         raise ValueError("min_interval_seconds must be <= 10")
@@ -42,7 +43,8 @@ def validate_config(session_id,user_id,source_id,location,device_index,max_frame
     if interval <= timedelta(0):
         raise ValueError("min_interval_seconds must be at least one microsecond")
     if (type(min_confidence) not in (int, float)
-            or not math.isfinite(min_confidence) or not 0.0 <= min_confidence <= 1.0):
+            or not 0.0 <= min_confidence <= 1.0
+            or (type(min_confidence) is float and not math.isfinite(min_confidence))):
         raise ValueError("min_confidence must be finite and between 0 and 1")
     if require_event is not True:
         raise ValueError("physical hardware acceptance requires --require-event")

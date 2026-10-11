@@ -558,3 +558,29 @@ def test_minimum_pacing_budget_accepts_boundary_without_opening_camera(frames, s
         min_interval_seconds=seconds, min_confidence=0.8,
         require_event=True, allow_physical_camera=True,
     )
+
+
+@pytest.mark.parametrize("field,value,error", [
+    ("min_interval_seconds", 10**400, "min_interval_seconds must be <= 10"),
+    ("min_interval_seconds", -(10**400), "min_interval_seconds must be finite and positive"),
+    ("min_confidence", 10**400, "min_confidence must be finite and between 0 and 1"),
+    ("min_confidence", -(10**400), "min_confidence must be finite and between 0 and 1"),
+])
+def test_direct_runner_rejects_extreme_integers_before_camera_factory(field, value, error):
+    """Huge Python ints must fail safely instead of overflowing math.isfinite."""
+    constructed = []
+
+    def factory():
+        constructed.append(True)
+        raise AssertionError("camera must not be constructed")
+
+    config = dict(
+        session_id="session", user_id="tenant", source_id="camera",
+        location="home", device_index=0, max_frames=3, confirmations=2,
+        min_interval_seconds=1.0, min_confidence=0.8,
+        require_event=True, allow_physical_camera=True,
+    )
+    config[field] = value
+    with pytest.raises(ValueError, match=error):
+        cli.run_cli(factory, **config)
+    assert constructed == []
