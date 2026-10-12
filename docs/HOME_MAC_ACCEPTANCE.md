@@ -23,8 +23,11 @@ a physical webcam in CI.
 Next hardware action: on a consenting Mac, configure the authenticated capture
 stack and invoke `app.services.home_agent.hardware_smoke.run_hardware_smoke`
 with a real OpenCV device and `require_event=True`; retain bounded frame,
-physical-memory event and cleanup evidence. The dedicated hardware-acceptance
-CLI is on the unmerged `home-vision/mac-hardware-cli` branch, not yet on `main`.
+physical-memory event and cleanup evidence. The dedicated hardware-acceptance CLI was integrated through PR #397,
+merged at `74a5def6d708c248db6410f5f2f9c57280c408b1`.
+Exact-head Core CI #38147063954 and Home vision smoke #38147063961
+passed; merged-main CI #38159418147 passed. These are software and
+simulated-adapter checks, **not** physical Mac camera acceptance.
 CI mocks cannot satisfy physical-camera acceptance.
 
 ## Verified software integration
@@ -41,7 +44,7 @@ CI mocks cannot satisfy physical-camera acceptance.
   The superseded Home-only main CI was cancelled by the later J03 merge, not
   counted as successful. Physical Mac acceptance stays pending.
 
-## Pending hardware-acceptance CLI release
+## Integrated hardware-acceptance CLI (physical acceptance pending)
 
 - Entry point: `python -m app.services.home_agent.hardware_acceptance_cli`.
 - On a consenting Mac only, provide a trusted local `--capture-factory module:callable`, authenticated `--session-id`, `--user-id`, `--source-id`, `--location`, plus both `--allow-physical-camera` and `--require-event`.
