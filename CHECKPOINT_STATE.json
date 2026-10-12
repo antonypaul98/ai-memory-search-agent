@@ -108,10 +108,10 @@
     }
   },
   "jarvis_last_accepted_checkpoint": {
-    "checkpoint": "J05",
-    "status": "MERGED AND VERIFIED",
-    "pr_number": 395,
-    "merge_commit_sha": "889947fdd32f1b8f25e1151483d90109fe217a20"
+    "checkpoint": "J04",
+    "status": "MERGED AND VERIFIED; 4/12 FORMALLY CLEARED",
+    "pr_number": 394,
+    "merge_commit_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17"
   },
   "home_workstream": {
     "writer": "JARVIS",
@@ -137,5 +137,14 @@
     "writer_released": "HOME",
     "next_writer": "JARVIS",
     "physical_camera_accepted": false
+  },
+  "jarvis_j05_gate": {
+    "status": "IN_PROGRESS",
+    "formally_cleared": false,
+    "software_slice_pr": 395,
+    "software_slice_merged": true,
+    "software_slice_merge_sha": "889947fdd32f1b8f25e1151483d90109fe217a20",
+    "acceptance_document": "docs/J05_HOME_QUERY_ACCEPTANCE.md",
+    "physical_mac_camera_accepted": false
   }
 }
