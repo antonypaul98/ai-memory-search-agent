@@ -18,17 +18,19 @@ let _seq = 0;
 export async function renderDashboard(root, { signal } = {}) {
   const seq = ++_seq;
   root.innerHTML = skeleton(4);
-  const opts = { abortTag: "dashboard", signal };
+  // Prevent parallel dashboard API requests from cancelling each other.
+  // Prefix retains route-wide abortInflight("dashboard") cleanup.
+  const opts = (name) => ({ abortTag: `dashboard:${name}`, signal });
   try {
     const [status, insights, imports, health, timeline, topics, memories] =
       await Promise.all([
-        Api.agentStatus(opts),
-        Api.insights(opts).catch(() => null),
-        Api.imports(8, opts).catch(() => ({ imports: [] })),
-        Api.connectorsHealth(opts).catch(() => ({ connectors: [] })),
-        Api.timeline("recently_saved", "", 8, opts).catch(() => ({ entries: [] })),
-        Api.topics(8, opts).catch(() => ({ topics: [] })),
-        Api.memories(RENDER_LIMITS.dashboardList, opts).catch(() => []),
+        Api.agentStatus(opts("status")),
+        Api.insights(opts("insights")).catch(() => null),
+        Api.imports(8, opts("imports")).catch(() => ({ imports: [] })),
+        Api.connectorsHealth(opts("connectors")).catch(() => ({ connectors: [] })),
+        Api.timeline("recently_saved", "", 8, opts("timeline")).catch(() => ({ entries: [] })),
+        Api.topics(8, opts("topics")).catch(() => ({ topics: [] })),
+        Api.memories(RENDER_LIMITS.dashboardList, opts("memories")).catch(() => []),
       ]);
     if (seq !== _seq || signal?.aborted) return;
 
