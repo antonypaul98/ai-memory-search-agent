@@ -116,6 +116,13 @@ def suppress_duplicates(detections: Iterable[PreviewBox]) -> list[PreviewBox]:
     return kept
 
 
+
+def scan_result_is_fresh(scan_at: float, now: float, *, max_age: float) -> bool:
+    """Reject delayed detections before treating them as live observations."""
+    return (isfinite(scan_at) and isfinite(now) and isfinite(max_age)
+            and max_age > 0 and 0 <= now - scan_at <= max_age)
+
+
 def reconcile_tracks(
     previous: dict[int, Track], detections: Iterable[PreviewBox],
     observed_at: float, next_id: int, *, max_age: float = 15.0,
@@ -229,12 +236,13 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             if future is not None and future.done():
                 scan_at, raw = future.result()
                 # Scores are detector scores, not calibrated probabilities.
-                boxes = [box for item in raw
-                         if (box := normalized_to_pixels(item, width, height)) is not None]
-                tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
-                                                   scan_at, next_id,
-                                                   max_age=max_track_age)
-                last_scan_at = scan_at
+                if scan_result_is_fresh(scan_at, now, max_age=max_track_age):
+                    boxes = [box for item in raw
+                             if (box := normalized_to_pixels(item, width, height)) is not None]
+                    tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
+                                                       scan_at, next_id,
+                                                       max_age=max_track_age)
+                    last_scan_at = scan_at
                 future = None
             if future is None and monotonic() - last_scan_requested >= scan_interval:
                 scan_at = monotonic()

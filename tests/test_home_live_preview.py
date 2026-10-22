@@ -151,3 +151,17 @@ def test_bottle_synonym_suppresses_near_duplicate_but_keeps_separate_bottle():
         PreviewBox("bottle", 0.6, (90, 10, 130, 90)),
     ]
     assert suppress_duplicates(detections) == [detections[0], detections[2]]
+
+
+@pytest.mark.parametrize("scan_at, now, max_age, expected", [
+    (1.0, 3.0, 4.0, True),
+    (1.0, 5.0, 4.0, True),
+    (1.0, 5.001, 4.0, False),
+    (10.0, 9.0, 4.0, False),
+    (float("nan"), 5.0, 4.0, False),
+    (1.0, float("inf"), 4.0, False),
+    (1.0, 3.0, 0.0, False),
+])
+def test_delayed_inference_result_never_counts_as_live_detection(scan_at, now, max_age, expected):
+    from app.services.home_agent.live_preview import scan_result_is_fresh
+    assert scan_result_is_fresh(scan_at, now, max_age=max_age) is expected
