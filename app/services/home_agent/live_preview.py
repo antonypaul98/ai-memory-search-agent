@@ -41,6 +41,18 @@ class Track:
     box: PreviewBox
     observed_at: float
     flow_updated: bool = False
+    last_detected_box: PreviewBox | None = None
+
+    def __post_init__(self):
+        if self.last_detected_box is None:
+            self.last_detected_box = self.box
+
+
+def display_box(track: Track, now: float, *, stale_after: float = 1.5) -> PreviewBox:
+    """Render stale memory at its last detector-confirmed position, not optical flow."""
+    if now - track.observed_at >= stale_after:
+        return track.last_detected_box or track.box
+    return track.box
 
 
 def normalized_to_pixels(detection, width: int, height: int) -> PreviewBox | None:
@@ -124,12 +136,16 @@ def reconcile_tracks(
     return output, next_id
 
 
-def advance_with_optical_flow(cv2, np, previous_gray, gray, tracks: dict[int, Track]):
+def advance_with_optical_flow(cv2, np, previous_gray, gray, tracks: dict[int, Track],
+                              *, now: float | None = None, max_flow_age: float = 1.5):
     """Shift visible boxes only when enough real image features support movement."""
     if previous_gray is None:
         return
     height, width = gray.shape
     for track in tracks.values():
+        if now is not None and now - track.observed_at >= max_flow_age:
+            track.flow_updated = False
+            continue
         x1, y1, x2, y2 = track.box.xyxy
         if x2 - x1 < 8 or y2 - y1 < 8:
             track.flow_updated = False
@@ -202,7 +218,7 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             now = monotonic()
             tracks = {tid: track for tid, track in tracks.items()
                       if 0 <= now - track.observed_at <= max_track_age}
-            advance_with_optical_flow(cv2, np, previous_gray, gray, tracks)
+            advance_with_optical_flow(cv2, np, previous_gray, gray, tracks, now=now)
             previous_gray = gray
 
             if future is not None and future.done():
@@ -224,7 +240,7 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
 
             age = monotonic() - last_scan_at if last_scan_at is not None else None
             for track in tracks.values():
-                x1, y1, x2, y2 = track.box.xyxy
+                x1, y1, x2, y2 = display_box(track, monotonic()).xyxy
                 # Only a recent detector observation is "scan"; flow and stale
                 # boxes are tentative overlays, never confirmed observations.
                 track_age = monotonic() - track.observed_at

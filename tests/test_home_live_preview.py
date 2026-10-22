@@ -111,3 +111,26 @@ def test_cross_label_same_box_suppressed_but_nested_box_retained():
     ]
     assert suppress_duplicates(detections) == [detections[0], detections[2]]
 
+
+def test_stale_overlay_uses_last_detector_box_not_flow_drift():
+    from app.services.home_agent.live_preview import display_box
+    observed = PreviewBox("floor lamp", 0.8, (10, 10, 40, 80))
+    track = Track(7, observed, 0)
+    track.box = PreviewBox("floor lamp", 0.8, (30, 10, 60, 80))
+    assert display_box(track, 0.5).xyxy == (30, 10, 60, 80)
+    assert display_box(track, 2.0).xyxy == (10, 10, 40, 80)
+    assert track.last_detected_box == observed
+
+
+def test_stale_track_cannot_be_dragged_by_occluder_optical_flow():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    rng = np.random.default_rng(42)
+    old = np.zeros((160, 240), dtype=np.uint8)
+    old[40:90, 50:100] = rng.integers(0, 255, (50, 50), dtype=np.uint8)
+    shifted = np.zeros_like(old)
+    shifted[45:95, 60:110] = old[40:90, 50:100]
+    track = Track(1, PreviewBox("floor lamp", 0.9, (50, 40, 100, 90)), 0)
+    advance_with_optical_flow(cv2, np, old, shifted, {1: track}, now=3.0)
+    assert track.box.xyxy == (50, 40, 100, 90)
+    assert not track.flow_updated
