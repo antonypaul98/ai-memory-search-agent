@@ -134,3 +134,20 @@ def test_stale_track_cannot_be_dragged_by_occluder_optical_flow():
     advance_with_optical_flow(cv2, np, old, shifted, {1: track}, now=3.0)
     assert track.box.xyxy == (50, 40, 100, 90)
     assert not track.flow_updated
+
+def test_bottle_synonym_preserves_tentative_id_across_detector_label_changes():
+    original = {7: Track(7, PreviewBox("water bottle", 0.8, (10, 10, 50, 90)), 1)}
+    current, next_id = reconcile_tracks(
+        original, [PreviewBox("bottle", 0.9, (12, 12, 52, 92))], 2, 8
+    )
+    assert list(current) == [7]
+    assert next_id == 8
+
+
+def test_bottle_synonym_suppresses_near_duplicate_but_keeps_separate_bottle():
+    detections = [
+        PreviewBox("water bottle", 0.8, (10, 10, 50, 90)),
+        PreviewBox("bottle", 0.7, (14, 14, 54, 94)),
+        PreviewBox("bottle", 0.6, (90, 10, 130, 90)),
+    ]
+    assert suppress_duplicates(detections) == [detections[0], detections[2]]

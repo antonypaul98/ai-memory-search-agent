@@ -99,12 +99,17 @@ def _iou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     return overlap / (area_a + area_b - overlap)
 
 
+def _association_label(label: str) -> str:
+    """Conservative synonym mapping for tracking, not object classification."""
+    return {"bottle": "water bottle"}.get(label, label)
+
+
 def suppress_duplicates(detections: Iterable[PreviewBox]) -> list[PreviewBox]:
     """Conservative screen-space NMS; does not imply physical identity."""
     kept: list[PreviewBox] = []
     for candidate in sorted(detections, key=lambda box: -box.score):
         if any(_iou(candidate.xyxy, prior.xyxy) >= (
-            0.65 if candidate.label == prior.label else 0.85
+            0.65 if _association_label(candidate.label) == _association_label(prior.label) else 0.85
         ) for prior in kept):
             continue
         kept.append(candidate)
@@ -121,7 +126,7 @@ def reconcile_tracks(
     output: dict[int, Track] = {}
     for box in detections:
         candidates = [(score, tid) for tid, old in remaining.items()
-                      if old.box.label == box.label
+                      if _association_label(old.box.label) == _association_label(box.label)
                       if (score := _iou(old.box.xyxy, box.xyxy)) >= 0.10]
         if candidates:
             _, tid = max(candidates)
