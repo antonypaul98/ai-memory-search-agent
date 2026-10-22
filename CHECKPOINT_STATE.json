@@ -1,29 +1,29 @@
 {
   "repository": "antonypaul98/ai-memory-search-agent",
-  "current_checkpoint": "Jarvis V1 browser demo and recording integration",
-  "active_branch": "codex/demo-e2e-recording",
-  "main_sha_at_start": "74a5def6d708c248db6410f5f2f9c57280c408b1",
-  "current_branch_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+  "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
+  "active_branch": "home-vision/live-preview-synthetic",
+  "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
+  "current_branch_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Home PR #397 merged into main 74a5def6d708c248db6410f5f2f9c57280c408b1; Jarvis PR #396 open at be889a4f98afda1d02d997d76c7e8da533274ed2, 7 ahead / 30 behind main, mergeable per GitHub; preserve branch, no rebase.",
-  "local_test_status": "No local product tests run in this handoff. Jarvis exact-head CI #37810425295 and browser recording #37810415401 SUCCESS; Home PR exact-head CI #38147063954 and Home smoke #38147063961 SUCCESS; merged-main CI #38159418147 SUCCESS. Physical Mac camera PENDING.",
-  "pr_number": 396,
-  "ci_status": "Home PR #397 merged-main CI #38159418147 SUCCESS at 74a5def6d708c248db6410f5f2f9c57280c408b1; Jarvis PR #396 exact-head CI #37810425295 and browser demo #37810415401 SUCCESS at be889a4f98afda1d02d997d76c7e8da533274ed2; Jarvis integration and merged-main CI pending.",
-  "merge_status": "HOME #397 MERGED AND MAIN VERIFIED; JARVIS #396 NOT MERGED",
+  "branch_remote_status": "Main ac912722 unchanged; Home draft PR #399 at c6ed70ac. Core CI #39776193203 and Home Vision Smoke #39776192932 both SUCCESS at exact PR head.",
+  "local_test_status": "Prior source/test CI successful at c6ed70ac. Separate unpublished process-worker recovery bundle: 3/3 isolated synthetic tests passed again on Linux Python 3.13.5; pinned Python 3.11, full repo integration, Mac and camera not run.",
+  "pr_number": 399,
+  "ci_status": "Core CI #39776193203 and Home Vision Smoke #39776192932 completed SUCCESS at exact PR head c6ed70ac; no new code published this run.",
+  "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": null,
-  "next_action": "As sole Jarvis writer, recheck PR #396 exact head, safety/review/CI and mergeability; guarded merge if eligible; verify merged-main CI; update Jarvis demo integration receipt. Do not infer physical Mac camera acceptance.",
+  "known_blocker": "Process-isolated inference worker remains unpublished: GitHub create_blob safety check blocked worker source. A test blob was created but no tree/commit/ref update occurred. Threaded inference shutdown remains potentially unbounded; long occlusion and physical camera remain unverified.",
+  "next_action": "Review unpublished inference-worker recovery bundle and publication safety restriction; do not bypass a blocked write. Once safely published, verify exact-head CI and synthetic macOS spawn before any physical camera acceptance.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-11T18:58:58Z",
-  "observed_branch_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
-  "observed_feature_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+  "observed_at_utc": "2026-10-22T12:05:08Z",
+  "observed_branch_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
+  "observed_feature_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -32,49 +32,49 @@
     "reexecuted_this_run": false
   },
   "pr_state": {
-    "number": 396,
-    "state": "open_ready",
-    "head_sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
-    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/396",
+    "number": 399,
+    "state": "open_draft",
+    "head_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
+    "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 37810425295,
-      "sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+      "id": 39776193203,
+      "sha": "c6ed70ac8c20e617cc53b82c89c3226e28980f64",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
     },
-    "browser_demo": {
-      "id": 37810415401,
-      "sha": "be889a4f98afda1d02d997d76c7e8da533274ed2",
+    "merged_main_run": {
+      "id": 39686909450,
+      "sha": "ac912722d94208a398d2f3c3cbbf91ca56256376",
       "event": "push",
       "status": "completed",
       "conclusion": "success"
     },
-    "merged_main_run": {
-      "id": 38159418147,
-      "sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
-      "event": "push",
+    "home_vision_smoke": {
+      "id": 39776192932,
+      "sha": "c6ed70ac8c20e617cc53b82c89c3226e28980f64",
+      "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
     }
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": null,
-    "BLOCKER": null,
-    "SAFE_WORK_COMPLETED": "Verified Home #397 merge and exact merged-main CI, reconciled canonical single-writer handoff to Jarvis, preserving external physical camera acceptance pending.",
-    "REMOTE_SHA": "74a5def6d708c248db6410f5f2f9c57280c408b1",
-    "NEXT_ACTION": "Guarded Jarvis #396 integration and merged-main CI."
+    "BLOCKED_LAYER": "GitHub connector create_blob safety check for worker source",
+    "BLOCKER": "Worker source publication rejected; no branch ref update",
+    "SAFE_WORK_COMPLETED": "Verified PR #399 exact-head CI and Home smoke success; reviewed unpublished process-isolated worker and reran 3 synthetic tests; preserved physical gate.",
+    "REMOTE_SHA": "c6ed70ac8c20e617cc53b82c89c3226e28980f64",
+    "NEXT_ACTION": "Review safety restriction and preserved bundle before authorized source publication; no bypass."
   },
   "checkpoint_status": "IN_PROGRESS",
-  "writer": "JARVIS",
+  "writer": "HOME",
   "home_physical_camera_accepted": false,
   "shell_transport_limitation": "Shell Git push unavailable; authorized connected GitHub publication in use.",
-  "checkpoint_branch": "codex/demo-e2e-recording",
-  "verified_main_sha": "74a5def6d708c248db6410f5f2f9c57280c408b1",
+  "checkpoint_branch": "home-vision/live-preview-synthetic",
+  "verified_main_sha": "ac912722d94208a398d2f3c3cbbf91ca56256376",
   "merge_commit_sha": null,
   "final_pr_head": null,
   "prior_checkpoint_evidence": {
@@ -114,8 +114,8 @@
     "merge_commit_sha": "f7713adfcbe961660b2759cbfcfc2eda103aad17"
   },
   "home_workstream": {
-    "writer": "JARVIS",
-    "follower": "HOME",
+    "writer": "HOME",
+    "follower": "JARVIS",
     "published_code_sha": "1aaa5f1ba2438e80f09b9ac9851645264c3b0244",
     "pr_number": 397,
     "regression_cases_added": 14,
@@ -146,5 +146,25 @@
     "software_slice_merge_sha": "889947fdd32f1b8f25e1151483d90109fe217a20",
     "acceptance_document": "docs/J05_HOME_QUERY_ACCEPTANCE.md",
     "physical_mac_camera_accepted": false
+  },
+  "home_live_preview": {
+    "writer": "HOME",
+    "follower": "JARVIS",
+    "pr_number": 399,
+    "initial_source_sha": "f775878f6b7655537e76f2b90bcc2a4ead18d515",
+    "synthetic_tests_passed": 12,
+    "full_repo_ci": "success at PR head c6ed70ac",
+    "physical_mac_camera_accepted": false,
+    "local_model_assets_required": true,
+    "snapshot_only_on_keypress": true,
+    "stale_overlay_guard": "Freeze stale display at last detector sighting; stop optical flow after 1.5s; synthetic regressions added",
+    "source_test_head_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
+    "synthetic_test_cases_defined": 17,
+    "core_ci_run": 39776193203,
+    "home_smoke_run": 39776192932,
+    "core_ci_conclusion": "success_at_exact_pr_head",
+    "home_smoke_conclusion": "success_at_exact_pr_head",
+    "scan_freshness": "7 parameterized regression cases published; reject delayed asynchronous inference results; exact-head CI pending.",
+    "inference_isolation": "unpublished recovery bundle; 3 synthetic tests passed on Linux Python 3.13.5; connector safety blocked worker blob; no integration/physical acceptance"
   }
 }
