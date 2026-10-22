@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "f775878f6b7655537e76f2b90bcc2a4ead18d515",
+  "current_branch_sha": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Jarvis PR #396 merged at ac912722; merged-main pytest CI #39686909450 SUCCESS. Home draft PR #399 opened at f775878f6b7655537e76f2b90bcc2a4ead18d515 (1 ahead/0 behind main). New exact-head CI pending.",
-  "local_test_status": "12 existing isolated synthetic tests reported; 2 new stale-overlay tests passed in isolated reproduction (10 total in older fixture); exact new-head CI pending; no physical camera used.",
+  "branch_remote_status": "Main ac912722 unchanged; Home draft PR #399 at c7af0c2b (4 ahead/0 behind main). Latest published source/test exact-head Core CI #39719847633 and Home Vision Smoke #39719847624 passed.",
+  "local_test_status": "16 synthetic regression test cases defined in published tests/test_home_live_preview.py; CI pytest job success at source/test head c7af0c2b; no new local tests run in this receipt; no physical camera used.",
   "pr_number": 399,
-  "ci_status": "Home PR #399 CI #39698229018 and Home smoke #39698229006 SUCCESS at exact prior head 011907c; new optical-flow safety fix head CI PENDING.",
+  "ci_status": "At source/test head c7af0c2b: Core CI #39719847633 SUCCESS and Home Vision Smoke #39719847624 SUCCESS. This checkpoint-state-only commit will have a new head; its CI must be checked separately.",
   "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Home #399 exact-head CI/review and physical Mac camera acceptance remain pending; optional local OWL-ViT weights required for preview.",
-  "next_action": "Check exact new-head CI and Home vision smoke for stale-overlay safety fix, review and preserve physical Mac acceptance pending.",
+  "known_blocker": "Home #399 safety review pending: hung OWL-ViT inference may block shutdown(wait=True); long-occlusion identity unproven. Physical Mac camera acceptance pending. No verified local model assets.",
+  "next_action": "Check exact-head CI for this metadata receipt; design and test genuinely bounded inference shutdown without claiming background model cancellation; preserve draft PR #399 and physical camera gate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -34,16 +34,29 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "f775878f6b7655537e76f2b90bcc2a4ead18d515",
+    "head_sha": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
-    "pr_run": null,
+    "pr_run": {
+      "id": 39719847633,
+      "sha": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
+      "event": "pull_request",
+      "status": "completed",
+      "conclusion": "success"
+    },
     "merged_main_run": {
       "id": 39686909450,
       "sha": "ac912722d94208a398d2f3c3cbbf91ca56256376",
       "event": "push",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "home_vision_smoke": {
+      "id": 39719847624,
+      "sha": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
+      "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
     }
@@ -52,9 +65,9 @@
   "last_session_exit": {
     "BLOCKED_LAYER": null,
     "BLOCKER": null,
-    "SAFE_WORK_COMPLETED": "Verified prior exact-head CI and Home smoke success; published bounded stale-overlay safety fix and two regression cases; physical Mac not accessed.",
-    "REMOTE_SHA": "011907c28d841ae31d4894eac618edcb99ced51d",
-    "NEXT_ACTION": "Check CI for new head and review PR #399; keep hardware gate separate."
+    "SAFE_WORK_COMPLETED": "Verified exact-source-head CI and Home smoke success, reconciled prior outdated checkpoint receipt. No camera or model weights accessed.",
+    "REMOTE_SHA": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
+    "NEXT_ACTION": "Review bounded inference shutdown and long-occlusion limitations, validate next exact head, keep physical camera gate separate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -140,10 +153,16 @@
     "pr_number": 399,
     "initial_source_sha": "f775878f6b7655537e76f2b90bcc2a4ead18d515",
     "synthetic_tests_passed": 12,
-    "full_repo_ci": "success at prior 011907c, pending at new fix",
+    "full_repo_ci": "success at source/test head c7af0c2b; metadata-only receipt head requires its own CI",
     "physical_mac_camera_accepted": false,
     "local_model_assets_required": true,
     "snapshot_only_on_keypress": true,
-    "stale_overlay_guard": "Freeze stale display at last detector sighting; stop optical flow after 1.5s; synthetic regressions added"
+    "stale_overlay_guard": "Freeze stale display at last detector sighting; stop optical flow after 1.5s; synthetic regressions added",
+    "source_test_head_sha": "c7af0c2b11a35f30cbe21a037e71c132fc632e40",
+    "synthetic_test_cases_defined": 16,
+    "core_ci_run": 39719847633,
+    "home_smoke_run": 39719847624,
+    "core_ci_conclusion": "success_at_source_test_head",
+    "home_smoke_conclusion": "success_at_source_test_head"
   }
 }
