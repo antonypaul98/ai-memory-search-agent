@@ -8,7 +8,11 @@ from __future__ import annotations
 from app.db.account_erasure_fence import require_active_tenant
 
 import json
+from datetime import datetime
 from hashlib import sha256
+from math import isfinite
+
+from app.services.home_agent.instance_location import InstanceObservation
 
 from app.db.postgres_home_physical_memory_store import PostgresHomePhysicalMemoryStore, _required
 from app.services.home_agent.image_ingest import ImageObservationBatch, canonical_id
@@ -48,6 +52,26 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                     FOREIGN KEY(user_id, frame_id)
                         REFERENCES home_image_evidence(user_id, frame_id)
                 )
+            """)
+
+            # Class-only image detections cannot populate this table. A future
+            # consented identity verifier must supply independently checked proof.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS home_verified_instance_associations (
+                    user_id TEXT NOT NULL,
+                    observation_id TEXT NOT NULL,
+                    instance_id TEXT NOT NULL CHECK (length(btrim(instance_id)) > 0),
+                    identity_evidence_id TEXT NOT NULL CHECK (length(btrim(identity_evidence_id)) > 0),
+                    identity_confidence DOUBLE PRECISION NOT NULL
+                        CHECK (identity_confidence >= 0 AND identity_confidence <= 1),
+                    PRIMARY KEY (user_id, observation_id),
+                    FOREIGN KEY (user_id, observation_id)
+                        REFERENCES home_object_sightings(user_id, evidence_id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_home_verified_instance_associations_tenant
+                ON home_verified_instance_associations(user_id, instance_id)
             """)
 
     def store_image_batch(self, batch: ImageObservationBatch) -> dict:
@@ -133,3 +157,56 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                 AND NOT EXISTS (SELECT 1 FROM home_image_observations o
                     WHERE o.user_id=p.user_id AND o.object_id=p.object_id)""", (user_id,))
             return True
+
+    def verified_instance_observations(
+        self, *, user_id: str, object_name: str,
+        min_confidence: float = 0.9, limit: int = 20,
+    ) -> list[InstanceObservation]:
+        """Read identity-evidenced sightings only, never class-level object IDs.
+
+        No identity association writer is exposed in this checkpoint. The
+        reader stays empty until a trusted, consented producer is implemented.
+        """
+        user_id = _required("user_id", user_id)
+        object_name = _required("object_name", object_name)
+        if (isinstance(min_confidence, bool)
+                or not isinstance(min_confidence, (int, float))
+                or not isfinite(min_confidence)
+                or not 0 <= min_confidence <= 1):
+            raise ValueError("min_confidence must be finite and between 0 and 1")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+
+        with self._connect() as conn:
+            rows = conn.execute("""
+                SELECT s.user_id, s.object_name, s.location, s.observed_at,
+                       s.source_id, s.evidence_id, a.instance_id,
+                       a.identity_evidence_id, a.identity_confidence
+                FROM home_verified_instance_associations a
+                JOIN home_object_sightings s
+                  ON s.user_id = a.user_id AND s.evidence_id = a.observation_id
+                WHERE a.user_id = %s AND LOWER(s.object_name) = LOWER(%s)
+                  AND s.confidence >= %s AND a.identity_confidence >= %s
+                ORDER BY s.observed_at DESC, s.evidence_id DESC
+                LIMIT %s
+            """, (user_id, object_name, min_confidence, min_confidence, limit)).fetchall()
+
+        try:
+            return [
+                InstanceObservation(
+                    user_id=row["user_id"], object_class=row["object_name"],
+                    location=row["location"],
+                    observed_at=(datetime.fromisoformat(row["observed_at"])
+                                 if isinstance(row["observed_at"], str)
+                                 else row["observed_at"]),
+                    source_id=row["source_id"], evidence_id=row["evidence_id"],
+                    instance_id=row["instance_id"],
+                    identity_evidence_id=row["identity_evidence_id"],
+                    identity_confidence=float(row["identity_confidence"]),
+                )
+                for row in rows
+            ]
+        except (KeyError, TypeError, ValueError, OverflowError):
+            # Reject the entire malformed result rather than exposing a
+            # partially trusted identity chain.
+            return []
