@@ -131,16 +131,34 @@ def reconcile_tracks(
     previous: dict[int, Track], detections: Iterable[PreviewBox],
     observed_at: float, next_id: int, *, max_age: float = 15.0,
 ) -> tuple[dict[int, Track], int]:
-    """Greedy label/overlap association. Does not assert physical identity."""
+    """Order-invariant greedy association; never asserts physical identity."""
     remaining = {tid: t for tid, t in previous.items()
                  if 0 <= observed_at - t.observed_at <= max_age}
+    # Deterministic association must not depend on detector output order.
+    # These IDs are only tentative screen-space labels, not physical identity.
+    ordered = sorted(detections, key=lambda box: (
+        _association_label(box.label), box.xyxy, -box.score, box.label
+    ))
+    pairs: list[tuple[float, int, int]] = []
+    for index, box in enumerate(ordered):
+        for tid, old in remaining.items():
+            if _association_label(old.box.label) != _association_label(box.label):
+                continue
+            score = _iou(old.box.xyxy, box.xyxy)
+            if score >= 0.10:
+                pairs.append((-score, tid, index))
+
+    matches: dict[int, int] = {}
+    matched_tracks: set[int] = set()
+    for _, tid, index in sorted(pairs):
+        if index not in matches and tid not in matched_tracks:
+            matches[index] = tid
+            matched_tracks.add(tid)
+
     output: dict[int, Track] = {}
-    for box in detections:
-        candidates = [(score, tid) for tid, old in remaining.items()
-                      if _association_label(old.box.label) == _association_label(box.label)
-                      if (score := _iou(old.box.xyxy, box.xyxy)) >= 0.10]
-        if candidates:
-            _, tid = max(candidates)
+    for index, box in enumerate(ordered):
+        if index in matches:
+            tid = matches[index]
             del remaining[tid]
         else:
             tid = next_id

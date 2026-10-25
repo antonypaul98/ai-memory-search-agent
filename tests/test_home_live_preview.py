@@ -276,3 +276,31 @@ def test_recording_video_writer_keeps_reserved_file_private(tmp_path):
         writer.release()
     assert destination.stat().st_size > 0
     assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+def test_ambiguous_same_class_tracking_is_independent_of_detection_order():
+    """Reordered detector results must not exchange tentative on-screen IDs."""
+    previous = {
+        1: Track(1, PreviewBox("cup", 0.8, (0, 0, 100, 100)), 0),
+        2: Track(2, PreviewBox("cup", 0.8, (30, 0, 130, 100)), 0),
+    }
+    first = PreviewBox("cup", 0.8, (10, 0, 110, 100))
+    second = PreviewBox("cup", 0.7, (40, 0, 140, 100))
+    for ordered in ((first, second), (second, first)):
+        tracks, next_id = reconcile_tracks(previous, ordered, 1, 3)
+        assert {tid: track.box.xyxy for tid, track in tracks.items()} == {
+            1: first.xyxy, 2: second.xyxy
+        }
+        assert next_id == 3
+
+
+def test_extra_ambiguous_detection_gets_same_new_id_after_reordering():
+    previous = {5: Track(5, PreviewBox("cup", 0.9, (0, 0, 100, 100)), 0)}
+    closer = PreviewBox("cup", 0.8, (5, 0, 105, 100))
+    farther = PreviewBox("cup", 0.7, (20, 0, 120, 100))
+    for ordered in ((closer, farther), (farther, closer)):
+        tracks, next_id = reconcile_tracks(previous, ordered, 1, 6)
+        assert {tid: track.box.xyxy for tid, track in tracks.items()} == {
+            5: closer.xyxy, 6: farther.xyxy
+        }
+        assert next_id == 7
