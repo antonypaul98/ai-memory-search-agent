@@ -165,3 +165,38 @@ def test_bottle_synonym_suppresses_near_duplicate_but_keeps_separate_bottle():
 def test_delayed_inference_result_never_counts_as_live_detection(scan_at, now, max_age, expected):
     from app.services.home_agent.live_preview import scan_result_is_fresh
     assert scan_result_is_fresh(scan_at, now, max_age=max_age) is expected
+
+def test_malformed_detector_coordinates_fail_closed():
+    from types import SimpleNamespace
+    for malformed in (0.5, iter((0.1, 0.1, 0.8, 0.8)), object()):
+        detection = SimpleNamespace(
+            object_class="bottle", confidence=0.7, box=malformed
+        )
+        assert normalized_to_pixels(detection, 640, 480) is None
+    valid = SimpleNamespace(
+        object_class="bottle", confidence=0.7, box=(0.1, 0.1, 0.8, 0.8)
+    )
+    assert normalized_to_pixels(valid, 640, 480) is not None
+
+
+def test_nonfinite_optical_flow_is_ignored_without_crashing():
+    np = pytest.importorskip("numpy")
+
+    class StubFlow:
+        @staticmethod
+        def goodFeaturesToTrack(*args, **kwargs):
+            return np.array([[[20., 20.]], [[30., 30.]], [[40., 40.]]],
+                            dtype=np.float32)
+
+        @staticmethod
+        def calcOpticalFlowPyrLK(old, new, points, ignored):
+            moved = points.copy()
+            moved[:, :, 0] = float("nan")
+            return moved, np.ones((3, 1), dtype=np.uint8), None
+
+    before = PreviewBox("cup", 0.8, (10, 10, 70, 70))
+    track = Track(1, before, 0)
+    gray = np.zeros((100, 100), dtype=np.uint8)
+    advance_with_optical_flow(StubFlow(), np, gray, gray.copy(), {1: track})
+    assert track.box == before
+    assert not track.flow_updated

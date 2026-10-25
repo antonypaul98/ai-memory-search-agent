@@ -60,7 +60,10 @@ def normalized_to_pixels(detection, width: int, height: int) -> PreviewBox | Non
     if width <= 0 or height <= 0:
         raise ValueError("invalid frame dimensions")
     coords = getattr(detection, "box", None)
-    if coords is None or len(coords) != 4:
+    try:
+        if coords is None or len(coords) != 4:
+            return None
+    except (TypeError, ValueError):
         return None
     try:
         x1, y1, x2, y2 = [float(v) for v in coords]
@@ -182,6 +185,9 @@ def advance_with_optical_flow(cv2, np, previous_gray, gray, tracks: dict[int, Tr
             track.flow_updated = False
             continue
         delta = np.median((new_points - points).reshape(-1, 2)[good], axis=0)
+        if not np.all(np.isfinite(delta)):
+            track.flow_updated = False
+            continue
         dx, dy = int(round(float(delta[0]))), int(round(float(delta[1])))
         if abs(dx) > width // 5 or abs(dy) > height // 5:
             track.flow_updated = False

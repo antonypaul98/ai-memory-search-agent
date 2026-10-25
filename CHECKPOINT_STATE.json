@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
+  "current_branch_sha": "9031dd5a1d9bdfabc8ae10abd01c52a12b36d405",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722 unchanged; Home draft PR #399 at c6ed70ac. Core CI #39776193203 and Home Vision Smoke #39776192932 both SUCCESS at exact PR head.",
-  "local_test_status": "Prior source/test CI successful at c6ed70ac. Separate unpublished process-worker recovery bundle: 3/3 isolated synthetic tests passed again on Linux Python 3.13.5; pinned Python 3.11, full repo integration, Mac and camera not run.",
+  "branch_remote_status": "Pre-edit main ac912722, Home PR #399 at 9031dd5a; no competing Home PR found. This commit adds defensive detector/flow guards with exact-head CI pending.",
+  "local_test_status": "7 isolated synthetic assertions passed on Linux Python 3.13.5 for malformed detection coordinates and nonfinite flow; full repository suite not run locally. Physical camera not run.",
   "pr_number": 399,
-  "ci_status": "Core CI #39776193203 and Home Vision Smoke #39776192932 completed SUCCESS at exact PR head c6ed70ac; no new code published this run.",
+  "ci_status": "Prior PR head 9031dd5a: Core CI #39801346812 and Home Vision Smoke #39801346793 SUCCESS. New source/test head: CI PENDING, no inherited success.",
   "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Process-isolated inference worker remains unpublished: GitHub create_blob safety check blocked worker source. A test blob was created but no tree/commit/ref update occurred. Threaded inference shutdown remains potentially unbounded; long occlusion and physical camera remain unverified.",
-  "next_action": "Review unpublished inference-worker recovery bundle and publication safety restriction; do not bypass a blocked write. Once safely published, verify exact-head CI and synthetic macOS spawn before any physical camera acceptance.",
+  "next_action": "Check exact new PR head and Core CI/Home Vision Smoke; inspect any failure before retry. Then address snapshot/recording privacy and inference shutdown through authorized HOME writer. Keep physical camera acceptance pending.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-22T12:05:08Z",
-  "observed_branch_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
-  "observed_feature_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
+  "observed_at_utc": "2026-10-25T03:55:50Z",
+  "observed_branch_sha": "9031dd5a1d9bdfabc8ae10abd01c52a12b36d405",
+  "observed_feature_sha": "9031dd5a1d9bdfabc8ae10abd01c52a12b36d405",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -162,9 +162,10 @@
     "synthetic_test_cases_defined": 17,
     "core_ci_run": 39776193203,
     "home_smoke_run": 39776192932,
-    "core_ci_conclusion": "success_at_exact_pr_head",
-    "home_smoke_conclusion": "success_at_exact_pr_head",
+    "core_ci_conclusion": "prior head success; new head pending",
+    "home_smoke_conclusion": "prior head success; new head pending",
     "scan_freshness": "7 parameterized regression cases published; reject delayed asynchronous inference results; exact-head CI pending.",
-    "inference_isolation": "unpublished recovery bundle; 3 synthetic tests passed on Linux Python 3.13.5; connector safety blocked worker blob; no integration/physical acceptance"
+    "inference_isolation": "unpublished recovery bundle; 3 synthetic tests passed on Linux Python 3.13.5; connector safety blocked worker blob; no integration/physical acceptance",
+    "defensive_guards": "Malformed coordinate shape and nonfinite optical flow regression committed in this tree; new-head CI pending."
   }
 }
