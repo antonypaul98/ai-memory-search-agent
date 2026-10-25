@@ -92,3 +92,47 @@ def test_naive_timestamp_is_rejected():
 def test_invalid_gap_is_rejected():
     with pytest.raises(ValueError, match="max_gap"):
         derive_observed_location_changes([], user_id="house-a", max_gap=timedelta(hours=1))
+
+
+def test_reused_evidence_across_distinct_instances_invalidates_both_chains():
+    rows = [
+        seen("keys-1", "desk", 0, evidence="reused-frame"),
+        seen("keys-2", "desk", 0, evidence="reused-frame"),
+        seen("keys-1", "kitchen", 30, evidence="unique-frame"),
+    ]
+    assert derive(rows) == []
+    assert derive(list(reversed(rows))) == []
+
+
+def test_reused_evidence_at_different_times_breaks_continuity():
+    rows = [
+        seen("keys-1", "desk", 0, evidence="reused-frame"),
+        seen("keys-1", "desk", 10, evidence="reused-frame"),
+        seen("keys-1", "kitchen", 20, evidence="unique-frame"),
+    ]
+    assert derive(rows) == []
+
+
+@pytest.mark.parametrize(("field", "bad"), [
+    ("instance_id", 123), ("instance_id", ""), ("instance_id", "  "),
+    ("identity_evidence_id", 123), ("identity_evidence_id", ""),
+    ("identity_evidence_id", "  "),
+])
+def test_invalid_optional_identity_fields_are_rejected(field, bad):
+    kwargs = {
+        "user_id": "house-a", "object_class": "keys", "location": "desk",
+        "observed_at": BASE, "source_id": "camera", "evidence_id": "frame",
+        "instance_id": "keys-1", "identity_evidence_id": "proof",
+        "identity_confidence": 0.99,
+    }
+    kwargs[field] = bad
+    with pytest.raises(ValueError, match=field):
+        InstanceObservation(**kwargs)
+
+
+def test_malformed_record_and_timestamp_fail_explicitly():
+    with pytest.raises(ValueError, match="InstanceObservation"):
+        derive([seen("keys-1", "desk", 0), object()])
+    with pytest.raises(ValueError, match="timezone-aware"):
+        InstanceObservation("house-a", "keys", "desk", "not-a-date",
+                            "camera", "frame", "keys-1", "proof", 0.99)

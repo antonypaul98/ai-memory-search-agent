@@ -29,8 +29,12 @@ class InstanceObservation:
         for field in ("user_id", "object_class", "location", "source_id", "evidence_id"):
             if not isinstance(getattr(self, field), str) or not getattr(self, field).strip():
                 raise ValueError(f"{field} is required")
-        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+        if not isinstance(self.observed_at, datetime) or self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at must be timezone-aware")
+        for field in ("instance_id", "identity_evidence_id"):
+            value = getattr(self, field)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{field} must be a non-empty string when supplied")
         if self.identity_confidence is not None:
             if (isinstance(self.identity_confidence, bool)
                     or not isinstance(self.identity_confidence, (int, float))
@@ -75,9 +79,25 @@ def derive_observed_location_changes(
     if not isinstance(max_gap, timedelta) or not timedelta(0) < max_gap <= timedelta(minutes=5):
         raise ValueError("max_gap must be positive and at most five minutes")
 
-    by_instance: dict[str, list[InstanceObservation]] = {}
+    # Evidence IDs are tenant-unique sighting identifiers. Reusing one for
+    # multiple assertions invalidates every chain containing that evidence,
+    # including when conflicting assertions have different instance IDs.
+    scoped: list[InstanceObservation] = []
+    seen_evidence: set[str] = set()
+    ambiguous_evidence: set[str] = set()
     for observation in observations:
-        if observation.user_id != user_id or not observation.instance_id or not observation.instance_id.strip():
+        if not isinstance(observation, InstanceObservation):
+            raise ValueError("observations must be InstanceObservation records")
+        if observation.user_id != user_id:
+            continue
+        scoped.append(observation)
+        if observation.evidence_id in seen_evidence:
+            ambiguous_evidence.add(observation.evidence_id)
+        seen_evidence.add(observation.evidence_id)
+
+    by_instance: dict[str, list[InstanceObservation]] = {}
+    for observation in scoped:
+        if not observation.instance_id:
             continue
         by_instance.setdefault(observation.instance_id, []).append(observation)
 
@@ -93,6 +113,11 @@ def derive_observed_location_changes(
             while index < len(ordered) and ordered[index].observed_at == current.observed_at:
                 same_time.append(ordered[index])
                 index += 1
+            # A reused sighting ID is not independent provenance. Invalidate
+            # the affected slice rather than choosing a convenient identity.
+            if any(s.evidence_id in ambiguous_evidence for s in same_time):
+                previous = None
+                continue
             # An identity collision at the same instant makes the entire
             # time slice ambiguous. Do not link across it.
             if len({(s.object_class.casefold(), s.location.casefold()) for s in same_time}) > 1:

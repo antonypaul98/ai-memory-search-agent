@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
+  "current_branch_sha": "edb39c4ca6876aa499c2261edc67274289661ef8",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft at c981756cb1f3355ccc22a4db83f7123ba3efc62a; verified-instance query/auth wrapper and 15 synthetic regression cases published. Source-head CI #40223801670 and Home smoke #40223801785 in progress at time of receipt; previous receipt-head 0fe05a01 exact CI success. No merge, no physical camera acceptance.",
-  "local_test_status": "15 new synthetic regression cases published but not executed locally; GitHub CI running at source head c981756c. Prior 15 identity-module tests accepted at d0eef7ff. Physical Mac camera NOT RUN.",
+  "branch_remote_status": "HOME PR #399 draft at pre-edit edb39c4ca6876aa499c2261edc67274289661ef8; identity-evidence collision hardening source and synthetic regressions being published. Main ac912722d94208a398d2f3c3cbbf91ca56256376; previous exact-head CI successful. New-head CI pending; no merge or physical acceptance.",
+  "local_test_status": "Identity-collision and malformed-record regressions added; local product tests not run in this remote connector environment. New exact-head CI pending; physical Mac camera NOT RUN.",
   "pr_number": 399,
-  "ci_status": "PR #399 c981756c: Core CI #40223801670 and Home vision smoke #40223801785 in progress at receipt time; previous exact-head 0fe05a01 Core CI #40219645334 and Home smoke #40219645335 SUCCESS. New checkpoint-receipt head requires separate CI.",
+  "ci_status": "Prior PR #399 edb39c4ca6876aa499c2261edc67274289661ef8: Core CI #40223890746 and Home smoke #40223890714 SUCCESS; next head not yet validated.",
   "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Trusted verified_instance_observations persistence/producer missing; new query correctly returns no events without it. Legacy movement_history and before_location still infer same-class movement and must be migrated safely. Inference bounded shutdown unresolved; prior process-worker publication restriction respected. Physical Mac/worktrees inaccessible.",
-  "next_action": "Verify source-head CI at c981756c and receipt-head CI; implement trusted tenant-scoped Postgres instance-association reader and controlled ingest, then migrate legacy movement query to fail-closed identity evidence with tests. No physical camera claim.",
+  "known_blocker": "Trusted persistent instance-association producer/reader, legacy class-only movement endpoint migration, and bounded inference shutdown remain unresolved. Physical Mac/worktrees inaccessible.",
+  "next_action": "Verify exact-head CI for identity evidence collision hardening; then implement tenant-scoped trusted association persistence and safely migrate class-only movement history. Do not infer physical camera acceptance.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-25T18:59:46.638Z",
-  "observed_branch_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
-  "observed_feature_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
+  "observed_at_utc": "2026-10-25T21:05:00Z",
+  "observed_branch_sha": "edb39c4ca6876aa499c2261edc67274289661ef8",
+  "observed_feature_sha": "edb39c4ca6876aa499c2261edc67274289661ef8",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "physical Mac/worktrees inaccessible; inference worker publication restriction",
-    "BLOCKER": "Trusted identity association persistence and legacy movement query migration missing.",
-    "SAFE_WORK_COMPLETED": "Published fail-closed verified instance query/auth wrapper and 15 synthetic regressions; updated PR; source-head CI pending.",
-    "REMOTE_SHA": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
-    "NEXT_ACTION": "Verify exact-head CI then persist trusted instance evidence; keep HOME writer and draft PR."
+    "BLOCKED_LAYER": "physical Mac/worktrees inaccessible; process-worker publication restriction",
+    "BLOCKER": "Trusted instance identity persistence and legacy movement query migration missing.",
+    "SAFE_WORK_COMPLETED": "Prepared tenant-unique evidence collision guard and synthetic regressions; new exact-head CI pending.",
+    "REMOTE_SHA": "edb39c4ca6876aa499c2261edc67274289661ef8",
+    "NEXT_ACTION": "Verify new exact-head CI and continue trusted persistence; keep HOME sole writer."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -174,7 +174,7 @@
     "deterministic_nms_tie_break": "Two equal-score overlap/synonym regressions added; 2 isolated synthetic assertions passed; new exact-head CI pending; tentative on-screen IDs only."
   },
   "home_instance_location": {
-    "status": "SOURCE_AND_TEST_CI_VERIFIED_NOT_INTEGRATED",
+    "status": "IDENTITY_COLLISION_GUARD_CI_PENDING",
     "source_test_head_sha": "c62817e69a0cd8921dba6f1e61088757e8893465",
     "isolated_python_version": "3.13.5",
     "isolated_synthetic_pytest_passed": 15,
@@ -183,7 +183,8 @@
     "scope": "Identity-evidenced, tenant-scoped observed-location-change derivation; never person attribution or proof of physical movement",
     "limitations": "Upstream trusted instance identification, identity provenance persistence, existing query/API gating, end-to-end capture and physical camera acceptance are not implemented",
     "exact_head_ci": "Core CI #40214471278 SUCCESS; Home vision smoke #40214471328 SUCCESS at d0eef7ff",
-    "feature_checkpoint_advanced": false
+    "feature_checkpoint_advanced": false,
+    "evidence_collision_guard": "Reject reused tenant-scoped evidence IDs across same or different instance IDs; malformed identity records rejected; tests published, CI pending."
   },
   "home_verified_location_query": {
     "status": "PUBLISHED_CI_PENDING_NOT_PERSISTED",
