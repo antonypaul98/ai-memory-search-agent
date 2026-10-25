@@ -246,6 +246,20 @@ def save_private_snapshot(cv2, frame, destination: Path) -> bool:
     return True
 
 
+def completed_scan_result(future):
+    """Return a completed inference result, or None after a detector failure.
+
+    A failed or cancelled scan must not terminate the camera preview or become
+    an observation. Never include exception text in household preview output.
+    """
+    if not future.done():
+        return None
+    try:
+        return future.result()
+    except Exception:
+        return None
+
+
 def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
              threshold: float, record_file: Path | None, labels: tuple[str, ...],
              scan_interval: float = 1.0, max_track_age: float = 4.0):
@@ -287,15 +301,19 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             previous_gray = gray
 
             if future is not None and future.done():
-                scan_at, raw = future.result()
-                # Scores are detector scores, not calibrated probabilities.
-                if scan_result_is_fresh(scan_at, now, max_age=max_track_age):
-                    boxes = [box for item in raw
-                             if (box := normalized_to_pixels(item, width, height)) is not None]
-                    tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
-                                                       scan_at, next_id,
-                                                       max_age=max_track_age)
-                    last_scan_at = scan_at
+                result = completed_scan_result(future)
+                if result is None:
+                    print("AI scan failed; retrying after interval", flush=True)
+                else:
+                    scan_at, raw = result
+                    # Scores are detector scores, not calibrated probabilities.
+                    if scan_result_is_fresh(scan_at, now, max_age=max_track_age):
+                        boxes = [box for item in raw
+                                 if (box := normalized_to_pixels(item, width, height)) is not None]
+                        tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
+                                                           scan_at, next_id,
+                                                           max_age=max_track_age)
+                        last_scan_at = scan_at
                 future = None
             if future is None and monotonic() - last_scan_requested >= scan_interval:
                 scan_at = monotonic()

@@ -304,3 +304,22 @@ def test_extra_ambiguous_detection_gets_same_new_id_after_reordering():
             5: closer.xyxy, 6: farther.xyxy
         }
         assert next_id == 7
+
+def test_completed_inference_failure_is_not_a_camera_crash_or_observation():
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    failed = Future()
+    failed.set_exception(RuntimeError("synthetic detector error"))
+    assert completed_scan_result(failed) is None
+
+    cancelled = Future()
+    assert cancelled.cancel()
+    assert completed_scan_result(cancelled) is None
+
+    unfinished = Future()
+    assert completed_scan_result(unfinished) is None
+
+    success = Future()
+    success.set_result((1.0, []))
+    assert completed_scan_result(success) == (1.0, [])
