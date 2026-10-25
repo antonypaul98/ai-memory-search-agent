@@ -11,6 +11,7 @@ No network or database access is performed here (local model assets required).
 from __future__ import annotations
 
 import argparse
+import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -199,6 +200,34 @@ def advance_with_optical_flow(cv2, np, previous_gray, gray, tracks: dict[int, Tr
         track.flow_updated = True
 
 
+def reserve_private_file(destination: Path) -> None:
+    """Reserve an explicit output without overwriting files or following links."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(destination, flags, 0o600)
+    os.close(fd)
+
+
+def save_private_snapshot(cv2, frame, destination: Path) -> bool:
+    """Save a JPG only on request, privately and without replacing existing data."""
+    directory = destination.parent
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if directory.is_symlink():
+        raise RuntimeError("Snapshot directory must not be a symlink")
+    directory.chmod(0o700)
+    ok, encoded = cv2.imencode(".jpg", frame)
+    if not ok:
+        return False
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(destination, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(encoded.tobytes())
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+    return True
+
+
 def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
              threshold: float, record_file: Path | None, labels: tuple[str, ...],
              scan_interval: float = 1.0, max_track_age: float = 4.0):
@@ -276,11 +305,18 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
                         (15, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.62,
                         (255, 255, 255), 2)
             if writer is None and record_file is not None:
-                writer = cv2.VideoWriter(str(record_file),
-                                         cv2.VideoWriter_fourcc(*"mp4v"), 20,
-                                         (width, height))
-                if not writer.isOpened():
-                    raise RuntimeError("Unable to open requested local recording file")
+                reserve_private_file(record_file)
+                try:
+                    writer = cv2.VideoWriter(str(record_file),
+                                             cv2.VideoWriter_fourcc(*"mp4v"), 20,
+                                             (width, height))
+                    if not writer.isOpened():
+                        raise RuntimeError("Unable to open requested local recording file")
+                except BaseException:
+                    if writer is not None:
+                        writer.release()
+                    record_file.unlink(missing_ok=True)
+                    raise
             if writer is not None:
                 writer.write(frame)
             cv2.imshow("Home Agent - Live Object Preview", frame)
@@ -288,10 +324,9 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             if key == ord("s"):
                 # Explicit keypress only. Store locally, not in Git, logs or cloud.
                 directory = Path.home() / "Pictures" / "HomeAgentPreview"
-                directory.mkdir(parents=True, exist_ok=True, mode=0o700)
                 destination = directory / ("home-agent-" +
                     datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + ".jpg")
-                if not cv2.imwrite(str(destination), frame):
+                if not save_private_snapshot(cv2, frame, destination):
                     print("Snapshot failed; no image saved", flush=True)
                 else:
                     print("Local annotated snapshot:", destination, flush=True)

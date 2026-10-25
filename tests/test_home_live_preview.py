@@ -200,3 +200,79 @@ def test_nonfinite_optical_flow_is_ignored_without_crashing():
     advance_with_optical_flow(StubFlow(), np, gray, gray.copy(), {1: track})
     assert track.box == before
     assert not track.flow_updated
+
+
+def test_snapshot_private_permissions_and_no_overwrite(tmp_path):
+    import os
+    import stat
+    from app.services.home_agent.live_preview import save_private_snapshot
+
+    class StubCV2:
+        @staticmethod
+        def imencode(extension, frame):
+            assert extension == ".jpg"
+            return True, SimpleNamespace(tobytes=lambda: b"synthetic-image")
+
+    directory = tmp_path / "existing"
+    directory.mkdir(mode=0o755)
+    os.chmod(directory, 0o755)
+    destination = directory / "snapshot.jpg"
+    assert save_private_snapshot(StubCV2(), None, destination)
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert destination.read_bytes() == b"synthetic-image"
+    with pytest.raises(FileExistsError):
+        save_private_snapshot(StubCV2(), None, destination)
+    assert destination.read_bytes() == b"synthetic-image"
+
+
+def test_snapshot_rejects_symlink_directory(tmp_path):
+    from app.services.home_agent.live_preview import save_private_snapshot
+
+    target = tmp_path / "target"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+
+    class StubCV2:
+        @staticmethod
+        def imencode(*args):
+            raise AssertionError("encoding must not run for symlink directory")
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        save_private_snapshot(StubCV2(), None, alias / "snapshot.jpg")
+    assert not (target / "snapshot.jpg").exists()
+
+
+def test_recording_reservation_is_private_and_never_overwrites(tmp_path):
+    import stat
+    from app.services.home_agent.live_preview import reserve_private_file
+
+    destination = tmp_path / "recording.mp4"
+    reserve_private_file(destination)
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    destination.write_bytes(b"keep-existing")
+    with pytest.raises(FileExistsError):
+        reserve_private_file(destination)
+    assert destination.read_bytes() == b"keep-existing"
+
+
+def test_recording_video_writer_keeps_reserved_file_private(tmp_path):
+    import stat
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    from app.services.home_agent.live_preview import reserve_private_file
+
+    destination = tmp_path / "recording.mp4"
+    reserve_private_file(destination)
+    writer = cv2.VideoWriter(
+        str(destination), cv2.VideoWriter_fourcc(*"mp4v"), 20, (64, 64)
+    )
+    if not writer.isOpened():
+        pytest.skip("OpenCV build has no MP4 encoder")
+    try:
+        writer.write(np.zeros((64, 64, 3), dtype=np.uint8))
+    finally:
+        writer.release()
+    assert destination.stat().st_size > 0
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
