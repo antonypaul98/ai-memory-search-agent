@@ -3,12 +3,12 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
+  "current_branch_sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "main ac912722; PR #399 head 16f617b8 with Core CI #40167632827 and Home vision smoke #40167632817 SUCCESS. New inference-failure guard commit awaits CI.",
+  "branch_remote_status": "main ac912722; Home PR #399 head 9c7e62c5; Core CI #40171121291 and Home vision smoke #40171121165 completed SUCCESS at this exact head. PR remains draft/unmerged.",
   "local_test_status": "3 isolated Future-result assertions passed on Linux Python 3.13.5; one repository regression test added but full suite not run locally; physical camera not run.",
   "pr_number": 399,
-  "ci_status": "Head 16f617b8: Core CI #40167632827 and Home vision smoke #40167632817 SUCCESS. New inference-failure guard head pending.",
+  "ci_status": "Home PR #399 head 9c7e62c5: Core CI #40171121291 SUCCESS and Home vision smoke #40171121165 SUCCESS; physical Mac camera acceptance PENDING.",
   "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
@@ -21,9 +21,9 @@
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-25T06:58:00Z",
-  "observed_branch_sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
-  "observed_feature_sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
+  "observed_at_utc": "2026-10-25T09:55:04Z",
+  "observed_branch_sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
+  "observed_feature_sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
+    "head_sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40167632827,
-      "sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
+      "id": 40171121291,
+      "sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40167632817,
-      "sha": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
+      "id": 40171121165,
+      "sha": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": null,
-    "BLOCKER": "Inference-worker publication safety restriction remains; Mac worktrees inaccessible.",
-    "SAFE_WORK_COMPLETED": "Verified exact-head deterministic association CI success at 16f617b8; added failed/cancelled/unfinished/successful inference Future regression and preview failure containment; new head CI pending.",
-    "REMOTE_SHA": "16f617b81f73aa1f724f6fc22ef35d0e99b725a4",
-    "NEXT_ACTION": "Verify new PR #399 head Core CI and Home vision smoke; do not claim bounded shutdown or physical camera acceptance."
+    "BLOCKED_LAYER": "process-isolated inference-worker publication",
+    "BLOCKER": "Previous GitHub create_blob publication safety rejection remains in effect; no bypass. Mac worktrees and physical camera inaccessible in this remote runtime.",
+    "SAFE_WORK_COMPLETED": "Read live main, PR ownership and checkpoint; verified Core CI and Home vision smoke jobs SUCCESS at exact Home PR head 9c7e62c5; reconciled previously stale CI receipt without advancing checkpoint.",
+    "REMOTE_SHA": "9c7e62c5a6903558c05d32a17f26071f3934fc17",
+    "NEXT_ACTION": "Confirm new metadata-only head CI separately, then pursue only an authorized bounded-shutdown design; do not bypass process-worker publication restriction. Keep physical Mac acceptance pending."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -160,15 +160,15 @@
     "stale_overlay_guard": "Freeze stale display at last detector sighting; stop optical flow after 1.5s; synthetic regressions added",
     "source_test_head_sha": "07ee26601905260384c9d9f2d452836a1adf3b79",
     "synthetic_test_cases_defined": 17,
-    "core_ci_run": 40167632827,
-    "home_smoke_run": 40167632817,
-    "core_ci_conclusion": "success at prior head 16f617b8; new inference-failure guard head pending",
-    "home_smoke_conclusion": "success at prior head 16f617b8; new inference-failure guard head pending",
-    "scan_freshness": "7 parameterized regression cases published; reject delayed asynchronous inference results; exact-head CI pending.",
+    "core_ci_run": 40171121291,
+    "home_smoke_run": 40171121165,
+    "core_ci_conclusion": "success at exact source head 9c7e62c5; metadata-only receipt commit requires its own CI",
+    "home_smoke_conclusion": "success at exact source head 9c7e62c5; metadata-only receipt commit requires its own CI",
+    "scan_freshness": "7 parameterized regression cases published; reject delayed asynchronous inference results; exact-head Core CI #40171121291 SUCCESS.",
     "inference_isolation": "unpublished recovery bundle; 3 synthetic tests passed on Linux Python 3.13.5; connector safety blocked worker blob; no integration/physical acceptance",
     "defensive_guards": "Malformed coordinate and nonfinite optical-flow guards passed exact-head CI at 7a95f30f.",
     "privacy_hardening": "Explicit snapshots: private 0700 directory, exclusive 0600 encoded file; explicit MP4: exclusive 0600 reservation, no overwrite. Four new synthetic tests; new-head CI pending; Mac untested.",
     "deterministic_tentative_association": "Two regression tests added for detector-order invariance; exact-head Core CI and Home vision smoke SUCCESS at 16f617b8; not persistent physical identity.",
-    "inference_failure_guard": "Failed/cancelled/unfinished Future results ignored; no exception text disclosed; 3 isolated synthetic assertions passed, repository regression added; new-head CI pending; no bounded worker shutdown."
+    "inference_failure_guard": "Failed/cancelled/unfinished Future results ignored; no exception text disclosed; 3 isolated synthetic assertions passed; repository regression included in exact-head Core CI #40171121291 SUCCESS; no bounded worker shutdown."
   }
 }
