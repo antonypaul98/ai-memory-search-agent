@@ -255,9 +255,21 @@ def completed_scan_result(future):
     if not future.done():
         return None
     try:
-        return future.result()
+        result = future.result()
     except Exception:
         return None
+    # A successful Future is not proof that its payload is a usable scan.
+    # The local detector returns (monotonic_timestamp, list[DetectedObject]).
+    # Reject malformed results before the preview unpacks or iterates them.
+    if not isinstance(result, tuple) or len(result) != 2:
+        return None
+    scan_at, raw = result
+    if (isinstance(scan_at, bool) or not isinstance(scan_at, (int, float))
+            or not isfinite(scan_at)):
+        return None
+    if not isinstance(raw, (list, tuple)) or len(raw) > 100:
+        return None
+    return result
 
 
 def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,

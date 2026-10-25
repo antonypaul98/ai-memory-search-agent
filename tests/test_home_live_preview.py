@@ -323,3 +323,29 @@ def test_completed_inference_failure_is_not_a_camera_crash_or_observation():
     success = Future()
     success.set_result((1.0, []))
     assert completed_scan_result(success) == (1.0, [])
+
+
+@pytest.mark.parametrize("payload", [
+    None, 42, (1.0,), (1.0, [], "extra"), (1.0, None), (1.0, 4),
+    (1.0, iter(())), (float("nan"), []), (float("inf"), []),
+    ("not-time", []), (True, []), (1.0, [None] * 101),
+])
+def test_completed_inference_rejects_malformed_success_payload(payload):
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    future = Future()
+    future.set_result(payload)
+    assert completed_scan_result(future) is None
+
+
+@pytest.mark.parametrize("payload", [
+    (1.0, []), (1, ()), (1.0, [None] * 100),
+])
+def test_completed_inference_accepts_valid_payload_shape(payload):
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    future = Future()
+    future.set_result(payload)
+    assert completed_scan_result(future) == payload
