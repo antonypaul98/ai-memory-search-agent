@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
+  "current_branch_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 at d0eef7ff; identity-evidence source/tests published; exact-head CI #40214471278 and Home vision smoke #40214471328 SUCCESS. No merge, no physical camera acceptance.",
-  "local_test_status": "15/15 isolated Linux Python 3.13.5 synthetic cases previously reported; exact-head GitHub Python 3.11 pytest job SUCCESS at d0eef7ff; Home trained-vision/PostgreSQL smoke SUCCESS at d0eef7ff; physical Mac camera NOT RUN.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft at c981756cb1f3355ccc22a4db83f7123ba3efc62a; verified-instance query/auth wrapper and 15 synthetic regression cases published. Source-head CI #40223801670 and Home smoke #40223801785 in progress at time of receipt; previous receipt-head 0fe05a01 exact CI success. No merge, no physical camera acceptance.",
+  "local_test_status": "15 new synthetic regression cases published but not executed locally; GitHub CI running at source head c981756c. Prior 15 identity-module tests accepted at d0eef7ff. Physical Mac camera NOT RUN.",
   "pr_number": 399,
-  "ci_status": "PR #399 head d0eef7ff: Core CI #40214471278 and Home vision smoke #40214471328 SUCCESS, both completed. This checkpoint-receipt commit will create a new head requiring separate CI.",
+  "ci_status": "PR #399 c981756c: Core CI #40223801670 and Home vision smoke #40223801785 in progress at receipt time; previous exact-head 0fe05a01 Core CI #40219645334 and Home smoke #40219645335 SUCCESS. New checkpoint-receipt head requires separate CI.",
   "merge_status": "JARVIS #396 MERGED AND MAIN PYTEST VERIFIED; HOME #399 DRAFT OPEN, NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Identity-evidence module CI verified but not integrated with tenant-scoped persisted sightings or legacy movement_history, which can falsely infer same-class movement. No trusted instance-ID producer. Inference bounded shutdown unresolved; prior process-worker publication restriction respected. Physical Mac/worktrees inaccessible.",
-  "next_action": "Preserve HOME writer; after receipt-head CI, integrate identity-evidence gating into persisted movement history with fail-closed same-class ambiguity tests, then review/merge only after safety and physical gate separation. No physical camera claim.",
+  "known_blocker": "Trusted verified_instance_observations persistence/producer missing; new query correctly returns no events without it. Legacy movement_history and before_location still infer same-class movement and must be migrated safely. Inference bounded shutdown unresolved; prior process-worker publication restriction respected. Physical Mac/worktrees inaccessible.",
+  "next_action": "Verify source-head CI at c981756c and receipt-head CI; implement trusted tenant-scoped Postgres instance-association reader and controlled ingest, then migrate legacy movement query to fail-closed identity evidence with tests. No physical camera claim.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-25T18:06:09.591Z",
-  "observed_branch_sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
-  "observed_feature_sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
+  "observed_at_utc": "2026-10-25T18:59:46.638Z",
+  "observed_branch_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
+  "observed_feature_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,17 +34,17 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
+    "head_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40214471278,
-      "sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
+      "id": 40223801670,
+      "sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
       "event": "pull_request",
-      "status": "completed",
-      "conclusion": "success"
+      "status": "in_progress",
+      "conclusion": null
     },
     "merged_main_run": {
       "id": 39686909450,
@@ -54,20 +54,20 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40214471328,
-      "sha": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
+      "id": 40223801785,
+      "sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
       "event": "pull_request",
-      "status": "completed",
-      "conclusion": "success"
+      "status": "in_progress",
+      "conclusion": null
     }
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "physical Mac and worktrees unavailable; bounded inference worker publication restricted",
-    "BLOCKER": "Identity-evidence producer and persistence/query integration missing; legacy movement_history can misattribute identical objects.",
-    "SAFE_WORK_COMPLETED": "Verified both exact-head CI jobs and steps for d0eef7ff; reconciled CI receipt without advancing feature acceptance.",
-    "REMOTE_SHA": "d0eef7ff57ac7c548afa8a527f12332de0f5b28c",
-    "NEXT_ACTION": "Integrate evidence-gated observed location changes into tenant-scoped persistence/query; fail closed for unknown identity."
+    "BLOCKED_LAYER": "physical Mac/worktrees inaccessible; inference worker publication restriction",
+    "BLOCKER": "Trusted identity association persistence and legacy movement query migration missing.",
+    "SAFE_WORK_COMPLETED": "Published fail-closed verified instance query/auth wrapper and 15 synthetic regressions; updated PR; source-head CI pending.",
+    "REMOTE_SHA": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
+    "NEXT_ACTION": "Verify exact-head CI then persist trusted instance evidence; keep HOME writer and draft PR."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -184,5 +184,18 @@
     "limitations": "Upstream trusted instance identification, identity provenance persistence, existing query/API gating, end-to-end capture and physical camera acceptance are not implemented",
     "exact_head_ci": "Core CI #40214471278 SUCCESS; Home vision smoke #40214471328 SUCCESS at d0eef7ff",
     "feature_checkpoint_advanced": false
+  },
+  "home_verified_location_query": {
+    "status": "PUBLISHED_CI_PENDING_NOT_PERSISTED",
+    "source_head_sha": "c981756cb1f3355ccc22a4db83f7123ba3efc62a",
+    "source": "app/services/home_agent/query_service.py",
+    "authenticated_wrapper": "app/services/home_agent/authenticated_query.py",
+    "tests": "tests/test_home_verified_location_query.py",
+    "synthetic_regression_cases_defined": 15,
+    "local_tests_executed": false,
+    "core_ci_run": 40223801670,
+    "home_smoke_run": 40223801785,
+    "scope": "Tenant-bound fail-closed verified instance location query; no class-only inference",
+    "blockers": "Trusted Postgres verified instance observation reader, association producer, legacy movement endpoint migration, hardware acceptance"
   }
 }
