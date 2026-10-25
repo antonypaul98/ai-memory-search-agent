@@ -111,7 +111,11 @@ def _association_label(label: str) -> str:
 def suppress_duplicates(detections: Iterable[PreviewBox]) -> list[PreviewBox]:
     """Conservative screen-space NMS; does not imply physical identity."""
     kept: list[PreviewBox] = []
-    for candidate in sorted(detections, key=lambda box: -box.score):
+    # Equal-confidence overlapping boxes must have the same winner even if
+    # the detector returns them in a different order.
+    for candidate in sorted(detections, key=lambda box: (
+        -box.score, _association_label(box.label), box.xyxy, box.label
+    )):
         if any(_iou(candidate.xyxy, prior.xyxy) >= (
             0.65 if _association_label(candidate.label) == _association_label(prior.label) else 0.85
         ) for prior in kept):

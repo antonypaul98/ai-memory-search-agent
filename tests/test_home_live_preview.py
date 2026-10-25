@@ -103,6 +103,20 @@ def test_duplicate_boxes_suppressed_without_deleting_distinct_objects():
     assert suppress_duplicates(detections) == [detections[0], detections[2]]
 
 
+def test_equal_score_overlapping_detections_choose_same_box_in_any_order():
+    first = PreviewBox("cup", 0.8, (10, 10, 60, 60))
+    second = PreviewBox("cup", 0.8, (11, 11, 61, 61))
+    assert suppress_duplicates([first, second]) == [first]
+    assert suppress_duplicates([second, first]) == [first]
+
+
+def test_equal_score_synonym_duplicates_choose_same_label_in_any_order():
+    specific = PreviewBox("water bottle", 0.8, (10, 10, 60, 60))
+    generic = PreviewBox("bottle", 0.8, (10, 10, 60, 60))
+    assert suppress_duplicates([specific, generic]) == [generic]
+    assert suppress_duplicates([generic, specific]) == [generic]
+
+
 def test_cross_label_same_box_suppressed_but_nested_box_retained():
     detections = [
         PreviewBox("water bottle", 0.8, (10, 10, 50, 90)),
