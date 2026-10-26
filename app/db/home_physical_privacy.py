@@ -56,6 +56,18 @@ def delete_user_home_physical_data(
     """Atomically erase exactly one tenant's Home physical-memory rows and image bytes."""
     user_id = _required_user_id(user_id)
     with connection_factory() as conn:
+        # Explicitly remove tenant identity links and source grants, including
+        # grants that have no sightings. The grant table has no sighting FK.
+        association_count = _delete_count(
+            conn,
+            "DELETE FROM home_verified_instance_associations WHERE user_id = %s",
+            user_id,
+        )
+        consent_count = _delete_count(
+            conn,
+            "DELETE FROM home_instance_identity_consents WHERE user_id = %s",
+            user_id,
+        )
         observation_count = _delete_count(
             conn,
             "DELETE FROM home_image_observations WHERE user_id = %s",
@@ -77,6 +89,8 @@ def delete_user_home_physical_data(
             user_id,
         )
     return {
+        "verified_instance_associations": association_count,
+        "instance_identity_consents": consent_count,
         "image_observations": observation_count,
         "image_evidence": evidence_count,
         "physical_objects": object_count,
