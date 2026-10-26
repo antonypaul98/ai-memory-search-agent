@@ -8,15 +8,18 @@ from app.services.home_agent.instance_location import (
 )
 
 BASE = datetime(2026, 10, 25, 12, 0, tzinfo=timezone.utc)
+_AUTO_ASSOCIATION = object()
 
 
 def seen(instance, location, seconds, *, tenant="house-a", confidence=0.98,
-         association="identity-proof", obj="keys", evidence=None):
+         association=_AUTO_ASSOCIATION, obj="keys", evidence=None):
     return InstanceObservation(
         user_id=tenant, object_class=obj, location=location,
         observed_at=BASE + timedelta(seconds=seconds), source_id="camera-consented",
         evidence_id=evidence or f"frame-{instance}-{seconds}",
-        instance_id=instance, identity_evidence_id=association,
+        instance_id=instance,
+        identity_evidence_id=(f"proof-{tenant}-{instance}-{seconds}"
+                              if association is _AUTO_ASSOCIATION else association),
         identity_confidence=confidence,
     )
 
@@ -111,6 +114,17 @@ def test_reused_identity_proof_for_two_instances_invalidates_both_chains():
         seen("keys-1", "desk", 0, association="shared-proof"),
         seen("keys-2", "hallway", 10, association="shared-proof"),
         seen("keys-1", "kitchen", 30, association="unique-proof"),
+    ]
+    assert derive(rows) == []
+    assert derive(list(reversed(rows))) == []
+
+
+def test_replayed_identity_proof_for_same_instance_is_not_new_evidence():
+    # One proof cannot authenticate two different sightings, even when the
+    # verifier labels both as the same instance. Order must not matter.
+    rows = [
+        seen("keys-1", "desk", 0, association="replayed-proof"),
+        seen("keys-1", "kitchen", 30, association="replayed-proof"),
     ]
     assert derive(rows) == []
     assert derive(list(reversed(rows))) == []

@@ -88,7 +88,10 @@ def derive_observed_location_changes(
     # A single verifier proof cannot independently establish the identities of
     # two different physical instances within one tenant. Treat collisions as
     # ambiguous even when their sighting IDs are otherwise unique.
-    proof_instance: dict[str, str] = {}
+    # Proof IDs are single-use per sighting, even when the claimed instance
+    # is the same. Replaying one proof for a later sighting is not independent
+    # evidence of continuity.
+    proof_claim: dict[str, tuple[str, str]] = {}
     ambiguous_identity_proofs: set[str] = set()
     for observation in observations:
         if not isinstance(observation, InstanceObservation):
@@ -97,10 +100,9 @@ def derive_observed_location_changes(
             continue
         scoped.append(observation)
         if observation.identity_evidence_id and observation.instance_id:
-            prior_instance = proof_instance.setdefault(
-                observation.identity_evidence_id, observation.instance_id,
-            )
-            if prior_instance != observation.instance_id:
+            claim = (observation.instance_id, observation.evidence_id)
+            prior_claim = proof_claim.setdefault(observation.identity_evidence_id, claim)
+            if prior_claim != claim:
                 ambiguous_identity_proofs.add(observation.identity_evidence_id)
         if observation.evidence_id in seen_evidence:
             ambiguous_evidence.add(observation.evidence_id)
