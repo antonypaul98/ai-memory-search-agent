@@ -6,9 +6,10 @@ It never verifies an object, accepts an instance ID, or starts a camera.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.api.auth import get_current_user
 from app.api.dependencies import _get_home_agent_physical_memory_store
@@ -24,13 +25,16 @@ class _StrictRequest(BaseModel):
         extra = "forbid"
 
 
+SourceId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
 class IdentityConsentGrantRequest(_StrictRequest):
-    source_id: str = Field(min_length=1, max_length=200)
-    ttl_seconds: int = Field(default=300, ge=1, le=3600)
+    source_id: SourceId
+    ttl_seconds: int = Field(default=300, ge=1, le=3600, strict=True)
 
 
 class IdentityConsentRevokeRequest(_StrictRequest):
-    source_id: str = Field(min_length=1, max_length=200)
+    source_id: SourceId
 
 
 class IdentityConsentGrantResponse(BaseModel):
