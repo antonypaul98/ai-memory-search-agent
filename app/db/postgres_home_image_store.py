@@ -240,6 +240,36 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                   proof.identity_evidence_id, proof.identity_confidence)).fetchone()
             return inserted is not None
 
+    def grant_instance_identity_consent(
+        self, *, user_id: str, source_id: str, ttl_seconds: int = 300,
+    ) -> datetime:
+        """Issue a time-bounded, tenant-scoped server grant after caller auth.
+
+        Only an authenticated server route may invoke this method. The database
+        computes grant/expiry times; clients cannot backdate or extend them.
+        Re-grant after explicit revocation never restores erased associations.
+        """
+        user_id = _required("user_id", user_id)
+        source_id = _required("source_id", source_id)
+        if isinstance(ttl_seconds, bool) or not isinstance(ttl_seconds, int) or not 1 <= ttl_seconds <= 3600:
+            raise ValueError("ttl_seconds must be between 1 and 3600")
+        with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
+            # The PK upsert serializes concurrent grant/revoke transactions.
+            # Do not derive consent from a capture session or client timestamp.
+            row = conn.execute("""
+                INSERT INTO home_instance_identity_consents
+                    (user_id, source_id, granted_at, expires_at, revoked_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP,
+                        CURRENT_TIMESTAMP + (%s * INTERVAL '1 second'), NULL)
+                ON CONFLICT (user_id, source_id) DO UPDATE
+                SET granted_at = EXCLUDED.granted_at,
+                    expires_at = EXCLUDED.expires_at,
+                    revoked_at = NULL
+                RETURNING expires_at
+            """, (user_id, source_id, ttl_seconds)).fetchone()
+            return row["expires_at"]
+
     def revoke_instance_identity_consent(self, *, user_id: str, source_id: str) -> int:
         """Revoke a source grant and erase its identity links atomically.
 
