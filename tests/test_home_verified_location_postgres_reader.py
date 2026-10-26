@@ -44,7 +44,8 @@ def sighting(instance, location, seconds, *, tenant="house-a", confidence=0.99):
         "user_id": tenant, "object_name": "keys", "location": location,
         "observed_at": (BASE + timedelta(seconds=seconds)).isoformat(),
         "source_id": "consented-camera", "evidence_id": f"frame-{instance}-{seconds}",
-        "instance_id": instance, "identity_evidence_id": "verified-match",
+        "instance_id": instance,
+        "identity_evidence_id": f"verified-match-{tenant}-{instance}-{seconds}",
         "identity_confidence": confidence,
     }
 
