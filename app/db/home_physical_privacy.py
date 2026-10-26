@@ -40,7 +40,28 @@ def export_user_home_physical_data(
                ORDER BY observation_id""",
             (user_id,),
         ).fetchall()
+        # Optional tables are absent in older deployments. Export only
+        # tenant-scoped metadata, never raw retained image bytes.
+        associations = (
+            conn.execute("""
+                SELECT observation_id, instance_id, identity_evidence_id,
+                       identity_confidence
+                FROM home_verified_instance_associations
+                WHERE user_id = %s ORDER BY observation_id
+            """, (user_id,)).fetchall()
+            if table_exists(conn, "home_verified_instance_associations") else []
+        )
+        consents = (
+            conn.execute("""
+                SELECT source_id, granted_at, expires_at, revoked_at
+                FROM home_instance_identity_consents
+                WHERE user_id = %s ORDER BY source_id
+            """, (user_id,)).fetchall()
+            if table_exists(conn, "home_instance_identity_consents") else []
+        )
     return {
+        "verified_instance_associations": [dict(row) for row in associations],
+        "instance_identity_consents": [dict(row) for row in consents],
         "sightings": [dict(row) for row in sightings],
         "image_evidence": [dict(row) for row in evidence],
         "physical_objects": [dict(row) for row in objects],
