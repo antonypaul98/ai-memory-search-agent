@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 
 from app.config import Settings
-from app.db.home_physical_privacy import delete_user_home_physical_data
+from app.db.home_physical_privacy import delete_user_home_physical_data, export_user_home_physical_data
 from app.db.postgres_home_image_store import PostgresHomeImageStore
 from app.db.postgres_runtime import get_postgres_connection_factory
 from app.services.home_agent.image_ingest import ImageObservationBatch, DetectedObject, canonical_id
@@ -77,6 +77,13 @@ def test_home_physical_erasure_is_exact_tenant_and_removes_retained_bytes(monkey
                     VALUES (%s, %s, %s, %s, %s)
                 """, (user_id, observations[user_id], f"keys-{user_id}",
                       f"identity-proof-{user_id}", 0.97))
+
+        for user_id in users:
+            exported = export_user_home_physical_data(factory, user_id=user_id)
+            assert len(exported["verified_instance_associations"]) == 1
+            assert len(exported["instance_identity_consents"]) == 1
+            assert "image_bytes" not in exported["image_evidence"][0]
+            assert exported["verified_instance_associations"][0]["identity_evidence_id"] == f"identity-proof-{user_id}"
 
         assert store.get_image(user_id=users[0], frame_id=frames[users[0]]) == retained[users[0]]
         assert store.get_image(user_id=users[1], frame_id=frames[users[1]]) == retained[users[1]]
