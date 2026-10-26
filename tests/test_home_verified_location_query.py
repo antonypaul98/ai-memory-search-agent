@@ -9,15 +9,18 @@ from app.services.home_agent.instance_location import InstanceObservation
 from app.services.home_agent.query_service import HomeAgentQueryService
 
 NOW = datetime(2026, 10, 25, 18, 0, tzinfo=timezone.utc)
+_AUTO_PROOF = object()
 
 
 def sighting(instance_id, location, seconds, *, tenant="house-a", obj="keys",
-             proof="verified-match", confidence=0.99):
+             proof=_AUTO_PROOF, confidence=0.99):
     return InstanceObservation(
         user_id=tenant, object_class=obj, location=location,
         observed_at=NOW + timedelta(seconds=seconds),
         source_id="consented-camera", evidence_id=f"frame-{instance_id}-{seconds}",
-        instance_id=instance_id, identity_evidence_id=proof,
+        instance_id=instance_id,
+        identity_evidence_id=(f"proof-{tenant}-{instance_id}-{seconds}"
+                              if proof is _AUTO_PROOF else proof),
         identity_confidence=confidence,
     )
 
