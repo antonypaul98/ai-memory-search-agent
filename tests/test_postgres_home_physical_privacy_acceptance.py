@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -61,22 +61,48 @@ def test_home_physical_erasure_is_exact_tenant_and_removes_retained_bytes(monkey
                 "observation", frame_id, detection.object_class, "[0.1, 0.2, 0.4, 0.6]"
             )
 
+        # Seed optional identity records directly to prove erasure, without
+        # claiming a real verifier or camera acceptance.
+        with factory() as conn:
+            for user_id in users:
+                conn.execute("""
+                    INSERT INTO home_instance_identity_consents
+                        (user_id, source_id, granted_at, expires_at)
+                    VALUES (%s, %s, %s, %s)
+                """, (user_id, "camera-1", observed_at, observed_at + timedelta(days=100)))
+                conn.execute("""
+                    INSERT INTO home_verified_instance_associations
+                        (user_id, observation_id, instance_id,
+                         identity_evidence_id, identity_confidence)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (user_id, observations[user_id], f"keys-{user_id}",
+                      f"identity-proof-{user_id}", 0.97))
+
         assert store.get_image(user_id=users[0], frame_id=frames[users[0]]) == retained[users[0]]
         assert store.get_image(user_id=users[1], frame_id=frames[users[1]]) == retained[users[1]]
 
         assert delete_user_home_physical_data(factory, user_id=users[0]) == {
+            "verified_instance_associations": 1, "instance_identity_consents": 1,
             "image_observations": 1, "image_evidence": 1,
             "physical_objects": 1, "sightings": 1,
         }
         assert store.get_image(user_id=users[0], frame_id=frames[users[0]]) is None
         assert store.describe_observation(user_id=users[0], observation_id=observations[users[0]]) is None
 
+        # Neighbor evidence, identity grant, canonical relation, and bytes survive.
+        with factory() as conn:
+            for table in ("home_instance_identity_consents", "home_verified_instance_associations"):
+                assert conn.execute(f"SELECT COUNT(*) AS n FROM {table} WHERE user_id=%s",
+                                    (users[0],)).fetchone()["n"] == 0
+                assert conn.execute(f"SELECT COUNT(*) AS n FROM {table} WHERE user_id=%s",
+                                    (users[1],)).fetchone()["n"] == 1
         # Neighbor evidence, canonical relation, and exact retained bytes survive unchanged.
         assert store.get_image(user_id=users[1], frame_id=frames[users[1]]) == retained[users[1]]
         assert store.describe_observation(user_id=users[1], observation_id=observations[users[1]]) is not None
 
         # Repeated erasure is idempotent and cannot spill into the neighboring tenant.
         assert delete_user_home_physical_data(factory, user_id=users[0]) == {
+            "verified_instance_associations": 0, "instance_identity_consents": 0,
             "image_observations": 0, "image_evidence": 0,
             "physical_objects": 0, "sightings": 0,
         }
