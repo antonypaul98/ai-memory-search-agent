@@ -85,13 +85,35 @@ def test_no_ambient_cookie_or_disabled_auth_consent(test_settings, bearer, enabl
     {"source_id": "camera-a", "instance_id": "keys-1"},
     {"source_id": "camera-a", "ttl_seconds": 3601},
     {"source_id": "camera-a", "ttl_seconds": 0},
+    {"source_id": "camera-a", "ttl_seconds": True},
+    {"source_id": "camera-a", "ttl_seconds": 1.5},
     {"source_id": ""},
+    {"source_id": "   "},
 ])
 def test_grant_rejects_tenant_identity_spoof_and_invalid_bounds(test_settings, body):
     store = ConsentStore()
     response = _post(test_settings, store, "identity-consent/grant", body)
     assert response.status_code == 422
     assert store.grants == []
+
+
+def test_grant_normalizes_source_without_client_controlled_tenant(test_settings):
+    store = ConsentStore()
+    response = _post(test_settings, store, "identity-consent/grant",
+                     {"source_id": " camera-a "})
+    assert response.status_code == 200
+    assert response.json()["source_id"] == "camera-a"
+    assert store.grants == [{
+        "user_id": "house-a", "source_id": "camera-a", "ttl_seconds": 300,
+    }]
+
+
+def test_revoke_rejects_client_selected_tenant(test_settings):
+    store = ConsentStore()
+    response = _post(test_settings, store, "identity-consent/revoke",
+                     {"source_id": "camera-a", "user_id": "house-b"})
+    assert response.status_code == 422
+    assert store.revokes == []
 
 
 class Cursor:
