@@ -60,12 +60,14 @@ def test_export_is_exact_tenant_and_excludes_raw_image_bytes():
 
 def test_delete_is_exact_tenant_and_orders_fk_dependents_first():
     statements = []
-    results = [FakeResult(rowcount=n) for n in (2, 1, 1, 3)]
+    results = [FakeResult(rowcount=n) for n in (1, 1, 2, 1, 1, 3)]
     deleted = delete_user_home_physical_data(
         lambda: FakeConnection(statements, results), user_id="tenant-a"
     )
 
     assert deleted == {
+        "verified_instance_associations": 1,
+        "instance_identity_consents": 1,
         "image_observations": 2,
         "image_evidence": 1,
         "physical_objects": 1,
@@ -73,6 +75,8 @@ def test_delete_is_exact_tenant_and_orders_fk_dependents_first():
     }
     assert all(params == ("tenant-a",) for _, params in statements)
     assert [sql.split()[2] for sql, _ in statements] == [
+        "home_verified_instance_associations",
+        "home_instance_identity_consents",
         "home_image_observations",
         "home_image_evidence",
         "home_physical_objects",
@@ -97,7 +101,7 @@ def test_failure_escapes_connection_context_for_transaction_rollback():
         delete_user_home_physical_data(
             lambda: FailingConnection(statements, []), user_id="tenant-a"
         )
-    assert len(statements) == 2
+    assert len(statements) == 4
 
 
 @pytest.mark.parametrize("operation", [export_user_home_physical_data, delete_user_home_physical_data])
