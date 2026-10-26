@@ -457,9 +457,8 @@ def main(argv=None):
     run_demo_supervised(max_seconds=args.max_seconds,
                         startup_grace_seconds=args.startup_grace_seconds,
                         camera_index=args.camera_index, model_path=args.model_path,
-             max_seconds=args.max_seconds, threshold=args.threshold,
-             record_file=args.record_file, labels=tuple(args.labels),
-             scan_interval=args.scan_interval)
+                        threshold=args.threshold, record_file=args.record_file,
+                        labels=tuple(args.labels), scan_interval=args.scan_interval)
 
 
 if __name__ == "__main__":
