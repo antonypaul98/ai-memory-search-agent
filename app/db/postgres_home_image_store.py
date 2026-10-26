@@ -13,6 +13,9 @@ from hashlib import sha256
 from math import isfinite
 
 from app.services.home_agent.instance_location import InstanceObservation
+from app.services.home_agent.verified_identity_ingest import (
+    MIN_IDENTITY_CONFIDENCE, VerifiedInstanceProof,
+)
 
 from app.db.postgres_home_physical_memory_store import PostgresHomePhysicalMemoryStore, _required
 from app.services.home_agent.image_ingest import ImageObservationBatch, canonical_id
@@ -72,6 +75,13 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_home_verified_instance_associations_tenant
                 ON home_verified_instance_associations(user_id, instance_id)
+            """)
+
+            # A verifier proof is evidence for one sighting, not a reusable
+            # physical-instance label. Enforce this across concurrent writers.
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_home_verified_identity_proof_unique
+                ON home_verified_instance_associations(user_id, identity_evidence_id)
             """)
 
     def store_image_batch(self, batch: ImageObservationBatch) -> dict:
@@ -157,6 +167,51 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                 AND NOT EXISTS (SELECT 1 FROM home_image_observations o
                     WHERE o.user_id=p.user_id AND o.object_id=p.object_id)""", (user_id,))
             return True
+
+    def store_verified_instance_association(self, *, proof: VerifiedInstanceProof) -> bool:
+        """Persist one independently verified, consent-gated sighting association.
+
+        Internal-only storage boundary. The caller must be the trusted
+        VerifiedInstanceIngestService; this method cannot itself verify physical
+        identity or issue/revoke consent. A proof ID is single-use per tenant,
+        even when two observations claim the same instance.
+        """
+        if not isinstance(proof, VerifiedInstanceProof):
+            raise TypeError("trusted verified instance proof required")
+        if proof.identity_evidence_id == proof.observation_id:
+            raise ValueError("identity evidence must be independent of the sighting")
+        if proof.identity_confidence < MIN_IDENTITY_CONFIDENCE:
+            return False
+        with self._connect() as conn:
+            # Shared erasure lock is held through transaction commit.
+            require_active_tenant(conn, user_id=proof.user_id)
+            # Lock the exact tenant-owned source sighting against deletion.
+            # Only retained image observations are eligible for this writer.
+            sighting = conn.execute("""
+                SELECT s.source_id, e.source_id AS frame_source_id
+                FROM home_object_sightings s
+                JOIN home_image_observations i
+                  ON i.user_id = s.user_id AND i.observation_id = s.evidence_id
+                JOIN home_image_evidence e
+                  ON e.user_id = i.user_id AND e.frame_id = i.frame_id
+                WHERE s.user_id = %s AND s.evidence_id = %s
+                FOR UPDATE OF s
+            """, (proof.user_id, proof.observation_id)).fetchone()
+            if (sighting is None or sighting["source_id"] != proof.source_id
+                    or sighting["frame_source_id"] != proof.source_id):
+                return False
+            # Unique tenant/proof constraint and tenant/observation PK enforce
+            # single-use provenance and idempotence under concurrent writes.
+            inserted = conn.execute("""
+                INSERT INTO home_verified_instance_associations
+                    (user_id, observation_id, instance_id,
+                     identity_evidence_id, identity_confidence)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                RETURNING observation_id
+            """, (proof.user_id, proof.observation_id, proof.instance_id,
+                  proof.identity_evidence_id, proof.identity_confidence)).fetchone()
+            return inserted is not None
 
     def verified_instance_observations(
         self, *, user_id: str, object_name: str,
