@@ -39,3 +39,5 @@ jobs:
         env:
           MEMORY_AGENT_TEST_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/home_vision_test
         run: python scripts/home_vision_smoke.py
+      - name: Offline visual-candidate regressions (Python 3.11, OpenCV)
+        run: python -m pytest -q tests/test_home_visual_instance_candidate.py

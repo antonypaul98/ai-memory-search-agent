@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, timezone
-import cv2
-import numpy as np
 import pytest
+
+# Core CI intentionally omits optional local vision dependencies; the Home
+# vision smoke job installs OpenCV and executes this module without skipping.
+cv2 = pytest.importorskip("cv2", reason="OpenCV is an optional Home Vision dependency")
+np = pytest.importorskip("numpy", reason="NumPy is an optional Home Vision dependency")
 from app.services.home_agent.visual_instance_candidate import VisualSighting, tentative_visual_candidate
 
 NOW = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
