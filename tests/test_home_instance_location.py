@@ -130,6 +130,27 @@ def test_replayed_identity_proof_for_same_instance_is_not_new_evidence():
     assert derive(list(reversed(rows))) == []
 
 
+def test_unknown_instance_replaying_proof_breaks_known_identity_chain():
+    # An unverified/unknown object must not be able to reuse a proof that
+    # otherwise authenticates a different sighting of a known instance.
+    rows = [
+        seen("keys-1", "desk", 0, association="shared-proof"),
+        seen(None, "hallway", 10, association="shared-proof"),
+        seen("keys-1", "kitchen", 30, association="unique-proof"),
+    ]
+    assert derive(rows) == []
+    assert derive(list(reversed(rows))) == []
+
+
+def test_unknown_instance_proof_collision_in_another_tenant_is_isolated():
+    rows = [
+        seen("keys-1", "desk", 0, association="shared-proof"),
+        seen(None, "hallway", 10, tenant="house-b", association="shared-proof"),
+        seen("keys-1", "kitchen", 30, association="unique-proof"),
+    ]
+    assert len(derive(rows)) == 1
+
+
 def test_identity_proof_ids_are_scoped_to_tenant_not_globally_unique():
     rows = [
         seen("keys-1", "desk", 0, association="shared-proof"),

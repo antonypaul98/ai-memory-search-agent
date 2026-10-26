@@ -99,7 +99,10 @@ def derive_observed_location_changes(
         if observation.user_id != user_id:
             continue
         scoped.append(observation)
-        if observation.identity_evidence_id and observation.instance_id:
+        # Even an unidentified sighting can replay a verifier proof. Include
+        # unknown-instance claims so they cannot launder an otherwise trusted
+        # location chain; scope collisions to this tenant only.
+        if observation.identity_evidence_id:
             claim = (observation.instance_id, observation.evidence_id)
             prior_claim = proof_claim.setdefault(observation.identity_evidence_id, claim)
             if prior_claim != claim:
