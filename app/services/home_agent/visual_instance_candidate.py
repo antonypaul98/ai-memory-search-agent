@@ -46,15 +46,16 @@ class TentativeVisualMatch:
 def _gray_uint8(crop: Any, cv2, np):
     if not isinstance(crop, np.ndarray) or crop.dtype != np.uint8:
         return None
+    if crop.ndim not in (2, 3):
+        return None
+    height, width = crop.shape[:2]
+    if not (64 <= height <= 2048 and 64 <= width <= 2048):
+        return None
     if crop.ndim == 2:
         gray = crop
-    elif crop.ndim == 3 and crop.shape[2] == 3:
+    elif crop.shape[2] == 3:
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     else:
-        return None
-    if gray.shape[0] < 64 or gray.shape[1] < 64:
-        return None
-    if gray.shape[0] > 2048 or gray.shape[1] > 2048:
         return None
     if not gray.flags.c_contiguous:
         gray = np.ascontiguousarray(gray)

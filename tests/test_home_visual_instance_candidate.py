@@ -83,3 +83,17 @@ def test_future_reference_and_invalid_timestamps_rejected():
     assert tentative_visual_candidate(sighting('new', image), [sighting('future', image, seconds=10)]) is None
     with pytest.raises(ValueError):
         VisualSighting('A', 'cam1', 'old', datetime(2026, 10, 26), 'mug', image)
+
+
+@pytest.mark.parametrize("shape", [
+    (0, 100, 3), (100, 0, 3), (63, 256, 3), (256, 63, 3), (2050, 128, 3),
+])
+def test_malformed_bgr_crops_fail_closed_in_query_and_reference(shape):
+    image = pattern(3)
+    malformed = np.zeros(shape, dtype=np.uint8)
+    assert tentative_visual_candidate(
+        sighting('new', malformed, seconds=10), [sighting('old', image)]
+    ) is None
+    assert tentative_visual_candidate(
+        sighting('new', image, seconds=10), [sighting('old', malformed)]
+    ) is None
