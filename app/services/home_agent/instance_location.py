@@ -85,12 +85,23 @@ def derive_observed_location_changes(
     scoped: list[InstanceObservation] = []
     seen_evidence: set[str] = set()
     ambiguous_evidence: set[str] = set()
+    # A single verifier proof cannot independently establish the identities of
+    # two different physical instances within one tenant. Treat collisions as
+    # ambiguous even when their sighting IDs are otherwise unique.
+    proof_instance: dict[str, str] = {}
+    ambiguous_identity_proofs: set[str] = set()
     for observation in observations:
         if not isinstance(observation, InstanceObservation):
             raise ValueError("observations must be InstanceObservation records")
         if observation.user_id != user_id:
             continue
         scoped.append(observation)
+        if observation.identity_evidence_id and observation.instance_id:
+            prior_instance = proof_instance.setdefault(
+                observation.identity_evidence_id, observation.instance_id,
+            )
+            if prior_instance != observation.instance_id:
+                ambiguous_identity_proofs.add(observation.identity_evidence_id)
         if observation.evidence_id in seen_evidence:
             ambiguous_evidence.add(observation.evidence_id)
         seen_evidence.add(observation.evidence_id)
@@ -115,7 +126,9 @@ def derive_observed_location_changes(
                 index += 1
             # A reused sighting ID is not independent provenance. Invalidate
             # the affected slice rather than choosing a convenient identity.
-            if any(s.evidence_id in ambiguous_evidence for s in same_time):
+            if any(s.evidence_id in ambiguous_evidence
+                   or s.identity_evidence_id in ambiguous_identity_proofs
+                   for s in same_time):
                 previous = None
                 continue
             # An identity collision at the same instant makes the entire
