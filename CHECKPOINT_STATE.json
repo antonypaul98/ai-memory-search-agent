@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
+  "current_branch_sha": "69e77642395eece9b32594402609f4f397ee68f4",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 open draft; source/test head 752d1bd1 passed Core CI and Home vision smoke; physical Mac pending; Mac worktrees uninspected.",
-  "local_test_status": "No local pinned Python 3.11 product tests or real Mac tests run. Exact source/test head 752d1bd1 Core CI #40366040656 SUCCESS: 1663 passed, 5 skipped, 4 warnings; Home vision smoke #40366040491 SUCCESS.",
+  "branch_remote_status": "HOME sole writer / JARVIS follower; draft PR #399 open/unmerged at 69e77642; source-head CI and Home Vision Smoke SUCCESS; Mac worktrees uninspected; physical camera pending.",
+  "local_test_status": "No local pinned Python 3.11 or real Mac tests run in this run. Exact source-head 69e77642 Core CI #40392805638 SUCCESS: Python 3.11 pytest 1663 passed, 6 skipped, 4 warnings; Home Vision Smoke #40392805674 SUCCESS, optional OpenCV tests 8 passed (3 warnings).",
   "pr_number": 399,
-  "ci_status": "Source/test head 752d1bd1 Core CI #40366040656 SUCCESS and Home vision smoke #40366040491 SUCCESS. New checkpoint receipt head CI pending; do not infer it passed.",
+  "ci_status": "Exact source/test head 69e77642: Core CI #40392805638 SUCCESS and Home vision smoke #40392805674 SUCCESS. New checkpoint receipt head CI pending; source green does not prove receipt head.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Trusted physical-instance verifier, long occlusion, mover attribution, live camera-to-memory integration and real Mac camera acceptance remain missing; physical worktrees inaccessible; inference-worker publication restriction retained.",
-  "next_action": "Verify checkpoint-receipt head CI; then implement a deployable independently sourced physical-instance verifier with provenance and ambiguity rejection; do not promote tentative preview track IDs.",
+  "known_blocker": "Visual candidate scoring is tentative and not a trusted physical-instance verifier; long occlusion, mover attribution, camera-to-memory integration and real Mac camera acceptance remain missing; Mac worktrees inaccessible; inference-worker publication restriction retained.",
+  "next_action": "Verify checkpoint-receipt head CI; then prioritize a deployable independent physical-instance verifier with provenance/consent and ambiguity rejection, plus negative tests for near-identical objects; never mint VerifiedInstanceProof from ORB similarity or preview track IDs.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-26T17:15:11.702Z",
-  "observed_branch_sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
-  "observed_feature_sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
+  "observed_at_utc": "2026-10-26T21:04:59.246Z",
+  "observed_branch_sha": "69e77642395eece9b32594402609f4f397ee68f4",
+  "observed_feature_sha": "69e77642395eece9b32594402609f4f397ee68f4",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
+    "head_sha": "69e77642395eece9b32594402609f4f397ee68f4",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40366040656,
-      "sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
+      "id": 40392805638,
+      "sha": "69e77642395eece9b32594402609f4f397ee68f4",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40366040491,
-      "sha": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
+      "id": 40392805674,
+      "sha": "69e77642395eece9b32594402609f4f397ee68f4",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -64,10 +64,10 @@
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
     "BLOCKED_LAYER": "Physical-instance verifier absent; physical Mac worktrees uninspected",
-    "BLOCKER": "Real object identity, long occlusion, mover attribution, camera-to-memory integration and Mac acceptance incomplete.",
-    "SAFE_WORK_COMPLETED": "Published opt-in preview child-process wall-clock supervisor and four synthetic lifecycle regressions at ba9b9afe; fixed duplicate keyword syntax in 752d1bd1 after failed first CI; source-head Core CI #40366040656 SUCCESS (1663 passed, 5 skipped), Home smoke #40366040491 SUCCESS. No local/physical tests.",
-    "REMOTE_SHA": "752d1bd1cc17ab2016dd3f3632be8fc8be461eac",
-    "NEXT_ACTION": "Verify checkpoint-receipt head CI; then implement a deployable independently sourced physical-instance verifier with provenance and ambiguity rejection; do not promote tentative preview track IDs."
+    "BLOCKER": "Real-object identity, long occlusion, mover attribution, camera-to-memory integration and Mac acceptance incomplete.",
+    "SAFE_WORK_COMPLETED": "Verified source-head 69e77642 CI #40392805638 SUCCESS (1663 passed, 6 skipped) and Home Vision Smoke #40392805674 SUCCESS (8 OpenCV tests); no product code changes, no physical tests. Published exact-head CI acceptance receipt.",
+    "REMOTE_SHA": "69e77642395eece9b32594402609f4f397ee68f4",
+    "NEXT_ACTION": "Verify checkpoint-receipt head CI; then prioritize a deployable independent physical-instance verifier with provenance/consent and ambiguity rejection, plus negative tests for near-identical objects; never mint VerifiedInstanceProof from ORB similarity or preview track IDs."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
