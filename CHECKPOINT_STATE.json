@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
+  "current_branch_sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "HOME sole writer/JARVIS follower; PR #399 draft/unmerged; main ac912722; synthetic consented identity-to-location PostgreSQL integration test published at 7333c120; exact-head CI pending; physical Mac acceptance pending.",
-  "local_test_status": "No local pinned Python 3.11 product tests or physical Mac tests run in this remote session. Prior exact-head fa11d5b8 Core CI #40304124854 SUCCESS (1655 passed, 5 skipped) and Home vision smoke #40304124965 SUCCESS. New 7333c120 test CI pending.",
+  "branch_remote_status": "HOME sole writer/JARVIS follower; draft PR #399; replayed verifier-proof IDs now invalidate even same-instance continuity; source head 5098ef40 CI accepted; physical Mac pending.",
+  "local_test_status": "No local pinned Python 3.11 product tests or physical Mac tests run. Exact source-head 5098ef40 Core CI #40338810321 SUCCESS: 1657 passed, 5 skipped, 4 warnings; Home vision smoke #40338810001 SUCCESS.",
   "pr_number": 399,
-  "ci_status": "New source/test head 7333c120 Core CI #40319172301 and Home vision smoke #40319172263 in progress at observation; no acceptance claimed for new head. Previous fa11d5b8 both success.",
+  "ci_status": "Exact source/test head 5098ef40 Core CI #40338810321 SUCCESS and Home vision smoke #40338810001 SUCCESS; checkpoint-receipt-only head will require separate exact-head CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT; NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "No independent trusted physical-instance verifier or live camera-to-memory link; long-occlusion/person attribution unverified; bounded inference-worker publication restricted; physical Mac gate pending.",
-  "next_action": "Verify exact-head CI for synthetic identity-to-location PostgreSQL integration; repair failures if any. Preserve draft PR, HOME writer, no hardware claim; then design an independently verifiable physical-instance evidence producer.",
+  "known_blocker": "No deployable independent physical-instance verifier or live camera-to-memory link; long-occlusion/person attribution unverified; bounded inference-worker publication restricted; physical Mac gate pending.",
+  "next_action": "Verify receipt-head CI, then implement a conservative independent physical-instance evidence producer with provenance, ambiguity rejection, and consent/tenant isolation. Never derive identity from class labels or tentative preview tracks.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-26T12:01:32.286Z",
-  "observed_branch_sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
-  "observed_feature_sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
+  "observed_at_utc": "2026-10-26T14:27:19.284Z",
+  "observed_branch_sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
+  "observed_feature_sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,17 +34,17 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
+    "head_sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40319172301,
-      "sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
+      "id": 40338810321,
+      "sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
       "event": "pull_request",
-      "status": "in_progress",
-      "conclusion": null
+      "status": "completed",
+      "conclusion": "success"
     },
     "merged_main_run": {
       "id": 39686909450,
@@ -54,20 +54,20 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40319172263,
-      "sha": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
+      "id": 40338810001,
+      "sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
       "event": "pull_request",
-      "status": "in_progress",
-      "conclusion": null
+      "status": "completed",
+      "conclusion": "success"
     }
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Trusted physical-instance verifier absent; physical Mac worktrees unavailable; inference-worker publication restricted",
-    "BLOCKER": "Real instance recognition, live camera integration, person attribution and physical acceptance remain incomplete.",
-    "SAFE_WORK_COMPLETED": "Published synthetic verifier -> consented Postgres association -> tenant-scoped observed location change -> revocation end-to-end regression at 7333c120; previous fa11d5b8 both workflows passed. New CI pending; no local/hardware tests.",
-    "REMOTE_SHA": "7333c12088c8c56a6389551b06fd1a632a8a8ef3",
-    "NEXT_ACTION": "Verify exact-head CI for synthetic identity-to-location PostgreSQL integration; repair failures if any. Preserve draft PR, HOME writer, no hardware claim; then design an independently verifiable physical-instance evidence producer."
+    "BLOCKED_LAYER": "Trusted physical-instance verifier absent; Mac worktrees unavailable; inference-worker publication restricted",
+    "BLOCKER": "Reliable real object identity, camera-to-memory integration, long occlusion, mover attribution, bounded inference shutdown and physical camera acceptance remain incomplete.",
+    "SAFE_WORK_COMPLETED": "Published single-use verifier-proof replay guard and synthetic regression at c91a352b, fixed query and Postgres reader fixtures at 9bc34beb and 5098ef40. Source-head Core CI #40338810321 SUCCESS (1657 passed, 5 skipped); Home smoke #40338810001 SUCCESS. No local/hardware tests.",
+    "REMOTE_SHA": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
+    "NEXT_ACTION": "Verify receipt-head CI, then implement a conservative independent physical-instance evidence producer with provenance, ambiguity rejection, and consent/tenant isolation. Never derive identity from class labels or tentative preview tracks."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -194,6 +194,15 @@
       "core_ci_run": 40267291571,
       "home_smoke_run": 40267291663,
       "local_tests_executed": false,
+      "physical_camera_accepted": false
+    },
+    "single_use_proof_guard": {
+      "status": "SOURCE_HEAD_CI_ACCEPTED",
+      "source_test_head_sha": "5098ef40f4a9fd987c737d2b96b97316f0d3f8f0",
+      "scope": "A tenant-scoped identity-proof ID may authenticate only one sighting, including when a replay claims the same physical instance. Conflicting proof reuse breaks location continuity.",
+      "regression": "tests/test_home_instance_location.py::test_replayed_identity_proof_for_same_instance_is_not_new_evidence",
+      "ci_core": 40338810321,
+      "ci_smoke": 40338810001,
       "physical_camera_accepted": false
     }
   },
