@@ -56,28 +56,33 @@ def main():
         assert restarted.get_image(user_id=tenant, frame_id=provenance["frame_id"])
         assert restarted.get_image(user_id=tenant+"-other", frame_id=provenance["frame_id"]) is None
 
-        movements = query.movement_history(user_id=tenant, object_name="cat", min_confidence=.2, limit=20)
-        assert len(movements) == 1, "expected exactly one physical movement transition"
-        movement = movements[0]
-        assert movement.from_location == "demo office"
-        assert movement.to_location == "demo living room"
-        assert movement.from_evidence_id != movement.to_evidence_id
-        movement_provenance = restarted.describe_observation(
-            user_id=tenant, observation_id=movement.to_evidence_id)
-        assert movement_provenance is not None
-        # Multiple valid detections can exist in the destination frame. Movement
-        # evidence need not be the exact detection selected by where_is(); what
-        # matters is that the transition's own evidence is retained and scoped.
-        assert restarted.get_image(user_id=tenant, frame_id=movement_provenance["frame_id"])
-        assert restarted.get_image(user_id=tenant+"-other", frame_id=movement_provenance["frame_id"]) is None
-        assert query.movement_history(user_id=tenant+"-other", object_name="cat", min_confidence=.2, limit=20) == []
+        # Two class-level detections at different locations do not establish
+        # that the same physical cat moved. The legacy movement query must
+        # fail closed until independent instance-identity evidence is present.
+        assert query.movement_history(
+            user_id=tenant, object_name="cat", min_confidence=.2, limit=20
+        ) == [], "class-only observations must not assert a physical movement"
+        assert query.before_location(
+            user_id=tenant, object_name="cat",
+            location="demo living room", min_confidence=.2
+        ) is None, "class-only observations must not assert a prior location"
+        assert query.observed_location_changes(
+            user_id=tenant, object_name="cat", min_confidence=.9
+        ) == [], "unverified instance associations must not produce changes"
+        assert query.observed_location_changes(
+            user_id=tenant+"-other", object_name="cat", min_confidence=.9
+        ) == [], "cross-tenant verified instance observations must remain isolated"
+        assert query.movement_history(
+            user_id=tenant+"-other", object_name="cat",
+            min_confidence=.2, limit=20
+        ) == []
 
         print(json.dumps({"result": "passed", "model_revision": MODEL_REVISION,
             "detector_id": detector.detector_id, "location": answer.location,
             "confidence": answer.confidence, "detection_ms": result["detection_ms"],
             "ingestion_ms": result["ingestion_ms"], "evidence_linked": True,
-            "movement_history": {"from": movement.from_location, "to": movement.to_location,
-                "tenant_isolated": True}}))
+            "class_only_movement_rejected": True,
+            "verified_instance_changes": 0, "tenant_isolated": True}))
     finally:
         for frame_id in frames:
             store.delete_image(user_id=tenant, frame_id=frame_id)
