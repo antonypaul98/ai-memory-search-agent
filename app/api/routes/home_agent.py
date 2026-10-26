@@ -35,6 +35,11 @@ class MovementHistoryRequest(_StrictRequest):
     min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     limit: int = Field(default=20, ge=1, le=100)
 
+class ObservedLocationChangesRequest(_StrictRequest):
+    object_name: str = Field(min_length=1, max_length=200)
+    min_confidence: float = Field(default=0.9, ge=0.0, le=1.0)
+    limit: int = Field(default=20, ge=1, le=100)
+
 class BeforeLocationRequest(MovementHistoryRequest):
     location: str = Field(min_length=1, max_length=500)
 
@@ -88,6 +93,21 @@ class MovementEventResponse(BaseModel):
 class MovementHistoryResponse(BaseModel):
     movements: list[MovementEventResponse]
 
+class ObservedLocationChangeResponse(BaseModel):
+    instance_id: str
+    object_class: str
+    from_location: str
+    to_location: str
+    last_seen_from: datetime
+    first_seen_to: datetime
+    from_evidence_id: str
+    to_evidence_id: str
+    from_identity_evidence_id: str
+    to_identity_evidence_id: str
+
+class ObservedLocationChangesResponse(BaseModel):
+    changes: list[ObservedLocationChangeResponse]
+
 class BeforeLocationResponse(BaseModel):
     found: bool
     text: str | None = None
@@ -138,6 +158,23 @@ def history(body: HistoryRequest, service: HomeAgentQueryService = Depends(get_h
 def movement_history(body: MovementHistoryRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> MovementHistoryResponse:
     movements = AuthenticatedHomeAgentQuery(service=service, user=user).movement_history(object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit)
     return MovementHistoryResponse(movements=[MovementEventResponse(object_name=item.object_name, from_location=item.from_location, to_location=item.to_location, moved_at=item.moved_at, confidence=item.confidence, source_id=item.source_id, from_evidence_id=item.from_evidence_id, to_evidence_id=item.to_evidence_id) for item in movements])
+
+@router.post("/observed-location-changes", response_model=ObservedLocationChangesResponse)
+def observed_location_changes(body: ObservedLocationChangesRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> ObservedLocationChangesResponse:
+    """Only verified same-instance changes; class-only sightings never qualify."""
+    changes = AuthenticatedHomeAgentQuery(service=service, user=user).observed_location_changes(
+        object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit
+    )
+    return ObservedLocationChangesResponse(changes=[
+        ObservedLocationChangeResponse(
+            instance_id=item.instance_id, object_class=item.object_class,
+            from_location=item.from_location, to_location=item.to_location,
+            last_seen_from=item.last_seen_from, first_seen_to=item.first_seen_to,
+            from_evidence_id=item.from_evidence_id, to_evidence_id=item.to_evidence_id,
+            from_identity_evidence_id=item.from_identity_evidence_id,
+            to_identity_evidence_id=item.to_identity_evidence_id,
+        ) for item in changes
+    ])
 
 @router.post("/before-location", response_model=BeforeLocationResponse)
 def before_location(body: BeforeLocationRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> BeforeLocationResponse:
