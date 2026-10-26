@@ -72,6 +72,20 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                         REFERENCES home_object_sightings(user_id, evidence_id) ON DELETE CASCADE
                 )
             """)
+            # An internal verifier proof is insufficient by itself: a current
+            # server-managed grant must exist when the transaction commits.
+            # Revocation locks the same row and removes prior associations.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS home_instance_identity_consents (
+                    user_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    granted_at TIMESTAMPTZ NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    revoked_at TIMESTAMPTZ,
+                    PRIMARY KEY (user_id, source_id),
+                    CHECK (expires_at > granted_at)
+                )
+            """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_home_verified_instance_associations_tenant
                 ON home_verified_instance_associations(user_id, instance_id)
@@ -185,6 +199,19 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
         with self._connect() as conn:
             # Shared erasure lock is held through transaction commit.
             require_active_tenant(conn, user_id=proof.user_id)
+            # This lock serializes identity writes with consent revocation.
+            # Consent must be provisioned by a separately authorized server
+            # component; a caller-supplied consent dataclass is not authority.
+            active_consent = conn.execute("""
+                SELECT 1 FROM home_instance_identity_consents
+                WHERE user_id = %s AND source_id = %s
+                  AND revoked_at IS NULL
+                  AND granted_at <= CURRENT_TIMESTAMP
+                  AND expires_at > CURRENT_TIMESTAMP
+                FOR SHARE
+            """, (proof.user_id, proof.source_id)).fetchone()
+            if active_consent is None:
+                return False
             # Lock the exact tenant-owned source sighting against deletion.
             # Only retained image observations are eligible for this writer.
             sighting = conn.execute("""
@@ -212,6 +239,37 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
             """, (proof.user_id, proof.observation_id, proof.instance_id,
                   proof.identity_evidence_id, proof.identity_confidence)).fetchone()
             return inserted is not None
+
+    def revoke_instance_identity_consent(self, *, user_id: str, source_id: str) -> int:
+        """Revoke a source grant and erase its identity links atomically.
+
+        Internal-only; the caller must independently authenticate and authorize
+        the tenant's consent decision. Ordinary class sightings are retained.
+        Writers hold a shared lock on the grant, so a completed revocation
+        cannot race with a later association write.
+        """
+        user_id = _required("user_id", user_id)
+        source_id = _required("source_id", source_id)
+        with self._connect() as conn:
+            require_active_tenant(conn, user_id=user_id)
+            conn.execute("""
+                SELECT 1 FROM home_instance_identity_consents
+                WHERE user_id = %s AND source_id = %s FOR UPDATE
+            """, (user_id, source_id)).fetchone()
+            conn.execute("""
+                UPDATE home_instance_identity_consents
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND source_id = %s AND revoked_at IS NULL
+            """, (user_id, source_id))
+            erased = conn.execute("""
+                DELETE FROM home_verified_instance_associations a
+                USING home_object_sightings s
+                WHERE a.user_id = s.user_id
+                  AND a.observation_id = s.evidence_id
+                  AND a.user_id = %s AND s.source_id = %s
+                RETURNING a.observation_id
+            """, (user_id, source_id)).fetchall()
+            return len(erased)
 
     def verified_instance_observations(
         self, *, user_id: str, object_name: str,
