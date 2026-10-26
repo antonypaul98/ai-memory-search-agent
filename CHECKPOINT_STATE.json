@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
+  "current_branch_sha": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft/unmerged; main ac912722; identity-ingestion source+test head df24f587, 34 ahead/0 behind; remote-only changes, physical Mac worktrees uninspected.",
-  "local_test_status": "18/18 isolated synthetic Python 3.13.5 pytest cases passed for verified-identity ingestion contract; not pinned Python 3.11 repository acceptance. Prior head 6aa2df13 Core CI #40267323623 SUCCESS and Home vision smoke #40267323621 SUCCESS. New source+test head df24f587 CI pending; physical Mac camera pending.",
+  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft/unmerged; main ac912722; transactional association writer and synthetic tests published at 3474ae1e; physical Mac worktrees uninspected.",
+  "local_test_status": "No local tests run for new transactional writer (shell GitHub inaccessible); prior internal ingest 18/18 isolated Python 3.13.5. Exact-head Core CI #40277172652 and Home vision smoke #40277172602 SUCCESS at aff74373. New writer/test-head CI pending; physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Prior exact-head 6aa2df13 Core CI #40267323623 SUCCESS and Home vision smoke #40267323621 SUCCESS. New source+test head df24f587 CI pending; do not transfer previous success.",
+  "ci_status": "Exact-head aff74373 Core CI #40277172652 SUCCESS and Home vision smoke #40277172602 SUCCESS. New writer/test-head 3474ae1e Core #40282928060 and Home smoke #40282927926 in progress/pending at observation; not accepted.",
   "merge_status": "HOME PR #399 OPEN DRAFT; NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "No real trusted physical-instance verifier, server-issued identity consent integration, transactional PostgreSQL association writer or camera-to-memory link; new internal contract alone does not persist associations. Bounded inference-worker publication restriction, long occlusion/person attribution and physical Mac acceptance pending.",
-  "next_action": "Verify CI for source/test head df24f587 and checkpoint receipt head, then implement transactional tenant-scoped Postgres verified association writer and independently trusted verifier wiring, with proof collision and erasure regressions. Do not expose client-asserted identity or bypass bounded-worker restriction.",
+  "known_blocker": "Transactional writer published but not yet CI-accepted; trusted physical-instance verifier, server-managed revocable consent integration, camera-to-memory integration, long occlusion/person attribution and physical Mac acceptance absent. Bounded inference-worker publication restriction remains.",
+  "next_action": "Verify exact-head CI for writer/tests and receipt, repair any failure, then integrate independently trusted verifier and server-managed consent revocation without exposing client-asserted instance IDs. Preserve physical camera gate and worker publication restriction.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-26T05:58:38.714Z",
-  "observed_branch_sha": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
-  "observed_feature_sha": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
+  "observed_at_utc": "2026-10-26T06:58:35.445Z",
+  "observed_branch_sha": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
+  "observed_feature_sha": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
+    "head_sha": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac worktrees inaccessible; trusted verifier and Postgres writer not yet implemented; bounded inference-worker publication restricted",
-    "BLOCKER": "Identity ingestion contract is internal only; no actual verifier or persisted associations",
-    "SAFE_WORK_COMPLETED": "Verified exact-head 6aa2df13 Core CI #40267323623 and Home smoke #40267323621 SUCCESS. Published internal verified identity ingestion contract and 18 synthetic regressions at df24f587; 18/18 isolated Python 3.13.5 tests passed; pinned CI pending.",
-    "REMOTE_SHA": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
-    "NEXT_ACTION": "Verify CI for source/test head df24f587 and checkpoint receipt head, then implement transactional tenant-scoped Postgres verified association writer and independently trusted verifier wiring, with proof collision and erasure regressions. Do not expose client-asserted identity or bypass bounded-worker restriction."
+    "BLOCKED_LAYER": "Physical Mac worktrees inaccessible; real trusted verifier and revocable consent service absent; bounded inference worker publication restricted",
+    "BLOCKER": "Postgres writer published, CI pending; no real verified object identity producer or live camera integration",
+    "SAFE_WORK_COMPLETED": "Verified aff74373 exact-head Core CI #40277172652 and Home smoke #40277172602 SUCCESS. Published tenant-scoped, erasure-fenced transactional association writer at 0a60ca90 and synthetic SQL regression tests at 3474ae1e. New-head CI pending; no local/physical tests.",
+    "REMOTE_SHA": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
+    "NEXT_ACTION": "Verify exact-head CI for writer/tests and receipt, repair any failure, then integrate independently trusted verifier and server-managed consent revocation without exposing client-asserted instance IDs. Preserve physical camera gate and worker publication restriction."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -244,18 +244,26 @@
     }
   },
   "home_verified_identity_ingest": {
-    "status": "INTERNAL_CONTRACT_PUBLISHED_CI_PENDING",
+    "status": "INTERNAL_CONTRACT_CI_ACCEPTED_WRITER_PUBLISHED_CI_PENDING",
     "source": "app/services/home_agent/verified_identity_ingest.py",
     "tests": "tests/test_home_verified_identity_ingest.py",
     "source_commit": "37fe110d9632eab12ce9b85481f66c2d33e772c1",
     "source_test_head_sha": "df24f5873cef1c82ce03cb15290c5f31cbd6489c",
     "isolated_synthetic_tests_passed": 18,
     "isolated_python_version": "3.13.5",
-    "pinned_repo_ci": "pending",
+    "pinned_repo_ci": "Core #40277172652 and Home smoke #40277172602 SUCCESS at aff74373",
     "real_verifier": false,
-    "postgres_writer": false,
+    "postgres_writer": true,
     "public_endpoint": false,
     "physical_camera_accepted": false,
-    "scope": "Explicit tenant/source/time-scoped consent and independently verifier-produced identity proof required; confidence threshold 0.9; no class-only identity inference"
+    "scope": "Explicit tenant/source/time-scoped consent and independently verifier-produced identity proof required; confidence threshold 0.9; no class-only identity inference",
+    "postgres_writer_status": "published; new-head CI pending; internal-only; no actual verifier",
+    "postgres_writer_source_sha": "0a60ca9080c9c0e1858f51e757a8dddf3e693d0c",
+    "postgres_writer_test_sha": "3474ae1e46976d7ca3e25cd07b8f4b6c69ab19da",
+    "postgres_writer_test_path": "tests/test_home_verified_identity_postgres_writer.py",
+    "postgres_writer_ci_runs": {
+      "core": 40282928060,
+      "home_smoke": 40282927926
+    }
   }
 }
