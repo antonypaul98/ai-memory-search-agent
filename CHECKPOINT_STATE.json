@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "b6de181179d053706c0ebb35d180229892eae2e0",
+  "current_branch_sha": "2ab5aea3d39d44eb7fab2e18d9abbdcc95de1ed6",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft at b6de1811; main ac912722. Remote GitHub branch inspected; local physical Mac worktrees unavailable and untouched.",
-  "local_test_status": "Three synthetic authenticated HTTP regression tests published for verified observed-location-changes endpoint. Not locally run. Exact-head Python 3.11 Core CI and trained-vision/Postgres smoke in progress; no physical camera acceptance.",
+  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft; main ac912722; source update prepared from 2ab5aea3; remote worktree only, physical Mac worktrees uninspected.",
+  "local_test_status": "Legacy movement fail-closed regression tests updated; not locally run (Python 3.11 unavailable). Await exact-head Core CI and Home vision smoke. Physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Previous exact-head ad3879d5 Core CI #40238287015 SUCCESS and Home vision smoke #40238287001 SUCCESS. New source head b6de1811 Core CI #40247472419 and Home vision smoke #40247472409 IN PROGRESS, not yet accepted.",
+  "ci_status": "Previous exact-head 2ab5aea3 Core CI #40247571854 SUCCESS and Home vision smoke #40247571864 SUCCESS. New fail-closed migration head CI pending; no success claimed.",
   "merge_status": "HOME PR #399 OPEN DRAFT; NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Trusted identity-association producer absent; legacy class-only movement_history/before_location still unsafe; bounded inference-worker shutdown publication restriction; physical Mac gate pending.",
-  "next_action": "Verify Core CI #40247472419 and Home vision smoke #40247472409 for authenticated verified-change HTTP endpoint, then implement trusted consent-gated identity association ingestion and safely migrate legacy class-only movement queries. Do not claim hardware acceptance.",
+  "known_blocker": "Legacy class-only movement API now intentionally returns empty until verified identity can be represented without fabricating provenance; trusted identity-association producer absent; bounded inference-worker publication restriction; physical Mac pending.",
+  "next_action": "Verify CI at the new head. Design a compatible identity-evidenced legacy query response or explicit deprecation; implement trusted consent-gated association ingestion. Preserve worker publication restriction and physical Mac gate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-26T00:00:44Z",
-  "observed_branch_sha": "b6de181179d053706c0ebb35d180229892eae2e0",
-  "observed_feature_sha": "b6de181179d053706c0ebb35d180229892eae2e0",
+  "observed_at_utc": "2026-10-26T02:00:00Z",
+  "observed_branch_sha": "2ab5aea3d39d44eb7fab2e18d9abbdcc95de1ed6",
+  "observed_feature_sha": "2ab5aea3d39d44eb7fab2e18d9abbdcc95de1ed6",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "b6de181179d053706c0ebb35d180229892eae2e0",
+    "head_sha": "2ab5aea3d39d44eb7fab2e18d9abbdcc95de1ed6",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "physical Mac worktrees inaccessible; bounded inference-worker publication restriction",
-    "BLOCKER": "No trusted identity producer or legacy movement-history safety migration.",
-    "SAFE_WORK_COMPLETED": "Verified ad3879d5 exact-head CI and published b6de1811 authenticated identity-verified observed-location-changes HTTP route plus 3 synthetic regression tests; new CI in progress.",
-    "REMOTE_SHA": "b6de181179d053706c0ebb35d180229892eae2e0",
-    "NEXT_ACTION": "Verify new CI, then continue trusted identity producer and fail-closed legacy query migration. HOME writer; JARVIS follower."
+    "BLOCKED_LAYER": "Physical Mac worktrees inaccessible; bounded inference worker publication restricted",
+    "BLOCKER": "Trusted identity producer absent; legacy movement response schema cannot represent identity proof",
+    "SAFE_WORK_COMPLETED": "Prepared fail-closed migration for legacy movement_history and before_location, with regression updates; latest accepted CI at 2ab5aea3",
+    "REMOTE_SHA": "2ab5aea3d39d44eb7fab2e18d9abbdcc95de1ed6",
+    "NEXT_ACTION": "Verify CI at the new head. Design a compatible identity-evidenced legacy query response or explicit deprecation; implement trusted consent-gated association ingestion. Preserve worker publication restriction and physical Mac gate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -220,6 +220,7 @@
       "home_smoke_run": 40247472409,
       "ci_conclusion": "in_progress",
       "scope": "Authenticated-tenant verified same-instance observed location changes; class-only sightings cannot qualify. No mover or pickup inferred."
-    }
+    },
+    "legacy_movement_safety": "Fail-closed movement_history [] and before_location None for class-only history; regression tests updated; CI pending; verified observed-location-changes remains separate."
   }
 }

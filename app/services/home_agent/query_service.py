@@ -101,20 +101,20 @@ class HomeAgentQueryService:
         )
 
     def movement_history(self, *, user_id:str, object_name:str, min_confidence:float=.5, limit:int=20, since:datetime|None=None, until:datetime|None=None)->list[MovementEvent]:
+        """Legacy movement records cannot prove that two class sightings are one object.
+
+        The old response shape has no instance identity or identity-association
+        provenance. Returning a class-derived movement would falsely assert a
+        relocation of a physical object. Use observed_location_changes for
+        evidence-backed *observed* changes instead; never label them a pickup.
+        """
         if since is not None and since.tzinfo is None: raise ValueError("since must be timezone-aware")
         if until is not None and until.tzinfo is None: raise ValueError("until must be timezone-aware")
         if since is not None and until is not None and since>=until: raise ValueError("since must be earlier than until")
-        sightings=self.history(user_id=user_id,object_name=object_name,min_confidence=min_confidence,limit=limit); events=[]; previous=None
-        for current in reversed(sightings):
-            if previous is not None and current.location!=previous.location:
-                moved_at=current.observed_at
-                if moved_at.tzinfo is None: raise ValueError("physical-memory timestamps must be timezone-aware")
-                if (since is None or moved_at>=since) and (until is None or moved_at<until): events.append(MovementEvent(current.object_name,previous.location,current.location,moved_at.isoformat(),current.confidence,current.source_id,previous.evidence_id,current.evidence_id))
-            previous=current
-        return events
+        return []
+
     def before_location(self, *, user_id:str, object_name:str, location:str, min_confidence:float=.5, limit:int=20)->BeforeLocationAnswer|None:
+        """Fail closed: the legacy movement chain has no physical-instance proof."""
         target=location.strip().casefold()
         if not target: return None
-        for m in reversed(self.movement_history(user_id=user_id,object_name=object_name,min_confidence=min_confidence,limit=limit)):
-            if m.to_location.strip().casefold()==target: return BeforeLocationAnswer(m.object_name,m.from_location,m.to_location,m.moved_at,m.confidence,m.source_id,m.from_evidence_id,m.to_evidence_id)
         return None

@@ -58,51 +58,35 @@ def test_history_preserves_tenant_scope_and_limits():
     assert store.history_calls == [{"user_id": "tenant-b", "object_name": "keys", "min_confidence": 0.6, "limit": 7}]
 
 
-def test_movement_history_collapses_same_location_and_preserves_evidence_chain():
+def test_legacy_movement_history_rejects_same_class_false_relocation():
+    # These are two sightings of a class, not evidence of one physical object.
     history = [
-        _sighting("kitchen", 9, "frame-kitchen-new", 0.96),
-        _sighting("kitchen", 8, "frame-kitchen-first", 0.94),
-        _sighting("desk", 2, "frame-desk", 0.92),
+        _sighting("kitchen", 9, "other-keys", 0.96),
+        _sighting("desk", 2, "first-keys", 0.92),
     ]
     store = RecordingStore(history=history)
     service = HomeAgentQueryService(store)
-    events = service.movement_history(user_id="tenant-a", object_name="KEYS", min_confidence=0.8, limit=10)
-    assert len(events) == 1
-    event = events[0]
-    assert event.from_location == "desk"
-    assert event.to_location == "kitchen"
-    assert event.from_evidence_id == "frame-desk"
-    assert event.to_evidence_id == "frame-kitchen-first"
-    assert event.moved_at == "2026-09-10T22:08:00+00:00"
-    assert store.history_calls == [{"user_id": "tenant-a", "object_name": "KEYS", "min_confidence": 0.8, "limit": 10}]
+    assert service.movement_history(
+        user_id="tenant-a", object_name="keys", min_confidence=0.8, limit=10
+    ) == []
+    assert store.history_calls == []  # No class-only identity inference.
 
 
-def test_before_location_returns_most_recent_matching_transition_with_evidence():
-    history = [
-        _sighting("kitchen", 12, "frame-kitchen-2", 0.97),
-        _sighting("hall", 10, "frame-hall", 0.95),
-        _sighting("kitchen", 8, "frame-kitchen-1", 0.94),
-        _sighting("desk", 2, "frame-desk", 0.92),
-    ]
-    store = RecordingStore(history=history)
+def test_legacy_before_location_rejects_unverified_transition():
+    store = RecordingStore(history=[
+        _sighting("kitchen", 12, "second-keys"),
+        _sighting("desk", 2, "first-keys"),
+    ])
     service = HomeAgentQueryService(store)
-
-    answer = service.before_location(
-        user_id="tenant-a", object_name="keys", location=" KITCHEN ",
+    assert service.before_location(
+        user_id="tenant-a", object_name="keys", location="kitchen",
         min_confidence=0.8, limit=10,
-    )
-
-    assert answer is not None
-    assert answer.location == "hall"
-    assert answer.before_location == "kitchen"
-    assert answer.evidence_id == "frame-hall"
-    assert answer.destination_evidence_id == "frame-kitchen-2"
-    assert answer.text == "keys was at hall before kitchen."
-    assert store.history_calls == [{"user_id": "tenant-a", "object_name": "keys", "min_confidence": 0.8, "limit": 10}]
+    ) is None
+    assert store.history_calls == []
 
 
 def test_before_location_returns_none_without_matching_transition():
     store = RecordingStore(history=[_sighting("desk", 2, "frame-desk")])
     service = HomeAgentQueryService(store)
     assert service.before_location(user_id="tenant-b", object_name="keys", location="kitchen") is None
-    assert store.history_calls[0]["user_id"] == "tenant-b"
+    assert store.history_calls == []
