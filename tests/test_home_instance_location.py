@@ -104,6 +104,30 @@ def test_reused_evidence_across_distinct_instances_invalidates_both_chains():
     assert derive(list(reversed(rows))) == []
 
 
+def test_reused_identity_proof_for_two_instances_invalidates_both_chains():
+    # Distinct observation IDs are insufficient when the identity verifier's
+    # proof ID is claimed for two different physical objects in one household.
+    rows = [
+        seen("keys-1", "desk", 0, association="shared-proof"),
+        seen("keys-2", "hallway", 10, association="shared-proof"),
+        seen("keys-1", "kitchen", 30, association="unique-proof"),
+    ]
+    assert derive(rows) == []
+    assert derive(list(reversed(rows))) == []
+
+
+def test_identity_proof_ids_are_scoped_to_tenant_not_globally_unique():
+    rows = [
+        seen("keys-1", "desk", 0, association="shared-proof"),
+        seen("keys-2", "hallway", 10, tenant="house-b", association="shared-proof"),
+        seen("keys-1", "kitchen", 30, association="unique-proof"),
+    ]
+    changes = derive(rows)
+    assert len(changes) == 1
+    assert changes[0].instance_id == "keys-1"
+    assert (changes[0].from_location, changes[0].to_location) == ("desk", "kitchen")
+
+
 def test_reused_evidence_at_different_times_breaks_continuity():
     rows = [
         seen("keys-1", "desk", 0, evidence="reused-frame"),
