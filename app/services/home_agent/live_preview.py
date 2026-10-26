@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import get_context
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
@@ -392,6 +393,37 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
         executor.shutdown(wait=True, cancel_futures=True)
 
 
+
+def run_demo_supervised(*, max_seconds: int, startup_grace_seconds: int = 90, **kwargs):
+    """Enforce a wall-clock limit even if native model inference never returns.
+
+    The preview and its camera are owned by a separate spawned process. A
+    stalled detector can prevent ThreadPoolExecutor.shutdown(wait=True) from
+    finishing inside that process; the parent must not wait indefinitely.
+    Termination is a last-resort safety boundary, not normal camera acceptance.
+    """
+    process = get_context("spawn").Process(
+        target=run_demo, kwargs=dict(max_seconds=max_seconds, **kwargs),
+    )
+    process.start()
+    try:
+        process.join(timeout=max_seconds + startup_grace_seconds)
+        if process.is_alive():
+            raise TimeoutError("Home Agent preview exceeded its wall-clock limit")
+        if process.exitcode != 0:
+            raise RuntimeError("Home Agent preview process exited unsuccessfully")
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=2)
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=2)
+            if process.is_alive():
+                raise RuntimeError("Home Agent preview worker could not be stopped")
+        process.close()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-camera", action="store_true",
@@ -401,6 +433,8 @@ def main(argv=None):
                         ".local/home-agent-test/models/owlvit-base-patch32")
     parser.add_argument("--max-seconds", type=int, default=120)
     parser.add_argument("--threshold", type=float, default=0.2)
+    parser.add_argument("--startup-grace-seconds", type=int, default=90,
+                        help="Maximum extra seconds for model startup and cleanup")
     parser.add_argument("--scan-interval", type=float, default=1.0)
     parser.add_argument("--record-file", type=Path,
                         help="Optional local MP4 recording; nothing saved by default")
@@ -410,6 +444,8 @@ def main(argv=None):
         parser.error("camera processing requires --allow-camera")
     if args.camera_index < 0 or not 1 <= args.max_seconds <= 300:
         parser.error("camera-index must be >=0 and max-seconds must be 1..300")
+    if not 1 <= args.startup_grace_seconds <= 180:
+        parser.error("startup-grace-seconds must be 1..180")
     if not 0 < args.threshold <= 1:
         parser.error("threshold must be in (0,1]")
     if not isfinite(args.scan_interval) or not 0.2 <= args.scan_interval <= 10:
@@ -418,7 +454,9 @@ def main(argv=None):
         parser.error("this detector supports 1..32 distinct labels per scan")
     if args.record_file is not None and args.record_file.suffix.lower() != ".mp4":
         parser.error("record-file must be an explicit .mp4 path")
-    run_demo(camera_index=args.camera_index, model_path=args.model_path,
+    run_demo_supervised(max_seconds=args.max_seconds,
+                        startup_grace_seconds=args.startup_grace_seconds,
+                        camera_index=args.camera_index, model_path=args.model_path,
              max_seconds=args.max_seconds, threshold=args.threshold,
              record_file=args.record_file, labels=tuple(args.labels),
              scan_interval=args.scan_interval)

@@ -363,3 +363,142 @@ def test_completed_inference_accepts_valid_payload_shape(payload):
     future = Future()
     future.set_result(payload)
     assert completed_scan_result(future) == payload
+
+
+def test_supervised_preview_returns_after_normal_child_exit(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = 0
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+
+        def is_alive(self):
+            return False
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            assert target is preview.run_demo
+            assert kwargs == {"max_seconds": 3, "camera_index": 0}
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context() if mode == "spawn" else None)
+    preview.run_demo_supervised(max_seconds=3, startup_grace_seconds=2, camera_index=0)
+    assert events == ["start", ("join", 5), "close"]
+
+
+def test_supervised_preview_terminates_stalled_inference(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = None
+        alive = True
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+            if timeout == 2 and "terminate" in events:
+                self.alive = False
+
+        def is_alive(self):
+            return self.alive
+
+        def terminate(self):
+            events.append("terminate")
+
+        def kill(self):
+            raise AssertionError("terminate should have been sufficient")
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        preview.run_demo_supervised(max_seconds=4, startup_grace_seconds=2)
+    assert events == ["start", ("join", 6), "terminate", ("join", 2), "close"]
+
+
+def test_supervised_preview_escalates_to_kill_if_terminate_stalls(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = None
+        alive = True
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+            if "kill" in events:
+                self.alive = False
+
+        def is_alive(self):
+            return self.alive
+
+        def terminate(self):
+            events.append("terminate")
+
+        def kill(self):
+            events.append("kill")
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        preview.run_demo_supervised(max_seconds=4, startup_grace_seconds=2)
+    assert events == ["start", ("join", 6), "terminate", ("join", 2), "kill", ("join", 2), "close"]
+
+
+def test_supervised_preview_reports_failed_child(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = 1
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+
+        def is_alive(self):
+            return False
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(RuntimeError, match="exited unsuccessfully"):
+        preview.run_demo_supervised(max_seconds=3, startup_grace_seconds=2)
+    assert events == ["start", ("join", 5), "close"]
