@@ -45,6 +45,8 @@ def test_export_is_exact_tenant_and_excludes_raw_image_bytes():
         FakeResult(rows=[{"frame_id": "frame-a", "image_sha256": "abc"}]),
         FakeResult(rows=[{"object_id": "obj-a", "object_class": "keys", "identity_kind": "class"}]),
         FakeResult(rows=[{"observation_id": "obs-a", "object_id": "obj-a", "frame_id": "frame-a", "box_json": "[]"}]),
+        FakeResult(rows=[{"observation_id": "obs-a", "instance_id": "keys-a", "identity_evidence_id": "proof-a"}]),
+        FakeResult(rows=[{"source_id": "camera-a", "revoked_at": None}]),
     ]
     exported = export_user_home_physical_data(
         lambda: FakeConnection(statements, results), user_id="tenant-a"
@@ -52,6 +54,9 @@ def test_export_is_exact_tenant_and_excludes_raw_image_bytes():
 
     assert exported["sightings"][0]["object_name"] == "keys"
     assert exported["image_evidence"] == [{"frame_id": "frame-a", "image_sha256": "abc"}]
+    assert exported["verified_instance_associations"][0]["identity_evidence_id"] == "proof-a"
+    assert exported["instance_identity_consents"] == [{"source_id": "camera-a", "revoked_at": None}]
+    assert len(statements) == 6
     assert all(params == ("tenant-a",) for _, params in statements)
     evidence_sql = statements[1][0]
     assert "image_sha256" in evidence_sql
