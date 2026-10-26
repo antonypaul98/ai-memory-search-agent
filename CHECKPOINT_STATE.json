@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "7e7715e4d430e8bf078b0979865c277925b5755b",
+  "current_branch_sha": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft/unmerged; main ac912722; 28 commits ahead, 0 behind before receipt; source head 7e7715e4; remote-only changes, physical Mac worktrees uninspected.",
-  "local_test_status": "No local repository tests run (pinned Python 3.11 unavailable); source-head Core CI #40262088759 SUCCESS and trained-vision/PostgreSQL smoke #40262088764 SUCCESS. Physical Mac camera pending.",
+  "branch_remote_status": "HOME sole writer / JARVIS follower; PR #399 draft/unmerged; main ac912722; source+test head 7fb0a7f6 31 ahead/0 behind; remote-only changes, physical Mac worktrees uninspected.",
+  "local_test_status": "No local repository tests run; prior receipt head 433fb59c Core CI #40262484499 SUCCESS and Home vision smoke #40262484766 SUCCESS. New source+test head 7fb0a7f6 Core CI #40267291571 and Home smoke #40267291663 pending; physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Previous source head ffb11fed: Core CI #40257323710 SUCCESS, Home vision smoke #40257323689 FAILURE (obsolete class-derived movement assertion). Corrected smoke at 7e7715e4: Core CI #40262088759 SUCCESS and Home vision smoke #40262088764 SUCCESS. Receipt-only new head CI pending.",
+  "ci_status": "Receipt head 433fb59c Core CI #40262484499 SUCCESS, Home smoke #40262484766 SUCCESS. New source+test head 7fb0a7f6 CI pending; do not transfer green status to new head.",
   "merge_status": "HOME PR #399 OPEN DRAFT; NOT MERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Trusted consent-gated physical-instance identity verifier/writer absent; legacy movement_history/before_location intentionally fail closed; bounded inference-worker publication restriction; long occlusion/person attribution and physical Mac acceptance pending.",
-  "next_action": "After verifying CI for this checkpoint-receipt head, implement trusted consent-gated identity association ingestion with tenant/evidence validation, then evidence-bearing movement compatibility. Do not bypass inference-worker publication restriction; physical Mac remains pending.",
+  "next_action": "Verify exact-head Core CI #40267291571 and Home vision smoke #40267291663, then implement trusted consent-gated instance-association ingestion without treating arbitrary class detections as verified identity. Preserve worker publication restriction and physical Mac gate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-26T03:07:18.505Z",
-  "observed_branch_sha": "7e7715e4d430e8bf078b0979865c277925b5755b",
-  "observed_feature_sha": "7e7715e4d430e8bf078b0979865c277925b5755b",
+  "observed_at_utc": "2026-10-26T04:06:09.325Z",
+  "observed_branch_sha": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
+  "observed_feature_sha": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "7e7715e4d430e8bf078b0979865c277925b5755b",
+    "head_sha": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -64,10 +64,10 @@
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
     "BLOCKED_LAYER": "Physical Mac worktrees unavailable; bounded inference worker publication restricted",
-    "BLOCKER": "Trusted identity association producer absent; legacy response shape lacks instance provenance",
-    "SAFE_WORK_COMPLETED": "Diagnosed Home smoke failure at ffb11fed; updated smoke assertions at 7e7715e4 to enforce class-only movement fail-closed safety; exact-source-head Core CI and Home vision smoke both SUCCESS.",
-    "REMOTE_SHA": "7e7715e4d430e8bf078b0979865c277925b5755b",
-    "NEXT_ACTION": "After verifying CI for this checkpoint-receipt head, implement trusted consent-gated identity association ingestion with tenant/evidence validation, then evidence-bearing movement compatibility. Do not bypass inference-worker publication restriction; physical Mac remains pending."
+    "BLOCKER": "Trusted consent-gated identity association producer absent; no local pinned Python 3.11",
+    "SAFE_WORK_COMPLETED": "Verified prior checkpoint receipt head 433fb59c both CI workflows SUCCESS. Published tenant-scoped cross-instance identity-proof collision guard and two synthetic regressions at 7fb0a7f6; new-head CI pending.",
+    "REMOTE_SHA": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
+    "NEXT_ACTION": "Verify exact-head Core CI #40267291571 and Home vision smoke #40267291663, then implement trusted consent-gated instance-association ingestion without treating arbitrary class detections as verified identity. Preserve worker publication restriction and physical Mac gate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -184,7 +184,18 @@
     "limitations": "Upstream trusted instance identification, identity provenance persistence, existing query/API gating, end-to-end capture and physical camera acceptance are not implemented",
     "exact_head_ci": "Core CI #40214471278 SUCCESS; Home vision smoke #40214471328 SUCCESS at d0eef7ff",
     "feature_checkpoint_advanced": false,
-    "evidence_collision_guard": "Reject reused tenant-scoped evidence IDs across instances/times; 9 synthetic regression cases, Core CI #40234063391 and Home vision smoke #40234063356 SUCCESS at b3611b13."
+    "evidence_collision_guard": "Reject reused tenant-scoped evidence IDs across instances/times; 9 synthetic regression cases, Core CI #40234063391 and Home vision smoke #40234063356 SUCCESS at b3611b13.",
+    "proof_collision_guard": {
+      "status": "PUBLISHED_CI_PENDING",
+      "source_sha": "da2ed60d9eb023851ba71e505e13c42f4934a563",
+      "source_test_head_sha": "7fb0a7f65fcff05dbde62c6f5ae13f7c03ca6a33",
+      "tests_added": 2,
+      "scope": "Invalidate verifier-proof IDs claimed by two distinct physical instances within the same tenant; cross-tenant reuse remains isolated.",
+      "core_ci_run": 40267291571,
+      "home_smoke_run": 40267291663,
+      "local_tests_executed": false,
+      "physical_camera_accepted": false
+    }
   },
   "home_verified_location_query": {
     "status": "AUTHENTICATED_VERIFIED_CHANGE_HTTP_PUBLISHED_CI_PENDING_NO_IDENTITY_PRODUCER",
