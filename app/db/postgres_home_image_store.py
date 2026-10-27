@@ -227,6 +227,21 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                 WHERE s.user_id = %s AND s.evidence_id = %s
                   AND e.observed_at >= %s
                   AND e.created_at >= %s
+                  -- Re-submitting identical retained bytes with a new
+                  -- timestamp/frame ID is not independent fresh evidence.
+                  -- This is an exact-byte replay guard, NOT live attestation.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM home_image_evidence prior
+                      WHERE prior.user_id = e.user_id
+                        AND prior.source_id = e.source_id
+                        AND prior.image_sha256 = e.image_sha256
+                        AND prior.frame_id <> e.frame_id
+                        AND (
+                            prior.created_at < e.created_at
+                            OR (prior.created_at = e.created_at
+                                AND prior.frame_id < e.frame_id)
+                        )
+                  )
                 FOR UPDATE OF s
             """, (proof.user_id, proof.observation_id,
                   active_consent["granted_at"], active_consent["granted_at"])).fetchone()
