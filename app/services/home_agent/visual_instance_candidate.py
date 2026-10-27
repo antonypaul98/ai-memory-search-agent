@@ -150,12 +150,17 @@ def tentative_visual_candidate(
         if features is None:
             continue
         inliers, fraction = _geometry(query_features, features, cv2, np)
-        if inliers >= min_inliers and fraction >= min_fraction:
+        # A near-tie must remain ambiguous even if the runner-up narrowly
+        # misses the absolute acceptance thresholds. Otherwise a competing
+        # lookalike can disappear from the margin check.
+        if inliers > 0:
             scores.append((inliers, fraction, ref.observation_id))
     if not scores:
         return None
     scores.sort(key=lambda item: (-item[0], -item[1], item[2]))
     best = scores[0]
+    if best[0] < min_inliers or best[1] < min_fraction:
+        return None
     if len(scores) > 1 and best[0] - scores[1][0] < min_margin:
         return None
     return TentativeVisualMatch(best[2], query.observation_id, best[0], best[1])
