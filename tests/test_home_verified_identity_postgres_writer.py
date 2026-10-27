@@ -103,6 +103,14 @@ def test_trusted_writer_uses_erasure_fence_source_and_row_lock():
     assert "e.observed_at >= %s" in sql
     # Client observation time alone cannot authorize a pre-consent retained frame.
     assert "e.created_at >= %s" in sql
+    # An identical frame retained earlier cannot become new physical identity
+    # evidence just because a client submits a different observed_at.
+    assert "AND NOT EXISTS ( SELECT 1 FROM home_image_evidence prior" in sql
+    assert "prior.user_id = e.user_id" in sql
+    assert "prior.source_id = e.source_id" in sql
+    assert "prior.image_sha256 = e.image_sha256" in sql
+    assert "prior.frame_id <> e.frame_id" in sql
+    assert "prior.created_at < e.created_at" in sql
     assert "ON CONFLICT DO NOTHING" in sql
     sighting = next((statement, params) for statement, params in statements
                    if "FROM home_object_sightings s" in statement)
