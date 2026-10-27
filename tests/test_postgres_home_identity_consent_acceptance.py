@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Event
 from uuid import uuid4
 
@@ -52,9 +52,11 @@ def isolated_postgres(monkeypatch):
             ))
 
 
-def _sighting(store, *, user_id: str, source_id: str, suffix: str) -> str:
+def _sighting(store, *, user_id: str, source_id: str, suffix: str,
+              observed_at: datetime | None = None) -> str:
     # Use a post-grant capture time for positive consent tests.
-    observed_at = datetime.now(timezone.utc)
+    if observed_at is None:
+        observed_at = datetime.now(timezone.utc)
     image_bytes = f"synthetic-frame:{user_id}:{source_id}:{suffix}".encode()
     digest = hashlib.sha256(image_bytes).hexdigest()
     frame_id = canonical_id("frame", user_id, digest, source_id, "kitchen", suffix)
@@ -89,6 +91,12 @@ def _count(factory, table: str, user_id: str) -> int:
 def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postgres):
     store, factory = isolated_postgres
     pregrant = _sighting(store, user_id="house-a", source_id="camera-a", suffix="pregrant")
+    # A client may supply a future observed_at before consent exists. The
+    # server-retention time must still prevent retroactive identity linking.
+    pregrant_future = _sighting(
+        store, user_id="house-a", source_id="camera-a", suffix="pregrant-future",
+        observed_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
 
     # A proof without server consent cannot be stored.
     assert not store.store_verified_instance_association(
@@ -103,6 +111,9 @@ def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postg
     # Granting consent never authorizes retroactive identity linking.
     assert not store.store_verified_instance_association(
         proof=_proof("house-a", "camera-a", pregrant, "pregrant-replay")
+    )
+    assert not store.store_verified_instance_association(
+        proof=_proof("house-a", "camera-a", pregrant_future, "future-timestamp-replay")
     )
     a = _sighting(store, user_id="house-a", source_id="camera-a", suffix="one")
     b = _sighting(store, user_id="house-b", source_id="camera-a", suffix="one")
@@ -133,7 +144,7 @@ def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postg
     )
     assert _count(factory, "home_verified_instance_associations", "house-a") == 0
     assert _count(factory, "home_verified_instance_associations", "house-b") == 1
-    assert _count(factory, "home_object_sightings", "house-a") == 3
+    assert _count(factory, "home_object_sightings", "house-a") == 4
 
     # Regrant cannot relink previously captured frames; only new sightings qualify.
     store.grant_instance_identity_consent(
