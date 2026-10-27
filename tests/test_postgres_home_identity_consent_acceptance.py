@@ -53,11 +53,12 @@ def isolated_postgres(monkeypatch):
 
 
 def _sighting(store, *, user_id: str, source_id: str, suffix: str,
-              observed_at: datetime | None = None) -> str:
+              observed_at: datetime | None = None,
+              image_suffix: str | None = None) -> str:
     # Use a post-grant capture time for positive consent tests.
     if observed_at is None:
         observed_at = datetime.now(timezone.utc)
-    image_bytes = f"synthetic-frame:{user_id}:{source_id}:{suffix}".encode()
+    image_bytes = f"synthetic-frame:{user_id}:{source_id}:{image_suffix if image_suffix is not None else suffix}".encode()
     digest = hashlib.sha256(image_bytes).hexdigest()
     frame_id = canonical_id("frame", user_id, digest, source_id, "kitchen", suffix)
     detection = DetectedObject("keys", 0.96, (0.1, 0.2, 0.4, 0.6))
@@ -176,6 +177,38 @@ def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postg
         proof=_proof("house-a", "camera-b", other_source, "expired")
     )
     assert _count(factory, "home_verified_instance_associations", "house-a") == 1
+
+
+def test_exact_image_replay_cannot_mint_fresh_identity_sighting(isolated_postgres):
+    """Same bytes with a new frame ID/time cannot establish a new identity event.
+
+    This is a synthetic exact-byte replay regression, not camera authenticity.
+    """
+    store, _ = isolated_postgres
+    tenant, source = "house-replay", "camera-a"
+    # The original frame was retained before identity consent.
+    _sighting(store, user_id=tenant, source_id=source,
+              suffix="old-frame", image_suffix="same-photo")
+    store.grant_instance_identity_consent(
+        user_id=tenant, source_id=source, ttl_seconds=300
+    )
+    # Re-submit identical bytes with a new frame ID and fresh observed_at.
+    replay = _sighting(store, user_id=tenant, source_id=source,
+                       suffix="new-timestamp", image_suffix="same-photo")
+    assert not store.store_verified_instance_association(
+        proof=_proof(tenant, source, replay, "replayed-old-photo")
+    )
+
+    fresh = _sighting(store, user_id=tenant, source_id=source,
+                      suffix="genuine-new-bytes", image_suffix="new-photo")
+    assert store.store_verified_instance_association(
+        proof=_proof(tenant, source, fresh, "fresh")
+    )
+    duplicate = _sighting(store, user_id=tenant, source_id=source,
+                          suffix="new-photo-again", image_suffix="new-photo")
+    assert not store.store_verified_instance_association(
+        proof=_proof(tenant, source, duplicate, "duplicate-fresh")
+    )
 
 
 def test_real_postgres_revoke_blocks_concurrent_writer(isolated_postgres):
