@@ -101,10 +101,12 @@ def test_trusted_writer_uses_erasure_fence_source_and_row_lock():
     assert "JOIN home_image_evidence e" in sql
     assert "SELECT granted_at FROM home_instance_identity_consents" in sql
     assert "e.observed_at >= %s" in sql
+    # Client observation time alone cannot authorize a pre-consent retained frame.
+    assert "e.created_at >= %s" in sql
     assert "ON CONFLICT DO NOTHING" in sql
     sighting = next((statement, params) for statement, params in statements
                    if "FROM home_object_sightings s" in statement)
-    assert sighting[1] == ("house-a", "obs-a", "server-grant-time")
+    assert sighting[1] == ("house-a", "obs-a", "server-grant-time", "server-grant-time")
     insert = next((statement, params) for statement, params in statements
                   if "INSERT INTO home_verified_instance_associations" in statement)
     assert insert[1] == ("house-a", "obs-a", "keys-a", "proof-a", 0.97)
