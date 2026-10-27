@@ -215,6 +215,8 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
             # Lock the exact tenant-owned source sighting against deletion.
             # Only retained image observations captured after this server grant
             # may be linked; re-grant cannot retroactively identify old frames.
+            # The server's retention timestamp also must postdate the grant:
+            # a client-supplied future observed_at cannot backdate consent.
             sighting = conn.execute("""
                 SELECT s.source_id, e.source_id AS frame_source_id
                 FROM home_object_sightings s
@@ -224,9 +226,10 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                   ON e.user_id = i.user_id AND e.frame_id = i.frame_id
                 WHERE s.user_id = %s AND s.evidence_id = %s
                   AND e.observed_at >= %s
+                  AND e.created_at >= %s
                 FOR UPDATE OF s
             """, (proof.user_id, proof.observation_id,
-                  active_consent["granted_at"])).fetchone()
+                  active_consent["granted_at"], active_consent["granted_at"])).fetchone()
             if (sighting is None or sighting["source_id"] != proof.source_id
                     or sighting["frame_source_id"] != proof.source_id):
                 return False
