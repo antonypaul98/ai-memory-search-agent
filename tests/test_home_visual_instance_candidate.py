@@ -126,3 +126,17 @@ def test_other_tenant_can_reuse_reference_id_without_invalidating_match():
     ])
     assert result is not None
     assert result.reference_observation_id == "old"
+
+
+def test_near_tie_below_absolute_fraction_cutoff_is_still_ambiguous(monkeypatch):
+    # A competing lookalike with 19 inliers but a slightly sub-threshold
+    # fraction must not disappear from the margin check against 20 inliers.
+    from app.services.home_agent import visual_instance_candidate as matcher
+
+    image = pattern(7)
+    outcomes = iter([(20, 0.9), (19, 0.64)])
+    monkeypatch.setattr(matcher, "_geometry", lambda *args: next(outcomes))
+    assert tentative_visual_candidate(
+        sighting("query", image, seconds=10),
+        [sighting("reference-a", image), sighting("reference-b", image)],
+    ) is None
