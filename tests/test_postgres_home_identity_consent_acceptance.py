@@ -53,7 +53,8 @@ def isolated_postgres(monkeypatch):
 
 
 def _sighting(store, *, user_id: str, source_id: str, suffix: str) -> str:
-    observed_at = datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)
+    # Use a post-grant capture time for positive consent tests.
+    observed_at = datetime.now(timezone.utc)
     image_bytes = f"synthetic-frame:{user_id}:{source_id}:{suffix}".encode()
     digest = hashlib.sha256(image_bytes).hexdigest()
     frame_id = canonical_id("frame", user_id, digest, source_id, "kitchen", suffix)
@@ -87,21 +88,26 @@ def _count(factory, table: str, user_id: str) -> int:
 
 def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postgres):
     store, factory = isolated_postgres
-    a = _sighting(store, user_id="house-a", source_id="camera-a", suffix="one")
-    b = _sighting(store, user_id="house-b", source_id="camera-a", suffix="one")
-    other_source = _sighting(
-        store, user_id="house-a", source_id="camera-b", suffix="two"
-    )
+    pregrant = _sighting(store, user_id="house-a", source_id="camera-a", suffix="pregrant")
 
-    # No grant, wrong source and cross-tenant observation all fail closed.
+    # A proof without server consent cannot be stored.
     assert not store.store_verified_instance_association(
-        proof=_proof("house-a", "camera-a", a, "before-grant")
+        proof=_proof("house-a", "camera-a", pregrant, "before-grant")
     )
     store.grant_instance_identity_consent(
         user_id="house-a", source_id="camera-a", ttl_seconds=300
     )
     store.grant_instance_identity_consent(
         user_id="house-b", source_id="camera-a", ttl_seconds=300
+    )
+    # Granting consent never authorizes retroactive identity linking.
+    assert not store.store_verified_instance_association(
+        proof=_proof("house-a", "camera-a", pregrant, "pregrant-replay")
+    )
+    a = _sighting(store, user_id="house-a", source_id="camera-a", suffix="one")
+    b = _sighting(store, user_id="house-b", source_id="camera-a", suffix="one")
+    other_source = _sighting(
+        store, user_id="house-a", source_id="camera-b", suffix="two"
     )
     assert not store.store_verified_instance_association(
         proof=_proof("house-a", "camera-a", b, "cross-tenant")
@@ -127,15 +133,21 @@ def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postg
     )
     assert _count(factory, "home_verified_instance_associations", "house-a") == 0
     assert _count(factory, "home_verified_instance_associations", "house-b") == 1
-    assert _count(factory, "home_object_sightings", "house-a") == 2
+    assert _count(factory, "home_object_sightings", "house-a") == 3
 
-    # Regrant authorizes only new writes; it never resurrects erased proof rows.
+    # Regrant cannot relink previously captured frames; only new sightings qualify.
     store.grant_instance_identity_consent(
         user_id="house-a", source_id="camera-a", ttl_seconds=300
     )
     assert _count(factory, "home_verified_instance_associations", "house-a") == 0
+    assert not store.store_verified_instance_association(
+        proof=_proof("house-a", "camera-a", a, "after-regrant-old")
+    )
+    after_regrant = _sighting(
+        store, user_id="house-a", source_id="camera-a", suffix="after-regrant"
+    )
     assert store.store_verified_instance_association(
-        proof=_proof("house-a", "camera-a", a, "after-regrant")
+        proof=_proof("house-a", "camera-a", after_regrant, "after-regrant-new")
     )
 
     # Database time, not the caller's timestamp, governs expiry.
@@ -157,11 +169,11 @@ def test_real_postgres_consent_revoke_expiry_and_tenant_isolation(isolated_postg
 
 def test_real_postgres_revoke_blocks_concurrent_writer(isolated_postgres):
     store, factory = isolated_postgres
-    observation = _sighting(
-        store, user_id="house-race", source_id="camera-a", suffix="race"
-    )
     store.grant_instance_identity_consent(
         user_id="house-race", source_id="camera-a", ttl_seconds=300
+    )
+    observation = _sighting(
+        store, user_id="house-race", source_id="camera-a", suffix="race"
     )
     proof = _proof("house-race", "camera-a", observation, "racing-write")
 
