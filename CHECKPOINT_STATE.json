@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+  "current_branch_sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; PR #399 open draft at 4da7899a; HOME sole writer / JARVIS follower; no merge/rebase; remote Mac worktrees unavailable for inspection.",
-  "local_test_status": "No local product tests run this run. Exact-source GitHub CI and trained-vision/PostgreSQL smoke verified; physical Mac untested.",
+  "branch_remote_status": "Main ac912722; PR #399 open draft at bd8b2cc5; HOME sole writer / JARVIS follower; no merge/rebase; Mac worktrees inaccessible/uninspected.",
+  "local_test_status": "No local product tests run this run. Exact receipt-head GitHub Actions Python 3.11 Core and Home Vision smoke succeeded; physical Mac camera untested.",
   "pr_number": 399,
-  "ci_status": "Exact source/test head 4da7899a Core CI #40424210740 SUCCESS: Python 3.11 pytest 1663 passed, 6 skipped, 4 warnings; Home Vision Smoke #40424210755 SUCCESS: OpenCV visual-candidate 18 passed, 3 warnings. Receipt-head CI pending; physical Mac untested.",
+  "ci_status": "Exact PR receipt-head bd8b2cc5 Core CI #40447236841 SUCCESS: Python 3.11 pytest 1663 passed, 6 skipped, 4 warnings; Home Vision Smoke #40447236860 SUCCESS: OpenCV visual-candidate 19 passed, 3 warnings; trained-vision/PostgreSQL smoke succeeded. Physical Mac pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Independent physical-instance verifier, long-occlusion identity, mover attribution, camera-to-memory integration and physical Mac camera acceptance absent.",
-  "next_action": "Verify exact receipt-head CI; keep PR draft/unmerged. Prioritize independently verifiable physical-instance evidence with consent, provenance and ambiguity rejection. Preserve physical Mac gate pending.",
+  "next_action": "Implement an independently sourced, consent/provenance-gated instance-evidence producer; never promote ORB lookalikes to physical identity. Review proof-source threat model and verify synthetic/SQL exact-head CI before hardware gate. Keep PR draft.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-27T01:00:34.891Z",
-  "observed_branch_sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
-  "observed_feature_sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+  "observed_at_utc": "2026-10-27T05:00:37.831Z",
+  "observed_branch_sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
+  "observed_feature_sha": "3478c89069ab2f8b3d9135dfafc96d9d156b6198",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+    "head_sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40424210740,
-      "sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+      "id": 40447236841,
+      "sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40424210755,
-      "sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+      "id": 40447236860,
+      "sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac/worktrees unavailable; no trusted physical-instance verifier",
-    "BLOCKER": "Trusted instance identity, long-occlusion recovery, mover attribution, camera-to-memory integration and real Mac camera acceptance remain incomplete.",
-    "SAFE_WORK_COMPLETED": "Verified exact source/test head 4da7899a Core CI #40424210740 and Home Vision Smoke #40424210755 SUCCESS; Core 1663 passed/6 skipped; OpenCV 18 passed. Published checkpoint-only acceptance receipt; no product code/tests changed.",
-    "REMOTE_SHA": "4da7899aa5ff009384bb1db9a3b701353281d320",
-    "NEXT_ACTION": "Verify checkpoint-receipt head CI, then implement independently verifiable physical-instance evidence producer with consent/provenance/ambiguity rejection; do not promote ORB candidate to proof."
+    "BLOCKED_LAYER": "Physical Mac/worktrees inaccessible; independent physical-instance verifier absent",
+    "BLOCKER": "Trusted identity producer, long-occlusion recovery, mover attribution, camera-to-memory integration and real Mac camera acceptance remain incomplete.",
+    "SAFE_WORK_COMPLETED": "Verified exact checkpoint receipt head bd8b2cc5: Core CI #40447236841 and Home Vision Smoke #40447236860 SUCCESS; Core 1663 passed/6 skipped, OpenCV 19 passed. Publishing checkpoint-only acceptance receipt; no product code/tests changed.",
+    "REMOTE_SHA": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
+    "NEXT_ACTION": "Implement an independently sourced, consent/provenance-gated instance-evidence producer; never promote ORB lookalikes to physical identity. Review proof-source threat model and verify synthetic/SQL exact-head CI before hardware gate. Keep PR draft."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -337,7 +337,7 @@
     "home_smoke_conclusion": "success"
   },
   "home_visual_candidate_validation": {
-    "status": "SOURCE_AND_TEST_HEAD_CI_ACCEPTED_RECEIPT_CI_PENDING",
+    "status": "RECEIPT_HEAD_CI_ACCEPTED",
     "source_sha": "1dc1f18687d511f8b4d480c10cf3a4d327629df2",
     "source_path": "app/services/home_agent/visual_instance_candidate.py",
     "tests_path": "tests/test_home_visual_instance_candidate.py",
@@ -356,6 +356,16 @@
     "observation_id_provenance_guard": "Reject same-tenant observation-ID collisions/replays before camera, class and time filters; cross-tenant ID reuse remains isolated.",
     "regression_tests_total": 19,
     "source_test_head_sha": "3478c89069ab2f8b3d9135dfafc96d9d156b6198",
-    "ambiguity_margin_guard": "A near-tie competitor just below the absolute inlier-fraction threshold still participates in ambiguity rejection; 20-inlier versus 19-inlier deterministic synthetic regression passed Python 3.11 Home vision smoke at exact source/test SHA."
+    "ambiguity_margin_guard": "A near-tie competitor just below the absolute inlier-fraction threshold still participates in ambiguity rejection; 20-inlier versus 19-inlier deterministic synthetic regression passed Python 3.11 Home vision smoke at exact source/test SHA.",
+    "receipt_head_ci": {
+      "sha": "bd8b2cc53e9346d116d404803aa1a6e330b2dd64",
+      "core_run": 40447236841,
+      "core_conclusion": "success",
+      "core_python311": "1663 passed, 6 skipped, 4 warnings",
+      "home_smoke_run": 40447236860,
+      "home_smoke_conclusion": "success",
+      "opencv_python311": "19 passed, 3 warnings",
+      "physical_camera_accepted": false
+    }
   }
 }
