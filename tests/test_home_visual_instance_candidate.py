@@ -97,3 +97,32 @@ def test_malformed_bgr_crops_fail_closed_in_query_and_reference(shape):
     assert tentative_visual_candidate(
         sighting('new', image, seconds=10), [sighting('old', malformed)]
     ) is None
+
+
+@pytest.mark.parametrize("other_scope", [
+    {"source": "cam2"}, {"cls": "wallet"}, {"seconds": -360},
+])
+def test_same_tenant_duplicate_reference_id_is_ambiguous_even_outside_match_scope(other_scope):
+    image = pattern(3)
+    query = sighting("new", image, seconds=10)
+    assert tentative_visual_candidate(query, [
+        sighting("old", image), sighting("old", image, **other_scope),
+    ]) is None
+
+
+def test_same_tenant_query_id_replayed_from_other_camera_is_rejected():
+    image = pattern(3)
+    query = sighting("new", image, seconds=10)
+    assert tentative_visual_candidate(query, [
+        sighting("old", image), sighting("new", image, source="cam2"),
+    ]) is None
+
+
+def test_other_tenant_can_reuse_reference_id_without_invalidating_match():
+    image = pattern(3)
+    query = sighting("new", image, seconds=10)
+    result = tentative_visual_candidate(query, [
+        sighting("old", image), sighting("old", image, user="B"),
+    ])
+    assert result is not None
+    assert result.reference_observation_id == "old"

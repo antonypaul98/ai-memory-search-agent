@@ -129,17 +129,20 @@ def tentative_visual_candidate(
     for ref in references:
         if not isinstance(ref, VisualSighting):
             raise ValueError("references must be VisualSighting")
-        if ref.user_id != query.user_id or ref.source_id != query.source_id:
+        if ref.user_id != query.user_id:
+            continue
+        # Observation IDs are tenant-unique provenance, not scoped to a
+        # camera, class, or matching time window. A replay or collision in an
+        # otherwise ineligible reference still invalidates this comparison.
+        if ref.observation_id == query.observation_id or ref.observation_id in seen:
+            return None
+        seen.add(ref.observation_id)
+        if ref.source_id != query.source_id:
             continue
         if ref.object_class.casefold() != query.object_class.casefold():
             continue
         if not timedelta(0) < query.observed_at - ref.observed_at <= max_age:
             continue
-        if ref.observation_id == query.observation_id:
-            return None  # replay/alias: never choose a different reference
-        if ref.observation_id in seen:
-            return None  # duplicate evidence: ambiguous
-        seen.add(ref.observation_id)
         eligible.append(ref)
     scores = []
     for ref in eligible:
