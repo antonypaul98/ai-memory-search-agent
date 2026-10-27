@@ -337,23 +337,25 @@
     "home_smoke_conclusion": "success"
   },
   "home_visual_candidate_validation": {
-    "status": "SOURCE_HEAD_CI_ACCEPTED_RECEIPT_CI_PENDING",
-    "source_sha": "4da7899aa5ff009384bb1db9a3b701353281d320",
+    "status": "SOURCE_AND_TEST_HEAD_CI_ACCEPTED_RECEIPT_CI_PENDING",
+    "source_sha": "1dc1f18687d511f8b4d480c10cf3a4d327629df2",
     "source_path": "app/services/home_agent/visual_instance_candidate.py",
     "tests_path": "tests/test_home_visual_instance_candidate.py",
     "scope": "Offline ORB/geometric lookalike candidates only; no identity proof, persistence or camera integration",
     "malformed_bgr_guard": "Reject empty, undersized and oversized color crops before OpenCV conversion",
     "parameterized_invalid_crop_shapes": 5,
-    "core_ci_run": 40424210740,
+    "core_ci_run": 40442180473,
     "core_ci_conclusion": "success",
     "python311_pytest": "1663 passed, 6 skipped, 4 warnings",
-    "home_smoke_run": 40424210755,
+    "home_smoke_run": 40442180485,
     "home_smoke_conclusion": "success",
-    "python311_opencv_tests": "18 passed, 3 warnings",
+    "python311_opencv_tests": "19 passed, 3 warnings",
     "physical_camera_accepted": false,
-    "local_product_tests": "not run",
+    "local_product_tests": "not run; GitHub Actions Python 3.11 Core and Home smoke passed at exact source/test SHA",
     "feature_checkpoint_advanced": false,
     "observation_id_provenance_guard": "Reject same-tenant observation-ID collisions/replays before camera, class and time filters; cross-tenant ID reuse remains isolated.",
-    "regression_tests_total": 18
+    "regression_tests_total": 19,
+    "source_test_head_sha": "3478c89069ab2f8b3d9135dfafc96d9d156b6198",
+    "ambiguity_margin_guard": "A near-tie competitor just below the absolute inlier-fraction threshold still participates in ambiguity rejection; 20-inlier versus 19-inlier deterministic synthetic regression passed Python 3.11 Home vision smoke at exact source/test SHA."
   }
 }
