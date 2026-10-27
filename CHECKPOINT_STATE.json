@@ -367,5 +367,25 @@
       "opencv_python311": "19 passed, 3 warnings",
       "physical_camera_accepted": false
     }
+  },
+  "home_identity_capture_retention_guard": {
+    "status": "PUBLISHED_CI_PENDING",
+    "source_test_head_sha": "abb13ad4e2a95803b8bf7ef05459c64593c6360b",
+    "scope": "Require server-recorded frame retention time and frame observed_at to be after active server identity consent grant. Reject pre-grant retained frames with forged future observed_at; preserve tenant/source/erasure gates.",
+    "source_path": "app/db/postgres_home_image_store.py",
+    "tests": [
+      "tests/test_home_verified_identity_postgres_writer.py",
+      "tests/test_postgres_home_identity_consent_acceptance.py"
+    ],
+    "source_sha": "8e26e69fdc72debab247ea6932013ba15443807a",
+    "sql_test_sha": "cf90559843bee09f4cd94c2fa551e23e06bfb6b6",
+    "integration_test_sha": "abb13ad4e2a95803b8bf7ef05459c64593c6360b",
+    "core_ci_run": 40508998661,
+    "home_smoke_run": 40508998510,
+    "ci_conclusion": "pending at publication; do not infer success",
+    "physical_camera_accepted": false,
+    "independent_verifier_implemented": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact-head Core and Home smoke CI for this receipt; repair confirmed failures only; continue independently sourced physical-instance identity evidence and camera-to-memory integration."
   }
 }
