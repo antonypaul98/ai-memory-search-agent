@@ -46,7 +46,7 @@ class Connection:
         if "FROM account_erasure_fences" in normalized:
             return Cursor({"fenced": 1} if self.fenced else None)
         if "FROM home_instance_identity_consents" in normalized:
-            return Cursor({"allowed": 1} if self.consent else None)
+            return Cursor({"granted_at": "server-grant-time"} if self.consent else None)
         if "DELETE FROM home_verified_instance_associations a" in normalized:
             return Cursor(rows=[{"observation_id": f"obs-{i}"} for i in range(self.erased)])
         if "FROM home_object_sightings s" in normalized:
@@ -99,10 +99,12 @@ def test_trusted_writer_uses_erasure_fence_source_and_row_lock():
     assert sql.index("FROM home_instance_identity_consents") < sql.index("FROM home_object_sightings s")
     assert "JOIN home_image_observations i" in sql
     assert "JOIN home_image_evidence e" in sql
+    assert "SELECT granted_at FROM home_instance_identity_consents" in sql
+    assert "e.observed_at >= %s" in sql
     assert "ON CONFLICT DO NOTHING" in sql
     sighting = next((statement, params) for statement, params in statements
                    if "FROM home_object_sightings s" in statement)
-    assert sighting[1] == ("house-a", "obs-a")
+    assert sighting[1] == ("house-a", "obs-a", "server-grant-time")
     insert = next((statement, params) for statement, params in statements
                   if "INSERT INTO home_verified_instance_associations" in statement)
     assert insert[1] == ("house-a", "obs-a", "keys-a", "proof-a", 0.97)
