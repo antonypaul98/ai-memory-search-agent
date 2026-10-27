@@ -78,22 +78,31 @@ def test_synthetic_verified_identity_flows_through_real_postgres_and_revocation(
         store = PostgresHomeImageStore(get_postgres_connection_factory(settings))
         query = HomeAgentQueryService(store)
         owner, neighbor, source = "house-a", "house-b", "consented-camera"
-        base = datetime(2026, 10, 27, 7, tzinfo=timezone.utc)
-        first = _seed(store, user_id=owner, location="desk", observed_at=base, suffix="1")
-        second = _seed(
-            store, user_id=owner, location="kitchen",
-            observed_at=base + timedelta(seconds=30), suffix="2",
+        historical_at = datetime(2026, 10, 27, 7, tzinfo=timezone.utc)
+        old = _seed(
+            store, user_id=owner, location="old-room",
+            observed_at=historical_at, suffix="pre-consent",
         )
-        _seed(store, user_id=neighbor, location="garage", observed_at=base, suffix="3")
-
-        # Class-only image ingestion cannot produce a verified relocation.
-        assert query.observed_location_changes(user_id=owner, object_name="keys") == []
-        assert query.observed_location_changes(user_id=neighbor, object_name="keys") == []
+        _seed(store, user_id=neighbor, location="garage",
+              observed_at=historical_at, suffix="3")
 
         now = datetime.now(timezone.utc)
         expires = store.grant_instance_identity_consent(
             user_id=owner, source_id=source, ttl_seconds=120,
         )
+        # Both linked sightings occur after the server grant; the older frame
+        # must remain ineligible even when the verifier supplies a proof.
+        base = datetime.now(timezone.utc)
+        first = _seed(store, user_id=owner, location="desk", observed_at=base, suffix="1")
+        second = _seed(
+            store, user_id=owner, location="kitchen",
+            observed_at=base + timedelta(seconds=30), suffix="2",
+        )
+
+        # Class-only image ingestion cannot produce a verified relocation.
+        assert query.observed_location_changes(user_id=owner, object_name="keys") == []
+        assert query.observed_location_changes(user_id=neighbor, object_name="keys") == []
+
         consent = InstanceIdentityConsent(
             user_id=owner, source_id=source,
             granted_at=now - timedelta(seconds=30), expires_at=expires,
@@ -104,10 +113,14 @@ def test_synthetic_verified_identity_flows_through_real_postgres_and_revocation(
                 instance_id="keys-physical-1", identity_evidence_id=f"fixture-proof-{i}",
                 identity_confidence=0.98,
             )
-            for i, observation in enumerate((first, second), start=1)
+            for i, observation in enumerate((old, first, second), start=1)
         }
         service = VerifiedInstanceIngestService(
             verifier=FixtureVerifier(proofs), store=store,
+        )
+        assert not service.ingest(
+            user_id=owner, observation_id=old,
+            source_id=source, consent=consent, now=now,
         )
         for observation in (first, second):
             assert service.ingest(
@@ -125,13 +138,13 @@ def test_synthetic_verified_identity_flows_through_real_postgres_and_revocation(
         assert (changes[0].from_location, changes[0].to_location) == ("desk", "kitchen")
         assert (changes[0].from_evidence_id, changes[0].to_evidence_id) == (first, second)
         assert (changes[0].from_identity_evidence_id,
-                changes[0].to_identity_evidence_id) == ("fixture-proof-1", "fixture-proof-2")
+                changes[0].to_identity_evidence_id) == ("fixture-proof-2", "fixture-proof-3")
         assert query.observed_location_changes(user_id=neighbor, object_name="keys") == []
 
         assert store.revoke_instance_identity_consent(user_id=owner, source_id=source) == 2
         assert query.observed_location_changes(user_id=owner, object_name="keys") == []
         # Revocation removes only identity links, not class sightings or other tenants.
-        assert len(query.history(user_id=owner, object_name="keys")) == 2
+        assert len(query.history(user_id=owner, object_name="keys")) == 3
         assert len(query.history(user_id=neighbor, object_name="keys")) == 1
         assert not service.ingest(
             user_id=owner, observation_id=first,
