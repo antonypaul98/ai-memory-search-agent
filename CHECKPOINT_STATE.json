@@ -387,5 +387,21 @@
     "independent_verifier_implemented": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify exact-head Core and Home smoke CI for this receipt; repair confirmed failures only; continue independently sourced physical-instance identity evidence and camera-to-memory integration."
+  },
+  "home_identity_exact_image_replay_guard": {
+    "status": "PUBLISHED_CI_PENDING",
+    "scope": "Tenant/source-scoped exact-byte replay guard at trusted association write: earlier retained image SHA-256 cannot be reused with a new frame ID/timestamp as fresh identity evidence. Not live capture attestation; altered bytes and previously unseen old photos remain possible.",
+    "source_commit": "e9b739991b84ddfda7f37ee429f9f77022169eaa",
+    "sql_test_commit": "8997abebaa2bd1fa819c1418b6d9ec9bb45a16ba",
+    "postgres_test_commit": "2287cdc777522d381840d1de985dfa85ea066ba5",
+    "test_files": [
+      "tests/test_home_verified_identity_postgres_writer.py",
+      "tests/test_postgres_home_identity_consent_acceptance.py"
+    ],
+    "exact_head_ci": "pending; do not infer success from previous 4f17f5b9 green",
+    "physical_camera_accepted": false,
+    "independent_identity_verifier_implemented": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact final-head Core CI and Home Vision smoke; repair only confirmed failures; then implement independently sourced, opt-in physical-instance proof and authenticated live capture-to-memory integration."
   }
 }
