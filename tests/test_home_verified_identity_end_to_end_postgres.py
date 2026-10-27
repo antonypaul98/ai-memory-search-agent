@@ -82,20 +82,53 @@ class SyntheticVerifier:
 def test_synthetic_identity_evidence_round_trip_and_revocation(store_with_real_postgres):
     store = store_with_real_postgres
     now = datetime.now(timezone.utc)
-    first = _sighting(
-        store, suffix="a-first", location="living-room",
+    pregrant = _sighting(
+        store, suffix="before-grant", location="entryway",
         observed_at=now - timedelta(minutes=2),
+    )
+
+    proofs = {("house-a", pregrant, "camera-1"): VerifiedInstanceProof(
+        user_id="house-a", observation_id=pregrant, source_id="camera-1",
+        instance_id="keys-a", identity_evidence_id="synthetic-proof-pregrant",
+        identity_confidence=0.98,
+    )}
+
+    verifier = SyntheticVerifier(proofs)
+    service = VerifiedInstanceIngestService(verifier=verifier, store=store)
+    consent = InstanceIdentityConsent(
+        user_id="house-a", source_id="camera-1",
+        granted_at=now - timedelta(seconds=5),
+        expires_at=now + timedelta(minutes=5),
+    )
+
+    # Neither a caller-provided consent object nor a later grant can authorize
+    # identity linking of a sighting captured before server consent.
+    assert not service.ingest(
+        user_id="house-a", observation_id=pregrant, source_id="camera-1",
+        consent=consent, now=now,
+    )
+    expiry = store.grant_instance_identity_consent(
+        user_id="house-a", source_id="camera-1", ttl_seconds=300,
+    )
+    assert expiry > now
+    assert not service.ingest(
+        user_id="house-a", observation_id=pregrant, source_id="camera-1",
+        consent=consent, now=now,
+    )
+
+    # Only newly captured post-grant frames may acquire synthetic identity links.
+    base = datetime.now(timezone.utc)
+    first = _sighting(
+        store, suffix="a-first", location="living-room", observed_at=base,
     )
     second = _sighting(
         store, suffix="a-second", location="kitchen",
-        observed_at=now - timedelta(minutes=1),
+        observed_at=base + timedelta(seconds=1),
     )
     other_keys = _sighting(
         store, suffix="b-first", location="living-room",
-        observed_at=now - timedelta(minutes=1),
+        observed_at=base + timedelta(seconds=1),
     )
-
-    proofs = {}
     for observation_id, instance_id, proof_id in (
         (first, "keys-a", "synthetic-proof-a-first"),
         (second, "keys-a", "synthetic-proof-a-second"),
@@ -106,24 +139,6 @@ def test_synthetic_identity_evidence_round_trip_and_revocation(store_with_real_p
             instance_id=instance_id, identity_evidence_id=proof_id,
             identity_confidence=0.98,
         )
-
-    verifier = SyntheticVerifier(proofs)
-    service = VerifiedInstanceIngestService(verifier=verifier, store=store)
-    consent = InstanceIdentityConsent(
-        user_id="house-a", source_id="camera-1",
-        granted_at=now - timedelta(seconds=5),
-        expires_at=now + timedelta(minutes=5),
-    )
-
-    # An in-memory consent assertion alone never bypasses the DB consent gate.
-    assert not service.ingest(
-        user_id="house-a", observation_id=first, source_id="camera-1",
-        consent=consent, now=now,
-    )
-    expiry = store.grant_instance_identity_consent(
-        user_id="house-a", source_id="camera-1", ttl_seconds=300,
-    )
-    assert expiry > now
     for observation_id in (first, second, other_keys):
         assert service.ingest(
             user_id="house-a", observation_id=observation_id, source_id="camera-1",
@@ -144,11 +159,11 @@ def test_synthetic_identity_evidence_round_trip_and_revocation(store_with_real_p
         user_id="house-b", object_name="keys",
     ) == []
 
-    # Revocation removes all three identity links, but preserves class sightings.
+    # Revocation removes all three identity links, but preserves all four class sightings.
     assert store.revoke_instance_identity_consent(
         user_id="house-a", source_id="camera-1",
     ) == 3
     assert query.observed_location_changes(
         user_id="house-a", object_name="keys",
     ) == []
-    assert len(store.history(user_id="house-a", object_name="keys")) == 3
+    assert len(store.history(user_id="house-a", object_name="keys")) == 4
