@@ -256,3 +256,103 @@ def test_authenticated_shared_capture_ingest_uses_guarded_writer_across_workers(
     with pytest.raises(PermissionError):
         ingest.ingest(**kwargs)
     assert _count(factory, "home_image_evidence") == 1
+
+
+def test_guarded_writer_serializes_frame_commit_with_session_revocation(isolated_postgres):
+    """A real evidence write holds the session lock until its transaction commits."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    import psycopg
+
+    _, factory = isolated_postgres
+    authorized = Event()
+    release = Event()
+
+    class PausingRegistry(PostgresCaptureSessionRegistry):
+        def authorize_image_write(self, conn, **kwargs):
+            super().authorize_image_write(conn, **kwargs)
+            authorized.set()
+            if not release.wait(timeout=8):
+                raise AssertionError("timed out waiting to release writer transaction")
+
+    registry = PausingRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+    batch = _authorized_batch(observed_at=now - timedelta(seconds=1))
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            writer.store_image_batch, batch, capture_session_id=session.session_id,
+        )
+        try:
+            assert authorized.wait(timeout=8), "image writer did not acquire its session lock"
+            with factory() as revoker:
+                revoker.execute("SET LOCAL lock_timeout = '200ms'")
+                with pytest.raises(psycopg.errors.LockNotAvailable):
+                    revoker.execute(
+                        "UPDATE home_capture_sessions SET revoked_at=clock_timestamp() "
+                        "WHERE session_id=%s", (session.session_id,),
+                    )
+                revoker.rollback()
+        finally:
+            release.set()
+        assert future.result(timeout=8)["stored_observations"] == 1
+
+    assert _count(factory, "home_image_evidence") == 1
+    assert registry.revoke(session_id=session.session_id)
+    with pytest.raises(PermissionError):
+        writer.store_image_batch(
+            replace(batch, frame_id="post-revocation-frame"),
+            capture_session_id=session.session_id,
+        )
+    assert _count(factory, "home_image_evidence") == 1
+
+
+@pytest.mark.parametrize("transition", ["revoke", "expire"])
+def test_guarded_image_ingest_rechecks_authority_after_detection(isolated_postgres, transition):
+    """A valid pre-detection resolve cannot authorize a later revoked/expired write."""
+    _, factory = isolated_postgres
+    registry = PostgresCaptureSessionRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+
+    class ChangingDetector(FixtureDetector):
+        def detect(self, image):
+            if transition == "revoke":
+                assert registry.revoke(session_id=session.session_id)
+            else:
+                with factory() as conn:
+                    conn.execute(
+                        "UPDATE home_capture_sessions "
+                        "SET expires_at=clock_timestamp() - INTERVAL '1 second' "
+                        "WHERE session_id=%s", (session.session_id,),
+                    )
+            return super().detect(image)
+
+    ingest = AuthenticatedHomeImageIngest(
+        registry=registry,
+        image_ingest=HomeImageIngestService(
+            writer, ChangingDetector([
+                DetectedObject("keys", 0.96, (0.1, 0.1, 0.8, 0.8)),
+            ]),
+        ),
+    )
+    with pytest.raises(PermissionError):
+        ingest.ingest(
+            session_id=session.session_id, user_id="house-a", source_id="camera-a",
+            image_bytes=_png(), location="office",
+            observed_at=now - timedelta(seconds=1), now=now,
+        )
+    assert _count(factory, "home_image_evidence") == 0
+    assert _count(factory, "home_image_observations") == 0
