@@ -95,3 +95,37 @@ class PostgresCaptureSessionRegistry(CaptureSessionRegistry):
                 RETURNING session_id
             """, (user_id,)).fetchall()
         return len(rows)
+
+    def authorize_image_write(
+        self, conn, *, session_id: str, user_id: str, source_id: str,
+        observed_at: datetime,
+    ) -> None:
+        """Authorize a retained image while locking its session until commit.
+
+        The caller MUST use this exact connection for evidence writes and hold
+        the transaction open through commit. A pre-detection resolve() alone
+        is never sufficient: revocation must serialize with the evidence write.
+        """
+        if not all(isinstance(v, str) and v.strip() and v == v.strip()
+                   for v in (session_id, user_id, source_id)):
+            raise ValueError("capture session, tenant and source are required")
+        if (not isinstance(observed_at, datetime) or observed_at.tzinfo is None
+                or observed_at.utcoffset() is None):
+            raise ValueError("observed_at must be timezone-aware")
+        require_active_tenant(conn, user_id=user_id)
+        # FOR SHARE conflicts with UPDATE revocation. Read database time only
+        # AFTER acquiring this lock; transaction-start time can be stale.
+        row = conn.execute("""
+            SELECT started_at, expires_at, revoked_at
+            FROM home_capture_sessions
+            WHERE session_id=%s AND user_id=%s AND source_id=%s
+            FOR SHARE
+        """, (session_id, user_id, source_id)).fetchone()
+        if row is None:
+            raise PermissionError("capture session is missing or mismatched")
+        db_now = conn.execute("SELECT clock_timestamp() AS db_now").fetchone()["db_now"]
+        if (row["revoked_at"] is not None
+                or not (row["started_at"] <= db_now < row["expires_at"])
+                or not (row["started_at"] <= observed_at < row["expires_at"])
+                or observed_at > db_now):
+            raise PermissionError("capture session is revoked, expired, or out of window")
