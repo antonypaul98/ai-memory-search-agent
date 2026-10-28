@@ -433,5 +433,17 @@
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify exact-head Python 3.11 Core and Home vision/PostgreSQL smoke CI; repair failures; wire bounded opt-in capture entrypoint to the existing authenticated memory path without promoting class-only sightings to physical instance identity."
+  },
+  "home_authenticated_image_session_window": {
+    "status": "SOURCE_TEST_PUBLISHED_CI_PENDING",
+    "source_test_commit": "ff0abb17c4cda08acd13afa2bb9baa1dce15f8db",
+    "source": "app/services/home_agent/authenticated_image_ingest.py",
+    "tests": "tests/test_home_image_capture_bridge.py",
+    "scope": "Reuse CaptureSession.allows to reject still-image observations outside server-owned capture session; direct authenticated-ingest tests cover pre-session, post-session, valid and naive timestamps.",
+    "local_validation": "Source patch structurally checked before publication; repository Python tests not run locally; exact-head CI pending",
+    "exact_head_ci": "pending",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact-head Python 3.11 Core CI and Home vision smoke; then fix capture-images API stored-response contract using existing _persisted_frame_id and add API regression; separately address revocation/persistence race."
   }
 }
