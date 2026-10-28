@@ -269,3 +269,48 @@ def test_malformed_retention_response_fails_closed_and_releases_camera(response)
     with pytest.raises(ValueError):
         run(bridge, device, max_frames=1)
     assert device.closed
+
+
+def test_authenticated_still_image_session_observation_window():
+    """Direct still-image API ingestion must enforce the same session window as the camera bridge."""
+    from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+
+    class RecordingImageIngest:
+        def __init__(self):
+            self.calls = []
+
+        def ingest(self, **kwargs):
+            self.calls.append(kwargs)
+            return {"stored": False}
+
+    _, registry, _ = setup()
+    downstream = RecordingImageIngest()
+    service = AuthenticatedHomeImageIngest(registry=registry, image_ingest=downstream)
+    kwargs = dict(
+        session_id="opaque-session", user_id="tenant-a", source_id="camera-1",
+        image_bytes=b"synthetic-image", location="office", now=NOW,
+    )
+    for invalid in (NOW - timedelta(minutes=2), NOW + timedelta(minutes=2)):
+        with pytest.raises(PermissionError, match="outside the active capture session"):
+            service.ingest(observed_at=invalid, **kwargs)
+    assert downstream.calls == []
+    assert service.ingest(observed_at=NOW - timedelta(seconds=30), **kwargs) == {"stored": False}
+    assert len(downstream.calls) == 1
+    assert downstream.calls[0]["observed_at"] == NOW - timedelta(seconds=30)
+
+
+def test_authenticated_still_image_rejects_naive_observation_time_before_downstream():
+    from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+
+    class NoCalls:
+        def ingest(self, **kwargs):
+            raise AssertionError("must not reach image detector/store")
+
+    _, registry, _ = setup()
+    service = AuthenticatedHomeImageIngest(registry=registry, image_ingest=NoCalls())
+    with pytest.raises(ValueError, match="observed_at must be timezone-aware"):
+        service.ingest(
+            session_id="opaque-session", user_id="tenant-a", source_id="camera-1",
+            image_bytes=b"synthetic-image", location="office",
+            observed_at=NOW.replace(tzinfo=None), now=NOW,
+        )

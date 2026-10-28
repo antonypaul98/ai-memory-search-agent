@@ -33,6 +33,10 @@ class AuthenticatedHomeImageIngest:
             source_id=source_id,
             now=now,
         )
+        if not session.allows(
+            user_id=user_id, source_id=source_id, observed_at=observed_at, now=now,
+        ):
+            raise PermissionError("frame is outside the active capture session")
         consent = ObservationConsent(
             user_id=user_id,
             source_id=session.source_id,
