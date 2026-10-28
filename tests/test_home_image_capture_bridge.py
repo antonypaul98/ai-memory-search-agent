@@ -207,3 +207,65 @@ def test_real_image_ingest_contract_retains_evidence_without_identity_proof():
     assert store.batches[0].location == "office"
     assert store.batches[0].detections[0].object_class == "keys"
     assert not hasattr(store.batches[0], "instance_id")
+
+
+class ResultIngest:
+    """Use exact legacy and PostgreSQL persistence response shapes."""
+
+    def __init__(self, responses):
+        self.responses = iter(responses)
+
+    def ingest(self, **kwargs):
+        return next(self.responses)
+
+
+@pytest.mark.parametrize("response,expected_id", [
+    ({"stored": True, "frame_id": "legacy"}, "legacy"),
+    ({"stored": False, "frame_id": "legacy"}, None),
+    ({"frame_id": None, "stored_observations": 0, "retained_bytes": 0}, None),
+    ({"frame_id": "duplicate", "stored_observations": 0, "retained_bytes": 0}, None),
+    ({"frame_id": "fresh", "stored_observations": 2, "retained_bytes": 100}, "fresh"),
+    ({"frame_id": "fresh", "stored_observations": 2, "retained_bytes": 100,
+      "stored": True}, "fresh"),
+])
+def test_postgres_style_retention_accounting(response, expected_id):
+    bridge, _, _ = setup(ingest=ResultIngest([response]))
+    device = FakeDevice()
+    result = run(bridge, device, max_frames=1)
+    assert result.frames_processed == 1
+    assert result.frames_stored == (1 if expected_id else 0)
+    assert result.frame_ids == ((expected_id,) if expected_id else ())
+    assert result.source_closed and device.closed
+
+
+@pytest.mark.parametrize("response", [
+    None, {}, [], {"frame_id": "missing-status"},
+    {"stored": None, "frame_id": "a"},
+    {"stored": 1, "frame_id": "a"},
+    {"stored": True, "frame_id": ""},
+    {"stored": True, "frame_id": None},
+    {"frame_id": "a", "stored_observations": 1},
+    {"frame_id": "a", "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 0, "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": 0},
+    {"frame_id": "a", "stored_observations": True, "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": False},
+    {"frame_id": "a", "stored_observations": -1, "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": -1},
+    {"frame_id": "a", "stored_observations": 1.5, "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": 1.5},
+    {"frame_id": None, "stored_observations": 1, "retained_bytes": 1},
+    {"frame_id": "  ", "stored_observations": 1, "retained_bytes": 1},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": 1,
+     "stored": False},
+    {"frame_id": "a", "stored_observations": 0, "retained_bytes": 0,
+     "stored": True},
+    {"frame_id": "a", "stored_observations": 1, "retained_bytes": 1,
+     "stored": 1},
+])
+def test_malformed_retention_response_fails_closed_and_releases_camera(response):
+    bridge, _, _ = setup(ingest=ResultIngest([response]))
+    device = FakeDevice()
+    with pytest.raises(ValueError):
+        run(bridge, device, max_frames=1)
+    assert device.closed

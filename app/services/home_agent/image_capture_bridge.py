@@ -16,6 +16,39 @@ from .capture_registry import CaptureSessionRegistry
 from .frame_source import DeviceFrameStream, FrameDevice
 
 
+def _persisted_frame_id(result: dict) -> str | None:
+    """Interpret explicit storage evidence; never count unknown results as stored.
+
+    The PostgreSQL store reports observation and retained-byte counts, while
+    older test stores report an explicit boolean. Do not infer persistence
+    from a frame ID alone: duplicates return an existing frame ID.
+    """
+    if not isinstance(result, dict):
+        raise ValueError("invalid image persistence result")
+    frame_id = result.get("frame_id")
+    if "stored_observations" in result or "retained_bytes" in result:
+        observations = result.get("stored_observations")
+        retained_bytes = result.get("retained_bytes")
+        if (type(observations) is not int or observations < 0
+                or type(retained_bytes) is not int or retained_bytes < 0):
+            raise ValueError("invalid image persistence counters")
+        if (observations > 0) != (retained_bytes > 0):
+            raise ValueError("inconsistent image persistence counters")
+        was_stored = observations > 0
+        if "stored" in result and (
+                type(result["stored"]) is not bool or result["stored"] != was_stored):
+            raise ValueError("conflicting image persistence flags")
+    else:
+        if type(result.get("stored")) is not bool:
+            raise ValueError("image persistence result lacks explicit status")
+        was_stored = result["stored"]
+    if was_stored:
+        if not isinstance(frame_id, str) or not frame_id.strip():
+            raise ValueError("stored image has no valid frame ID")
+        return frame_id
+    return None
+
+
 @dataclass(frozen=True)
 class ImageCaptureResult:
     frames_processed: int
@@ -83,10 +116,10 @@ class ImageCaptureBridge:
                     observed_at=frame.observed_at, now=now,
                 )
                 processed += 1
-                if result.get("stored", True):
+                frame_id = _persisted_frame_id(result)
+                if frame_id is not None:
                     stored += 1
-                    if isinstance(result.get("frame_id"), str) and result["frame_id"]:
-                        frame_ids.append(result["frame_id"])
+                    frame_ids.append(frame_id)
         finally:
             iterator.close()
         return ImageCaptureResult(processed, stored, tuple(frame_ids), stream.closed)
