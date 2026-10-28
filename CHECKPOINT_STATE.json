@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "8689acfb5c3a6219a38f9fac373d6d579ac582a5",
+  "current_branch_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; Mac worktrees uninspected.",
-  "local_test_status": "Published five parameterized upload-size API regressions at 3a95aac4. Isolated Starlette streaming probe: six cases exercised, including exact limit and over limit; pinned Python 3.11 repository tests NOT RUN locally. New exact-head CI pending. No physical camera test.",
+  "local_test_status": "No local repository tests in this run; new real PostgreSQL regression tests published for CI. Physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Core CI #40712400319 and Home vision smoke #40712400500 SUCCESS at prior head 21a622b6; new PostgreSQL registry source/test head CI pending.",
+  "ci_status": "Previous exact-head Core #40741691514 and Home vision #40741691642 SUCCESS at 8618ae09; new source/test head cc9ff67a CI pending. No new acceptance.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Capture-session revocation can race with in-flight detector persistence; registry is process-local. Trusted physical-instance identity, long-occlusion reliability, live-preview-to-memory integration, mover attribution and physical Mac camera acceptance remain incomplete.",
-  "next_action": "Verify transaction authorization exact-head CI, then wire shared registry through API and same-transaction image writer with tenant erasure and cross-worker revocation tests; keep draft until full acceptance.",
+  "known_blocker": "Shared capture registry and transactional image writer guard are not yet wired to production API/ingest; physical instance identity, long-occlusion recovery, preview integration, mover attribution and physical Mac camera acceptance pending.",
+  "next_action": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-28T11:58:58Z",
-  "observed_branch_sha": "8689acfb5c3a6219a38f9fac373d6d579ac582a5",
-  "observed_feature_sha": "21a622b6b60f578bca5d8e73707d6d75671d3c66",
+  "observed_branch_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+  "observed_feature_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "8689acfb5c3a6219a38f9fac373d6d579ac582a5",
+    "head_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS unavailable; repository and real PostgreSQL tests delegated to GitHub Actions CI.",
-    "BLOCKER": "Atomic capture authorization helper is not yet called by API/image writer; revocation race remains in production. No physical camera acceptance.",
-    "SAFE_WORK_COMPLETED": "Verified prior registry CI at 276e0929 (1733 passed, 6 skipped; Home vision smoke passed); published transaction-scoped session authorization guard and three PostgreSQL regression tests on draft HOME branch. No third-party code imported.",
-    "REMOTE_SHA": "8689acfb5c3a6219a38f9fac373d6d579ac582a5",
-    "NEXT_ACTION": "Verify exact-head Core/Home smoke CI; then wire session authorization to same-transaction image writer and shared API, preserving erasure/tenant boundaries."
+    "BLOCKED_LAYER": "Local Mac worktrees/shell GitHub DNS inaccessible; CI provides remote tests.",
+    "BLOCKER": "New transaction-guarded image writer not yet wired into production API; real physical Mac camera untested.",
+    "SAFE_WORK_COMPLETED": "Verified previous exact-head CI 1736 passed/6 skipped and Home vision smoke success. Published guarded image evidence transaction and two real-Postgres regression tests, reusing existing capture registry and DB lock, no new dependency. No merge or hardware acceptance.",
+    "REMOTE_SHA": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+    "NEXT_ACTION": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -512,5 +512,19 @@
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify exact-head CI; wire session_id through authenticated image ingestion and same-connection Postgres evidence transaction, shared API dependency and erasure; test concurrency and cross-worker behavior before activation."
+  },
+  "home_capture_transactional_writer": {
+    "status": "SOURCE_TEST_PUBLISHED_CI_PENDING_NOT_API_WIRED",
+    "source_test_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+    "source": "app/db/postgres_home_image_store.py",
+    "tests": "tests/test_home_image_capture_postgres_acceptance.py",
+    "scope": "Optional shared Postgres registry guard now checks capture-session authorization inside the same transaction as retained image evidence INSERT. A configured guarded writer rejects calls missing session ID; a non-guarded writer rejects unexpected session ID. Production API and image ingest do not yet pass the session ID or use shared registry, so revocation race is NOT fixed in production.",
+    "new_regression_tests": 2,
+    "local_repository_tests": "not run; remote execution has no repository checkout or PostgreSQL DSN; exact-head CI pending",
+    "exact_head_ci": "pending",
+    "physical_camera_accepted": false,
+    "external_code_imported": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests."
   }
 }
