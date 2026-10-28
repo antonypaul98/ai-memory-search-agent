@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "bfb5cd2a89e1e1f70c233b432aa9bb51c32b2459",
+  "current_branch_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; physical Mac worktrees uninspected.",
-  "local_test_status": "10 new parameterized API response regressions published; local repository tests NOT RUN (shell GitHub DNS unavailable). Exact-head Core CI #40684149247 and Home vision smoke #40684149143 IN PROGRESS at checkpoint publication. No physical camera test.",
+  "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; Mac worktrees uninspected.",
+  "local_test_status": "Published five parameterized upload-size API regressions at 3a95aac4. Isolated Starlette streaming probe: six cases exercised, including exact limit and over limit; pinned Python 3.11 repository tests NOT RUN locally. New exact-head CI pending. No physical camera test.",
   "pr_number": 399,
-  "ci_status": "Previous exact-head 2be59237 Core CI #40676262329 and Home vision smoke #40676262310 SUCCESS. New source/test head bfb5cd2a: Core #40684149247 and Home smoke #40684149143 IN PROGRESS, not accepted.",
+  "ci_status": "Source/test head 3a95aac4: exact-head Core CI and Home vision smoke pending/unknown until GitHub Actions runs are discovered. Previous 9f825620 Core #40684463117 and Home vision #40684463112 SUCCESS; not applicable to this new head.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Capture-session revocation can race with in-flight detector persistence; registry is process-local. Independent physical-instance identity, long-occlusion reliability, live-preview-to-memory integration, mover attribution and physical Mac camera acceptance remain incomplete.",
-  "next_action": "Verify exact-head Core CI #40684149247 and Home vision smoke #40684149143 (or later receipt-head CI) for capture-image API response fix. If green, design/test cross-process transactional revocation-versus-persistence boundary; preserve HOME single-writer and draft PR. No hardware acceptance.",
+  "known_blocker": "Capture-session revocation can race with in-flight detector persistence; registry is process-local. Trusted physical-instance identity, long-occlusion reliability, live-preview-to-memory integration, mover attribution and physical Mac camera acceptance remain incomplete.",
+  "next_action": "Verify Core CI and Home vision smoke at the new checkpoint receipt head; repair any failures. Then implement/test cross-process PostgreSQL capture-session authorization and revocation, with deterministic concurrency tests.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-28T11:58:58Z",
-  "observed_branch_sha": "bfb5cd2a89e1e1f70c233b432aa9bb51c32b2459",
-  "observed_feature_sha": "bfb5cd2a89e1e1f70c233b432aa9bb51c32b2459",
+  "observed_branch_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
+  "observed_feature_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "bfb5cd2a89e1e1f70c233b432aa9bb51c32b2459",
+    "head_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac/worktrees inaccessible; shell GitHub DNS unavailable; source/test exact-head CI in progress",
-    "BLOCKER": "No cross-process transactional capture revocation; no trusted physical-instance verifier, preview integration, long-occlusion recovery, mover attribution or real-camera acceptance.",
-    "SAFE_WORK_COMPLETED": "Published existing-helper-based capture-image API persistence response fix and 10 parameterized repository regression cases at bfb5cd2a. GitHub source/test commit verified. Core CI #40684149247 and Home smoke #40684149143 running, not yet accepted.",
-    "REMOTE_SHA": "bfb5cd2a89e1e1f70c233b432aa9bb51c32b2459",
-    "NEXT_ACTION": "Verify source/receipt exact-head CI, then address revocation-vs-persistence race with deterministic Postgres concurrency tests before advancing identity integration."
+    "BLOCKED_LAYER": "Physical Mac/worktrees inaccessible; exact-head CI not yet observed.",
+    "BLOCKER": "Cross-process transactional capture-session revocation/persistence remains unresolved; trusted identity and hardware acceptance pending.",
+    "SAFE_WORK_COMPLETED": "Published bounded request.stream() capture-image upload guard and five parameterized repository regressions in 3a95aac4; isolated Starlette 6-case probe exercised exact-limit, multi-chunk and oversized inputs; no repository suite run locally.",
+    "REMOTE_SHA": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
+    "NEXT_ACTION": "Verify new exact-head CI, then implement shared PostgreSQL capture-session authorization/revocation."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -467,5 +467,14 @@
     },
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false
+  },
+  "capture_image_streaming_guard": {
+    "status": "PUBLISHED_CI_PENDING",
+    "source_test_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
+    "tests_added": 5,
+    "scope": "Bounded request.stream() body collection with MAX_IMAGE_BYTES; rejects oversize with HTTP 413 before image ingestion",
+    "isolated_probe": "Six Starlette request-stream scenarios exercised using Python 3.13; not repository CI",
+    "third_party_code_imported": false,
+    "physical_camera_accepted": false
   }
 }
