@@ -8,6 +8,7 @@ from app.api.dependencies import get_home_agent_capture_registry, get_home_agent
 from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+from app.services.home_agent.image_capture_bridge import _persisted_frame_id
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
@@ -209,4 +210,14 @@ async def ingest_capture_image(request: Request, session_id: str, source_id: str
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return CaptureImageResponse(stored=bool(result.get("stored", True)), frame_id=result.get("frame_id"), detection_ms=result.get("detection_ms"), ingestion_ms=result.get("ingestion_ms"))
+    try:
+        persisted_frame_id = _persisted_frame_id(result)
+    except ValueError as exc:
+        # A malformed internal store result must never be presented as retained evidence.
+        raise HTTPException(status_code=500, detail="Invalid image persistence result.") from exc
+    return CaptureImageResponse(
+        stored=persisted_frame_id is not None,
+        frame_id=result.get("frame_id"),
+        detection_ms=result.get("detection_ms"),
+        ingestion_ms=result.get("ingestion_ms"),
+    )

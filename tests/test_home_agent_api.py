@@ -161,3 +161,72 @@ def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: 
     assert response.status_code == 422
     home_agent_api_client.home_agent_capture_service.start_session.assert_not_called()
     home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("persistence_result", "expected_stored", "expected_frame_id"),
+    [
+        ({"frame_id": "frame-new", "stored_observations": 2, "retained_bytes": 128}, True, "frame-new"),
+        ({"frame_id": None, "stored_observations": 0, "retained_bytes": 0}, False, None),
+        ({"frame_id": "frame-duplicate", "stored_observations": 0, "retained_bytes": 0}, False, "frame-duplicate"),
+        ({"frame_id": "frame-legacy", "stored": True}, True, "frame-legacy"),
+        ({"frame_id": "frame-legacy", "stored": False}, False, "frame-legacy"),
+    ],
+)
+def test_capture_image_api_reports_only_explicit_persistence(
+    home_agent_api_client: TestClient, persistence_result: dict,
+    expected_stored: bool, expected_frame_id: str | None,
+) -> None:
+    from app.main import app
+    from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
+    from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+
+    ingest = MagicMock(spec=AuthenticatedHomeImageIngest)
+    ingest.ingest.return_value = persistence_result
+    app.dependency_overrides[get_home_agent_authenticated_image_ingest] = lambda: ingest
+    observed_at = datetime(2026, 10, 28, 11, 0, tzinfo=timezone.utc)
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/capture-images",
+        params={"session_id": "session-1", "source_id": "camera-1",
+                "location": "office", "observed_at": observed_at.isoformat()},
+        content=b"synthetic-image-bytes",
+    )
+    assert response.status_code == 200
+    assert response.json()["stored"] is expected_stored
+    assert response.json()["frame_id"] == expected_frame_id
+    ingest.ingest.assert_called_once_with(
+        session_id="session-1", user_id=AUTHENTICATED_USER_ID,
+        source_id="camera-1", image_bytes=b"synthetic-image-bytes",
+        location="office", observed_at=observed_at,
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid_result",
+    [
+        {},
+        {"frame_id": "frame-1", "stored_observations": 1, "retained_bytes": 0},
+        {"frame_id": "frame-1", "stored": True, "stored_observations": 0, "retained_bytes": 0},
+        {"frame_id": "frame-1", "stored": 1},
+        {"stored": True},
+    ],
+)
+def test_capture_image_api_fails_closed_on_invalid_store_result(
+    home_agent_api_client: TestClient, invalid_result: dict,
+) -> None:
+    from app.main import app
+    from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
+    from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+
+    ingest = MagicMock(spec=AuthenticatedHomeImageIngest)
+    ingest.ingest.return_value = invalid_result
+    app.dependency_overrides[get_home_agent_authenticated_image_ingest] = lambda: ingest
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/capture-images",
+        params={"session_id": "session-1", "source_id": "camera-1",
+                "location": "office", "observed_at": "2026-10-28T11:00:00+00:00"},
+        content=b"synthetic-image-bytes",
+    )
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Invalid image persistence result."}
+    ingest.ingest.assert_called_once()
