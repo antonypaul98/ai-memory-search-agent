@@ -5,7 +5,9 @@ fixture detector; successful persistence is not proof of physical object identit
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from io import BytesIO
 import os
 from uuid import uuid4
@@ -19,8 +21,9 @@ from app.db.postgres_runtime import get_postgres_connection_factory
 from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import CaptureSession
+from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
 from app.services.home_agent.image_capture_bridge import ImageCaptureBridge
-from app.services.home_agent.image_ingest import DetectedObject, HomeImageIngestService
+from app.services.home_agent.image_ingest import DetectedObject, HomeImageIngestService, ImageObservationBatch
 
 
 @pytest.fixture
@@ -147,3 +150,74 @@ def test_real_postgres_empty_detections_do_not_retain_frame(isolated_postgres):
     assert result.frame_ids == () and result.source_closed and camera.closed
     assert _count(factory, "home_image_evidence") == 0
     assert _count(factory, "home_image_observations") == 0
+
+
+def _authorized_batch(*, user_id="house-a", source_id="camera-a", frame_id="frame-one",
+                      observed_at):
+    image = _png()
+    return ImageObservationBatch(
+        user_id=user_id, frame_id=frame_id, image_bytes=image,
+        image_sha256=sha256(image).hexdigest(), source_id=source_id,
+        location="office", observed_at=observed_at,
+        detector_id="synthetic-postgres-camera-test",
+        detections=(DetectedObject("keys", 0.96, (0.1, 0.1, 0.8, 0.8)),),
+    )
+
+
+def test_transactional_image_writer_requires_session_and_blocks_revoked_session(isolated_postgres):
+    _, factory = isolated_postgres
+    registry = PostgresCaptureSessionRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+    batch = _authorized_batch(observed_at=now - timedelta(seconds=1))
+
+    with pytest.raises(PermissionError, match="transactional capture"):
+        writer.store_image_batch(batch)
+    assert writer.store_image_batch(
+        batch, capture_session_id=session.session_id,
+    )["stored_observations"] == 1
+    assert writer.store_image_batch(
+        batch, capture_session_id=session.session_id,
+    )["stored_observations"] == 0  # Idempotent retry.
+    assert _count(factory, "home_image_evidence") == 1
+
+    assert registry.revoke(session_id=session.session_id)
+    with pytest.raises(PermissionError):
+        writer.store_image_batch(
+            replace(batch, frame_id="frame-after-revocation"),
+            capture_session_id=session.session_id,
+        )
+    assert _count(factory, "home_image_evidence") == 1
+
+
+def test_transactional_image_writer_rejects_cross_tenant_source_and_missing_guard(isolated_postgres):
+    unguarded, factory = isolated_postgres
+    registry = PostgresCaptureSessionRegistry(factory)
+    writer = PostgresHomeImageStore(
+        factory, capture_registry=PostgresCaptureSessionRegistry(factory),
+    )  # Simulates a different API worker using the same database.
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+    batch = _authorized_batch(observed_at=now - timedelta(seconds=1))
+    for changed in (
+        replace(batch, user_id="house-b"),
+        replace(batch, source_id="camera-b"),
+        replace(batch, observed_at=session.started_at - timedelta(seconds=1)),
+        replace(batch, observed_at=session.expires_at),
+    ):
+        with pytest.raises(PermissionError):
+            writer.store_image_batch(changed, capture_session_id=session.session_id)
+    with pytest.raises(PermissionError, match="transactional capture"):
+        unguarded.store_image_batch(batch, capture_session_id=session.session_id)
+    assert _count(factory, "home_image_evidence") == 0
