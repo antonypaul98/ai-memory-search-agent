@@ -3,12 +3,12 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
+  "current_branch_sha": "21a622b6b60f578bca5d8e73707d6d75671d3c66",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; Mac worktrees uninspected.",
   "local_test_status": "Published five parameterized upload-size API regressions at 3a95aac4. Isolated Starlette streaming probe: six cases exercised, including exact limit and over limit; pinned Python 3.11 repository tests NOT RUN locally. New exact-head CI pending. No physical camera test.",
   "pr_number": 399,
-  "ci_status": "Source/test head 3a95aac4: exact-head Core CI and Home vision smoke pending/unknown until GitHub Actions runs are discovered. Previous 9f825620 Core #40684463117 and Home vision #40684463112 SUCCESS; not applicable to this new head.",
+  "ci_status": "Core CI #40712400319 and Home vision smoke #40712400500 SUCCESS at prior head 21a622b6; new PostgreSQL registry source/test head CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-28T11:58:58Z",
-  "observed_branch_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
-  "observed_feature_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
+  "observed_branch_sha": "21a622b6b60f578bca5d8e73707d6d75671d3c66",
+  "observed_feature_sha": "21a622b6b60f578bca5d8e73707d6d75671d3c66",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac/worktrees inaccessible; exact-head CI not yet observed.",
-    "BLOCKER": "Cross-process transactional capture-session revocation/persistence remains unresolved; trusted identity and hardware acceptance pending.",
-    "SAFE_WORK_COMPLETED": "Published bounded request.stream() capture-image upload guard and five parameterized repository regressions in 3a95aac4; isolated Starlette 6-case probe exercised exact-limit, multi-chunk and oversized inputs; no repository suite run locally.",
-    "REMOTE_SHA": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
-    "NEXT_ACTION": "Verify new exact-head CI, then implement shared PostgreSQL capture-session authorization/revocation."
+    "BLOCKED_LAYER": "Physical Mac worktrees inaccessible; shell GitHub DNS unavailable. Real PostgreSQL tests rely on exact-head CI.",
+    "BLOCKER": "Database registry is an isolated component; API wiring, privacy erasure and transactional revocation/persistence coordination still required.",
+    "SAFE_WORK_COMPLETED": "Verified prior exact-head CI 1729 passed, 6 skipped and Home vision smoke success. Prepared isolated PostgreSQL cross-worker capture-session registry and four regression tests; no external code.",
+    "REMOTE_SHA": "21a622b6b60f578bca5d8e73707d6d75671d3c66",
+    "NEXT_ACTION": "Verify new exact-head CI and then wire database session authority to API and atomic image persistence, with tenant erasure."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -469,12 +469,28 @@
     "feature_checkpoint_advanced": false
   },
   "capture_image_streaming_guard": {
-    "status": "PUBLISHED_CI_PENDING",
+    "status": "EXACT_HEAD_CI_ACCEPTED",
     "source_test_sha": "3a95aac4ea1768592dae0280e98e89040d7d3fdf",
     "tests_added": 5,
     "scope": "Bounded request.stream() body collection with MAX_IMAGE_BYTES; rejects oversize with HTTP 413 before image ingestion",
     "isolated_probe": "Six Starlette request-stream scenarios exercised using Python 3.13; not repository CI",
     "third_party_code_imported": false,
-    "physical_camera_accepted": false
+    "physical_camera_accepted": false,
+    "core_ci_run": 40712400319,
+    "home_smoke_run": 40712400500,
+    "core_pytest": "1729 passed, 6 skipped, 4 warnings",
+    "opencv_tests": "19 passed, 3 warnings"
+  },
+  "home_postgres_capture_registry": {
+    "status": "ISOLATED_SOURCE_TEST_PUBLISHED_CI_PENDING_NOT_WIRED",
+    "scope": "Shared Postgres tenant/source-scoped capture session registration, cross-worker lookup, expiry and revocation; DB clock authoritative. Not connected to API or image-write transaction; revocation/persistence race remains.",
+    "source": "app/services/home_agent/postgres_capture_registry.py",
+    "tests": "tests/test_home_postgres_capture_registry.py",
+    "regression_cases_added": 4,
+    "local_validation": "Equivalent module/test syntax compiled on Python 3.13.5; real Postgres tests not run locally",
+    "external_code_imported": false,
+    "feature_checkpoint_advanced": false,
+    "physical_camera_accepted": false,
+    "next_action": "Verify exact-head Python 3.11 Core/Postgres CI; then integrate shared registry, tenant erasure and transaction-scoped image-write authorization with concurrency tests."
   }
 }
