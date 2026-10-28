@@ -421,5 +421,17 @@
     "hardware_camera_accepted": false,
     "independent_instance_verifier": false,
     "feature_checkpoint_advanced": false
+  },
+  "home_image_capture_postgres_acceptance": {
+    "status": "PUBLISHED_CI_PENDING",
+    "source_test_commit": "a39a3165cd6e247848352704a8f36d69269d9968",
+    "source_path": "tests/test_home_image_capture_postgres_acceptance.py",
+    "scope": "Synthetic opt-in camera frames through existing authenticated ingestion to real isolated PostgreSQL: first retention, duplicate idempotence, evidence erasure, no-detection non-retention, and no automatic identity association.",
+    "test_cases_added": 2,
+    "local_validation": "Python 3.13.5 py_compile and AST parse passed; PostgreSQL tests not run locally",
+    "exact_head_ci": "pending; do not infer success",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact-head Python 3.11 Core and Home vision/PostgreSQL smoke CI; repair failures; wire bounded opt-in capture entrypoint to the existing authenticated memory path without promoting class-only sightings to physical instance identity."
   }
 }
