@@ -22,7 +22,10 @@ from app.services.home_agent.image_ingest import ImageObservationBatch, canonica
 
 
 class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
-    def __init__(self, connection_factory):
+    def __init__(self, connection_factory, *, capture_registry=None):
+        # Optional until the authenticated API is switched to the shared registry.
+        # Once configured, image writes MUST carry a capture session ID.
+        self._capture_registry = capture_registry
         super().__init__(connection_factory)
         with self._connect() as conn:
             conn.execute("""
@@ -98,8 +101,13 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
                 ON home_verified_instance_associations(user_id, identity_evidence_id)
             """)
 
-    def store_image_batch(self, batch: ImageObservationBatch) -> dict:
+    def store_image_batch(self, batch: ImageObservationBatch, *,
+                          capture_session_id: str | None = None) -> dict:
         _required("user_id", batch.user_id)
+        # Never allow a configured authenticated writer to fall back to an
+        # unguarded write, or accept a session ID without an enforcing registry.
+        if (self._capture_registry is None) != (capture_session_id is None):
+            raise PermissionError("transactional capture authorization is required")
         if sha256(batch.image_bytes).hexdigest() != batch.image_sha256:
             raise ValueError("evidence hash mismatch")
         inserted = 0
@@ -108,6 +116,13 @@ class PostgresHomeImageStore(PostgresHomePhysicalMemoryStore):
             return {"frame_id": None, "stored_observations": 0, "retained_bytes": 0}
         with self._connect() as conn:
             require_active_tenant(conn, user_id=batch.user_id)
+            if capture_session_id is not None:
+                # Same transaction and connection as evidence INSERT. Revocation
+                # UPDATE must wait for this session-row lock through commit.
+                self._capture_registry.authorize_image_write(
+                    conn, session_id=capture_session_id, user_id=batch.user_id,
+                    source_id=batch.source_id, observed_at=batch.observed_at,
+                )
             frame = conn.execute("""
                 INSERT INTO home_image_evidence
                     (user_id, frame_id, image_bytes, image_sha256, source_id, location, observed_at, detector_id)
