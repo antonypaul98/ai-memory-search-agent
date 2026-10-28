@@ -97,3 +97,78 @@ def test_revoke_for_one_tenant_does_not_affect_neighbor(capture_db):
                          source_id=owner.source_id)
     assert registry.resolve(session_id=neighbor.session_id, user_id=neighbor.user_id,
                             source_id=neighbor.source_id) == neighbor
+
+
+def test_authorize_image_write_requires_active_session_and_observation_window(capture_db):
+    registry = PostgresCaptureSessionRegistry(capture_db)
+    session = _session()
+    registry.register(session)
+    observed = session.started_at + timedelta(seconds=1)
+    with capture_db() as conn:
+        registry.authorize_image_write(
+            conn, session_id=session.session_id, user_id=session.user_id,
+            source_id=session.source_id, observed_at=observed,
+        )
+    for owner, source, stamp in (
+        ("tenant-b", session.source_id, observed),
+        (session.user_id, "wrong-camera", observed),
+        (session.user_id, session.source_id, session.started_at - timedelta(seconds=1)),
+        (session.user_id, session.source_id, session.expires_at),
+        (session.user_id, session.source_id, datetime(2099, 1, 1, tzinfo=timezone.utc)),
+    ):
+        with capture_db() as conn:
+            with pytest.raises(PermissionError):
+                registry.authorize_image_write(
+                    conn, session_id=session.session_id, user_id=owner,
+                    source_id=source, observed_at=stamp,
+                )
+    with capture_db() as conn:
+        with pytest.raises(ValueError, match="timezone-aware"):
+            registry.authorize_image_write(
+                conn, session_id=session.session_id, user_id=session.user_id,
+                source_id=session.source_id, observed_at=datetime(2026, 10, 28),
+            )
+
+
+def test_authorize_image_write_serializes_with_revocation(capture_db):
+    import psycopg
+
+    registry = PostgresCaptureSessionRegistry(capture_db)
+    session = _session()
+    registry.register(session)
+    observed = session.started_at + timedelta(seconds=1)
+    with capture_db() as writer:
+        registry.authorize_image_write(
+            writer, session_id=session.session_id, user_id=session.user_id,
+            source_id=session.source_id, observed_at=observed,
+        )
+        # An independent connection cannot revoke while the image writer holds
+        # the same session row. Roll back the timed-out attempt before commit.
+        with capture_db() as revoker:
+            revoker.execute("SET LOCAL lock_timeout = '150ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                revoker.execute(
+                    "UPDATE home_capture_sessions SET revoked_at=clock_timestamp() "
+                    "WHERE session_id=%s", (session.session_id,),
+                )
+            revoker.rollback()
+    assert registry.revoke(session_id=session.session_id) is True
+    with capture_db() as conn:
+        with pytest.raises(PermissionError):
+            registry.authorize_image_write(
+                conn, session_id=session.session_id, user_id=session.user_id,
+                source_id=session.source_id, observed_at=observed,
+            )
+
+
+def test_authorize_image_write_rejects_expired_and_future_sessions(capture_db):
+    registry = PostgresCaptureSessionRegistry(capture_db)
+    for offset in (timedelta(minutes=-10), timedelta(minutes=1)):
+        session = _session(offset=offset)
+        registry.register(session)
+        with capture_db() as conn:
+            with pytest.raises(PermissionError):
+                registry.authorize_image_write(
+                    conn, session_id=session.session_id, user_id=session.user_id,
+                    source_id=session.source_id, observed_at=session.started_at,
+                )
