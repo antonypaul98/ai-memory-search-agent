@@ -230,3 +230,41 @@ def test_capture_image_api_fails_closed_on_invalid_store_result(
     assert response.status_code == 500
     assert response.json() == {"detail": "Invalid image persistence result."}
     ingest.ingest.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("chunk_sizes", "expected_status"),
+    [
+        ((10 * 1024 * 1024,), 200),
+        ((10 * 1024 * 1024 - 1, 1), 200),
+        ((10 * 1024 * 1024, 1), 413),
+        ((10 * 1024 * 1024 + 1,), 413),
+        ((1, 2, 3), 200),
+    ],
+)
+def test_capture_image_api_bounds_stream_before_ingest(
+    home_agent_api_client: TestClient, chunk_sizes: tuple[int, ...], expected_status: int,
+) -> None:
+    from app.main import app
+    from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
+    from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+
+    ingest = MagicMock(spec=AuthenticatedHomeImageIngest)
+    ingest.ingest.return_value = {"frame_id": "frame-stream", "stored": True}
+    app.dependency_overrides[get_home_agent_authenticated_image_ingest] = lambda: ingest
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/capture-images",
+        params={"session_id": "session-1", "source_id": "camera-1",
+                "location": "office", "observed_at": "2026-10-28T11:00:00+00:00"},
+        content=(b"x" * size for size in chunk_sizes),
+    )
+    assert response.status_code == expected_status
+    if expected_status == 413:
+        assert response.json() == {"detail": "Image exceeds 10 MiB."}
+        ingest.ingest.assert_not_called()
+    else:
+        assert response.json()["stored"] is True
+        ingest.ingest.assert_called_once()
+        image_bytes = ingest.ingest.call_args.kwargs["image_bytes"]
+        assert len(image_bytes) == sum(chunk_sizes)
+        assert image_bytes == b"x" * sum(chunk_sizes)

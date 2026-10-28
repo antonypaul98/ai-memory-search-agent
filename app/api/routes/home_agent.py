@@ -9,6 +9,7 @@ from app.api.home_image_dependencies import get_home_agent_authenticated_image_i
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
 from app.services.home_agent.image_capture_bridge import _persisted_frame_id
+from app.services.home_agent.image_ingest import MAX_IMAGE_BYTES
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
@@ -203,7 +204,14 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
 
 @router.post("/capture-images", response_model=CaptureImageResponse)
 async def ingest_capture_image(request: Request, session_id: str, source_id: str, location: str, observed_at: datetime, service: AuthenticatedHomeImageIngest = Depends(get_home_agent_authenticated_image_ingest), user: UserPublic = Depends(get_current_user)) -> CaptureImageResponse:
-    image_bytes = await request.body()
+    # Enforce the existing image-size cap while receiving, before decoding or detection.
+    # A declared Content-Length is not trusted; streamed chunks are counted directly.
+    image_buffer = bytearray()
+    async for chunk in request.stream():
+        if len(chunk) > MAX_IMAGE_BYTES - len(image_buffer):
+            raise HTTPException(status_code=413, detail="Image exceeds 10 MiB.")
+        image_buffer.extend(chunk)
+    image_bytes = bytes(image_buffer)
     try:
         result = service.ingest(session_id=session_id, user_id=user.user_id, source_id=source_id, image_bytes=image_bytes, location=location, observed_at=observed_at)
     except PermissionError as exc:
