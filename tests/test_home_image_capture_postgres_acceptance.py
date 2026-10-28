@@ -221,3 +221,38 @@ def test_transactional_image_writer_rejects_cross_tenant_source_and_missing_guar
     with pytest.raises(PermissionError, match="transactional capture"):
         unguarded.store_image_batch(batch, capture_session_id=session.session_id)
     assert _count(factory, "home_image_evidence") == 0
+
+
+def test_authenticated_shared_capture_ingest_uses_guarded_writer_across_workers(isolated_postgres):
+    """Server-issued session must reach the same-transaction evidence guard."""
+    _, factory = isolated_postgres
+    issuing_registry = PostgresCaptureSessionRegistry(factory)
+    writer_registry = PostgresCaptureSessionRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=writer_registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    issuing_registry.register(session)
+    ingest = AuthenticatedHomeImageIngest(
+        registry=issuing_registry,
+        image_ingest=HomeImageIngestService(
+            writer, FixtureDetector([
+                DetectedObject("keys", 0.96, (0.1, 0.1, 0.8, 0.8)),
+            ]),
+        ),
+    )
+    kwargs = dict(
+        session_id=session.session_id, user_id="house-a", source_id="camera-a",
+        image_bytes=_png(), location="office",
+        observed_at=now - timedelta(seconds=1), now=now,
+    )
+    assert ingest.ingest(**kwargs)["stored_observations"] == 1
+    assert ingest.ingest(**kwargs)["stored_observations"] == 0
+    assert _count(factory, "home_image_evidence") == 1
+    assert issuing_registry.revoke(session_id=session.session_id)
+    with pytest.raises(PermissionError):
+        ingest.ingest(**kwargs)
+    assert _count(factory, "home_image_evidence") == 1

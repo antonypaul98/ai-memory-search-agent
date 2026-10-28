@@ -76,13 +76,20 @@ class HomeImageIngestService:
 
     def ingest(self, *, user_id: str, image_bytes: bytes, source_id: str,
                location: str, observed_at: datetime, consent: ObservationConsent,
-               now: datetime | None = None) -> dict:
+               now: datetime | None = None,
+               capture_session_id: str | None = None) -> dict:
         started = perf_counter()
         now = now or datetime.now(timezone.utc)
         if not user_id.strip() or not source_id.strip() or not location.strip():
             raise ValueError("tenant, source and explicit location are required")
         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise ValueError("observed_at must be timezone-aware")
+        if capture_session_id is not None and (
+            not isinstance(capture_session_id, str)
+            or not capture_session_id.strip()
+            or capture_session_id != capture_session_id.strip()
+        ):
+            raise ValueError("capture session ID is invalid")
         if not consent.allows(user_id=user_id, source_id=source_id, now=now):
             raise PermissionError("physical observation consent is not active")
         if observed_at > now:
@@ -122,5 +129,10 @@ class HomeImageIngestService:
         commit_time = now + timedelta(seconds=perf_counter() - started)
         if not consent.allows(user_id=user_id, source_id=source_id, now=commit_time):
             raise PermissionError("physical observation consent expired during detection")
-        result = self._store.store_image_batch(batch)
+        if capture_session_id is None:
+            result = self._store.store_image_batch(batch)
+        else:
+            result = self._store.store_image_batch(
+                batch, capture_session_id=capture_session_id,
+            )
         return {**result, "detection_ms": detection_ms, "ingestion_ms": (perf_counter() - started) * 1000}

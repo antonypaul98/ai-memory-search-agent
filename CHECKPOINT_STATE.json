@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+  "current_branch_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; Mac worktrees uninspected.",
-  "local_test_status": "No local repository tests in this run; new real PostgreSQL regression tests published for CI. Physical Mac camera pending.",
+  "local_test_status": "No local repository tests; remote exact-head CI for new session-plumbing source/test changes pending. Physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Previous exact-head Core #40741691514 and Home vision #40741691642 SUCCESS at 8618ae09; new source/test head cc9ff67a CI pending. No new acceptance.",
+  "ci_status": "Exact-head Core #40759271702 SUCCESS (1738 passed, 6 skipped) and Home vision #40759271561 SUCCESS at prior 84e94616; new session-plumbing commit CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Shared capture registry and transactional image writer guard are not yet wired to production API/ingest; physical instance identity, long-occlusion recovery, preview integration, mover attribution and physical Mac camera acceptance pending.",
-  "next_action": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests.",
+  "next_action": "Verify exact-head CI for authenticated shared-session ID plumbing; then integrate shared API dependency, account export/erasure and deterministic concurrent revoke/persist tests before production activation.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,7 +22,7 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-28T11:58:58Z",
-  "observed_branch_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+  "observed_branch_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
   "observed_feature_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+    "head_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Local Mac worktrees/shell GitHub DNS inaccessible; CI provides remote tests.",
-    "BLOCKER": "New transaction-guarded image writer not yet wired into production API; real physical Mac camera untested.",
-    "SAFE_WORK_COMPLETED": "Verified previous exact-head CI 1736 passed/6 skipped and Home vision smoke success. Published guarded image evidence transaction and two real-Postgres regression tests, reusing existing capture registry and DB lock, no new dependency. No merge or hardware acceptance.",
-    "REMOTE_SHA": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
-    "NEXT_ACTION": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests."
+    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS inaccessible; remote GitHub Actions available.",
+    "BLOCKER": "Production API still uses process-local registry; tenant erasure/export and concurrency acceptance not complete; physical Mac camera untested.",
+    "SAFE_WORK_COMPLETED": "Verified prior exact-head 1738 passed/6 skipped and Home smoke; published shared-session ID propagation through authenticated ingest into guarded PostgreSQL image writer with cross-worker regression. No external code or dependency.",
+    "REMOTE_SHA": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
+    "NEXT_ACTION": "Verify exact-head CI for authenticated shared-session ID plumbing; then integrate shared API dependency, account export/erasure and deterministic concurrent revoke/persist tests before production activation."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -526,5 +526,16 @@
     "external_code_imported": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify exact-head Core/Home smoke CI; then thread session_id from authenticated ingest through HomeImageIngestService to guarded store and wire shared registry to API; integrate tenant erasure and cross-worker concurrency tests."
+  },
+  "home_capture_session_plumbing": {
+    "status": "SOURCE_TEST_PUBLISHED_CI_PENDING_NOT_API_WIRED",
+    "scope": "Propagate server-issued capture session ID through authenticated image ingestion and HomeImageIngestService to optional transaction-guarded PostgreSQL writer; preserve legacy in-memory store calls.",
+    "test": "Cross-worker PostgreSQL authenticated-ingest integration covers retention, duplicate and revocation.",
+    "external_code_imported": false,
+    "local_repository_tests": "not run",
+    "exact_head_ci": "pending",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify exact-head CI for authenticated shared-session ID plumbing; then integrate shared API dependency, account export/erasure and deterministic concurrent revoke/persist tests before production activation."
   }
 }

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from .capture_registry import CaptureSessionRegistry
 from .image_ingest import HomeImageIngestService
+from .postgres_capture_registry import PostgresCaptureSessionRegistry
 from .observation_ingest import ObservationConsent, PHYSICAL_OBSERVATION_SCOPE
 
 
@@ -44,7 +45,7 @@ class AuthenticatedHomeImageIngest:
             granted_at=session.started_at,
             expires_at=session.expires_at,
         )
-        return self._image_ingest.ingest(
+        ingest_kwargs = dict(
             user_id=user_id,
             image_bytes=image_bytes,
             source_id=session.source_id,
@@ -53,3 +54,8 @@ class AuthenticatedHomeImageIngest:
             consent=consent,
             now=now,
         )
+        # Shared sessions require a same-transaction write guard. Preserve
+        # legacy in-memory callers until the API migration is ready.
+        if isinstance(self._registry, PostgresCaptureSessionRegistry):
+            ingest_kwargs["capture_session_id"] = session_id
+        return self._image_ingest.ingest(**ingest_kwargs)
