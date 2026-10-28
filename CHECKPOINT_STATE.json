@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
+  "current_branch_sha": "782a0f5b1fb623088c54f2877f4da3bddad92662",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; Mac worktrees uninspected.",
-  "local_test_status": "No local repository tests; remote exact-head CI for new session-plumbing source/test changes pending. Physical Mac camera pending.",
+  "local_test_status": "No local repository/PostgreSQL tests; new privacy source/test changes pending exact-head CI. Physical Mac camera pending.",
   "pr_number": 399,
-  "ci_status": "Exact-head Core #40759271702 SUCCESS (1738 passed, 6 skipped) and Home vision #40759271561 SUCCESS at prior 84e94616; new session-plumbing commit CI pending.",
+  "ci_status": "Prior exact-head Core #40768427965 SUCCESS (1739 passed, 6 skipped) and Home vision #40768427963 SUCCESS (19 OpenCV passed) at 782a0f5b; new privacy changes pending CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Shared capture registry and transactional image writer guard are not yet wired to production API/ingest; physical instance identity, long-occlusion recovery, preview integration, mover attribution and physical Mac camera acceptance pending.",
-  "next_action": "Verify exact-head CI for authenticated shared-session ID plumbing; then integrate shared API dependency, account export/erasure and deterministic concurrent revoke/persist tests before production activation.",
+  "known_blocker": "Shared capture registry/guard still not wired to production API. Capture-session tenant export/erasure code published but awaiting CI; deterministic concurrent revoke/persist, trusted physical identity, preview integration and Mac hardware acceptance pending.",
+  "next_action": "Verify new privacy source/test exact-head CI; then wire production API to shared registry and guarded writer, with deterministic revoke/persist and account-erasure tests.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-28T11:58:58Z",
-  "observed_branch_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
-  "observed_feature_sha": "cc9ff67a2ac2326baad4ccce137aa6684c4a4996",
+  "observed_at_utc": "2026-10-28T22:01:41Z",
+  "observed_branch_sha": "782a0f5b1fb623088c54f2877f4da3bddad92662",
+  "observed_feature_sha": "782a0f5b1fb623088c54f2877f4da3bddad92662",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
+    "head_sha": "782a0f5b1fb623088c54f2877f4da3bddad92662",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS inaccessible; remote GitHub Actions available.",
-    "BLOCKER": "Production API still uses process-local registry; tenant erasure/export and concurrency acceptance not complete; physical Mac camera untested.",
-    "SAFE_WORK_COMPLETED": "Verified prior exact-head 1738 passed/6 skipped and Home smoke; published shared-session ID propagation through authenticated ingest into guarded PostgreSQL image writer with cross-worker regression. No external code or dependency.",
-    "REMOTE_SHA": "84e94616c0c9e9d5cf644b45d14dd89ee59f37c5",
-    "NEXT_ACTION": "Verify exact-head CI for authenticated shared-session ID plumbing; then integrate shared API dependency, account export/erasure and deterministic concurrent revoke/persist tests before production activation."
+    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS inaccessible; connector and GitHub Actions available.",
+    "BLOCKER": "Production API still uses process-local sessions; shared registry/guard must be activated after privacy CI and concurrency tests. Physical Mac camera pending.",
+    "SAFE_WORK_COMPLETED": "Verified prior exact-head 1739 passed/6 skipped and Home smoke. Added tenant-scoped capture-session export and deletion, including account export inventory and synthetic/real-PostgreSQL regression cases; no external code/dependency.",
+    "REMOTE_SHA": "782a0f5b1fb623088c54f2877f4da3bddad92662",
+    "NEXT_ACTION": "Verify new privacy source/test exact-head CI; then wire production API to shared registry and guarded writer, with deterministic revoke/persist and account-erasure tests."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",

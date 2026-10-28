@@ -108,3 +108,25 @@ def test_history_export_redacts_credentials_and_rejects_corrupt_parent_ownership
     assert len(export_postgres_history(factory, user_id="target")["agent_tool_calls"]) == 1
     with pytest.raises(ValueError, match="inconsistent canonical ownership"):
         export_postgres_history(factory, user_id="neighbor")
+
+def test_capture_session_history_export_is_tenant_scoped(export_context):
+    _, factory = export_context
+    from datetime import datetime, timedelta, timezone
+    from app.services.home_agent.capture_session import CaptureSession
+    from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
+
+    registry = PostgresCaptureSessionRegistry(factory)
+    started = datetime.now(timezone.utc) - timedelta(seconds=2)
+    sessions = {}
+    for owner in ("target", "neighbor"):
+        session = CaptureSession(
+            session_id=uuid4().hex, user_id=owner, source_id="camera-1",
+            started_at=started, expires_at=started + timedelta(minutes=5),
+        )
+        registry.register(session)
+        sessions[owner] = session
+    exported = export_postgres_history(factory, user_id="target")
+    assert [row["session_id"] for row in exported["home_capture_sessions"]] == [
+        sessions["target"].session_id
+    ]
+    assert sessions["neighbor"].session_id not in str(exported)

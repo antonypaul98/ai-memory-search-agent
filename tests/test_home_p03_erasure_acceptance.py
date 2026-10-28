@@ -99,7 +99,7 @@ def test_real_postgres_home_erasure_fences_owner_and_preserves_neighbor(monkeypa
         assert result["deleted"] is True
         assert result["capture_sessions_revoked"] == 1
         assert result["capture_payloads_deleted"] == 1
-        assert result["home_physical_deleted"] == {"verified_instance_associations": 0, "instance_identity_consents": 0, "image_observations": 1, "image_evidence": 1, "physical_objects": 1, "sightings": 1}
+        assert result["home_physical_deleted"] == {"capture_sessions": 0, "verified_instance_associations": 0, "instance_identity_consents": 0, "image_observations": 1, "image_evidence": 1, "physical_objects": 1, "sightings": 1}
         assert capture_store.list_for_user(user_id=owner) == []
         assert [row["capture_id"] for row in capture_store.list_for_user(user_id=other)] == [other_capture]
 
