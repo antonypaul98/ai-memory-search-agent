@@ -263,3 +263,149 @@ def test_authenticated_capture_erasure_fences_future_http_writes(
             assert _counts(factory) == (1, 2)
     finally:
         app.dependency_overrides.clear()
+
+def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
+    capture_api_database, test_settings,
+):
+    """Real PostgreSQL/HTTP integration with a STUB verifier, not identity acceptance.
+
+    Camera images become class-only sightings. Only separately supplied,
+    consented synthetic identity proofs may turn two sightings into a verified
+    location-change response. Revocation must erase that association history.
+    """
+    from datetime import timedelta
+
+    from app.main import app
+    from app.api import dependencies as home_dependencies
+    from app.api import home_image_dependencies as image_dependencies
+    from app.db.postgres_home_image_store import PostgresHomeImageStore
+    from app.services.home_agent.verified_identity_ingest import (
+        InstanceIdentityConsent, VerifiedInstanceIngestService, VerifiedInstanceProof,
+    )
+
+    factory = capture_api_database
+    identity = {"user_id": "verified-house"}
+    source_id = "camera-verified"
+    store = PostgresHomeImageStore(factory)
+    store.grant_instance_identity_consent(
+        user_id=identity["user_id"], source_id=source_id, ttl_seconds=180,
+    )
+    app.dependency_overrides[get_current_user] = lambda: UserPublic(
+        user_id=identity["user_id"], display_name="Synthetic Home",
+    )
+    try:
+        with (
+            patch.object(home_dependencies, "get_postgres_connection_factory", lambda _: factory),
+            patch.object(image_dependencies, "get_postgres_connection_factory", lambda _: factory),
+            patch.object(home_dependencies, "get_settings", lambda: test_settings),
+            patch.object(image_dependencies, "get_settings", lambda: test_settings),
+            patch.object(image_dependencies, "LocalOwlViTDetector", lambda *a, **k: _FixtureDetector()),
+            patch("app.main.get_settings", lambda: test_settings),
+            TestClient(app) as client,
+        ):
+            started = client.post(
+                "/api/v1/home-agent/capture-sessions",
+                json={"source_id": source_id, "ttl_seconds": 180},
+            )
+            assert started.status_code == 200, started.text
+            session_id = started.json()["session_id"]
+            observations = []
+            for location, color in (
+                ("desk", (20, 30, 40)),
+                ("kitchen", (40, 30, 20)),
+            ):
+                image = BytesIO()
+                Image.new("RGB", (32, 32), color).save(image, format="PNG")
+                response = client.post(
+                    "/api/v1/home-agent/capture-images",
+                    params={
+                        "session_id": session_id, "source_id": source_id,
+                        "location": location,
+                        "observed_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    content=image.getvalue(),
+                )
+                assert response.status_code == 200, response.text
+                assert response.json()["stored"] is True
+                with factory() as conn:
+                    observation = conn.execute(
+                        """SELECT observation_id FROM home_image_observations
+                           WHERE user_id=%s AND frame_id=%s""",
+                        (identity["user_id"], response.json()["frame_id"]),
+                    ).fetchone()
+                assert observation is not None
+                observations.append(observation["observation_id"])
+
+            query = {"object_name": "keys"}
+            endpoint = "/api/v1/home-agent/observed-location-changes"
+            before_proof = client.post(endpoint, json=query)
+            assert before_proof.status_code == 200, before_proof.text
+            assert before_proof.json() == {"changes": []}
+
+            # The fixture is an explicitly trusted TEST STUB. No model or
+            # class-only matcher is promoted to a physical identity verifier.
+            proofs = {
+                observation_id: VerifiedInstanceProof(
+                    user_id="verified-house", observation_id=observation_id,
+                    source_id=source_id, instance_id="keys-1",
+                    identity_evidence_id=f"synthetic-independent-{index}",
+                    identity_confidence=0.99,
+                )
+                for index, observation_id in enumerate(observations)
+            }
+
+            class SyntheticVerifier:
+                def verify(self, *, user_id, observation_id, source_id):
+                    proof = proofs.get(observation_id)
+                    assert proof is not None
+                    assert proof.user_id == user_id and proof.source_id == source_id
+                    return proof
+
+            now = datetime.now(timezone.utc)
+            consent = InstanceIdentityConsent(
+                user_id="verified-house", source_id=source_id,
+                granted_at=now - timedelta(minutes=1),
+                expires_at=now + timedelta(minutes=3),
+            )
+            ingest = VerifiedInstanceIngestService(
+                verifier=SyntheticVerifier(), store=store,
+            )
+            for observation_id in observations:
+                assert ingest.ingest(
+                    user_id="verified-house", observation_id=observation_id,
+                    source_id=source_id, consent=consent,
+                    now=datetime.now(timezone.utc),
+                )
+
+            linked = client.post(endpoint, json=query)
+            assert linked.status_code == 200, linked.text
+            changes = linked.json()["changes"]
+            assert len(changes) == 1
+            assert changes[0]["instance_id"] == "keys-1"
+            assert (changes[0]["from_location"], changes[0]["to_location"]) == (
+                "desk", "kitchen",
+            )
+            assert set((
+                changes[0]["from_identity_evidence_id"],
+                changes[0]["to_identity_evidence_id"],
+            )) == {"synthetic-independent-0", "synthetic-independent-1"}
+
+            identity["user_id"] = "other-house"
+            isolated = client.post(endpoint, json=query)
+            assert isolated.status_code == 200, isolated.text
+            assert isolated.json() == {"changes": []}
+            identity["user_id"] = "verified-house"
+
+            assert store.revoke_instance_identity_consent(
+                user_id="verified-house", source_id=source_id,
+            ) == 2
+            revoked = client.post(endpoint, json=query)
+            assert revoked.status_code == 200, revoked.text
+            assert revoked.json() == {"changes": []}
+            with factory() as conn:
+                assert conn.execute(
+                    "SELECT COUNT(*) AS n FROM home_object_sightings WHERE user_id=%s",
+                    ("verified-house",),
+                ).fetchone()["n"] == 2
+    finally:
+        app.dependency_overrides.clear()
