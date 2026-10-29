@@ -58,7 +58,7 @@ def test_clear_motion_within_same_camera_zone_is_recorded_but_jitter_is_not():
     f = FrameInventory()
     first = (120, 140, 180, 200)
     jitter = (123, 143, 183, 203)
-    moved = (138, 140, 198, 200)
+    moved = (144, 140, 204, 200)
     assert describe_frame_location(first, 300, 300) == describe_frame_location(moved, 300, 300)
     assert [e.status for e in f.update({1: tr(1, first)},
                                        scan_at=1, width=300, height=300)] == ["VISIBLE"]
