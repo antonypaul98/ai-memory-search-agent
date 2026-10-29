@@ -3,7 +3,7 @@ from hashlib import sha256
 import stat
 import pytest
 
-from scripts.home_public_motion_probe import download_public_fixture, SOURCE_URL
+from scripts.home_public_motion_probe import download_public_fixture, SOURCE_URL, MAX_BYTES
 
 
 class FakeResponse:
@@ -37,7 +37,7 @@ def test_private_fixture_provenance_and_no_overwrite(tmp_path):
     FakeResponse(url="https://example.org/malicious.webm"),
     FakeResponse(media="text/html"),
     FakeResponse(data=b"short"),
-    FakeResponse(data=b"x" * 2_000_001),
+    FakeResponse(data=b"x" * (MAX_BYTES + 1)),
 ])
 def test_untrusted_or_malformed_fixture_rejected(tmp_path, response):
     path = tmp_path / "clip.webm"

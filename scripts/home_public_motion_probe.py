@@ -1,4 +1,4 @@
-"""Opt-in CI diagnostic of *real* public cup-motion footage; never camera acceptance.
+"""Opt-in CI diagnostic of *real* higher-resolution public cup-motion footage; never camera acceptance.
 
 The fixture is not vendored or uploaded. Attribution: Pittigrilli, Wikimedia
 Commons, CC BY-SA 4.0. Video is downloaded only by explicit invocation.
@@ -14,13 +14,13 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 SOURCE_URL = (
-    "https://upload.wikimedia.org/wikipedia/commons/1/19/"
-    "Slow_motion_video_of_cup_falling_on_floor.webm"
+    "https://upload.wikimedia.org/wikipedia/commons/6/6c/"
+    "Ultra_slow-motion_video_of_glass_tea_cup_smashed_on_concrete_floor.webm"
 )
-SOURCE_PAGE = "https://commons.wikimedia.org/wiki/File:Slow_motion_video_of_cup_falling_on_floor.webm"
+SOURCE_PAGE = "https://commons.wikimedia.org/wiki/File:Ultra_slow-motion_video_of_glass_tea_cup_smashed_on_concrete_floor.webm"
 SOURCE_LICENSE = "https://creativecommons.org/licenses/by-sa/4.0/"
 MODEL_REVISION = "cbc355fb364588351c5d51c7f74465e8e7ec6f72"
-MAX_BYTES = 2_000_000
+MAX_BYTES = 4_000_000
 
 
 def download_public_fixture(destination: Path, *, opener=urlopen) -> dict:
@@ -63,7 +63,7 @@ def main() -> None:
             "google/owlvit-base-patch32", revision=MODEL_REVISION,
             allow_patterns=["*.json", "*.txt", "pytorch_model.bin"],
         )
-        detector = LocalOwlViTDetector(model_path, labels=["a photo of a cup", "a photo of a mug", "a photo of a drinking glass"], threshold=0.05)
+        detector = LocalOwlViTDetector(model_path, labels=["a photo of a glass teacup", "a photo of a glass cup", "a photo of a drinking glass", "a photo of a cup"], threshold=0.05)
         result = replay_recorded_video(
             video_path=root / "cup.webm", output_dir=root / "private-evidence",
             detector=detector, room_name="public-fixture-room",
@@ -78,6 +78,7 @@ def main() -> None:
             "fixture": provenance, "model_revision": MODEL_REVISION,
             "detector_threshold": 0.05,
             "text_query_style": "descriptive-photo-phrase",
+            "candidate": "higher-resolution 1920x1080 glass-teacup footage",
             "scans": result["scans"], "statuses": result["statuses"],
             "visible_scans": sum(bool(row["visible"]) for row in rows),
             "saved_event_crops": sum(bool(event["evidence_image"])
