@@ -63,7 +63,7 @@ def main() -> None:
             "google/owlvit-base-patch32", revision=MODEL_REVISION,
             allow_patterns=["*.json", "*.txt", "pytorch_model.bin"],
         )
-        detector = LocalOwlViTDetector(model_path, labels=["cup", "mug", "glass"], threshold=0.15)
+        detector = LocalOwlViTDetector(model_path, labels=["cup", "mug", "glass"], threshold=0.05)
         result = replay_recorded_video(
             video_path=root / "cup.webm", output_dir=root / "private-evidence",
             detector=detector, room_name="public-fixture-room",
@@ -76,6 +76,7 @@ def main() -> None:
                    for row in rows for event in row["events"] if event["evidence_image"])
         print(json.dumps({
             "fixture": provenance, "model_revision": MODEL_REVISION,
+            "detector_threshold": 0.05,
             "scans": result["scans"], "statuses": result["statuses"],
             "visible_scans": sum(bool(row["visible"]) for row in rows),
             "saved_event_crops": sum(bool(event["evidence_image"])
