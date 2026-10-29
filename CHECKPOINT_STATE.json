@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
+  "current_branch_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 at source head 9978ec61dcedaea2e4a27ca33654cd85b697f99c; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "4/4 isolated Python 3.13.5 metadata-journal prototype tests passed against a copied current FrameInventory; repository tests/CLI wiring not run locally; exact-head CI pending. No physical camera.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source head 70012be5; HOME writer/JARVIS follower; physical Mac worktrees inaccessible/uninspected.",
+  "local_test_status": "4/4 isolated Python 3.13/Pillow synthetic crop scenarios passed in ephemeral fixture; 6 new repository tests published but not executed locally. Previous exact-head b146806c Core/Home CI success. No physical camera test.",
   "pr_number": 399,
-  "ci_status": "Previous single-camera inventory receipt head 2ff64cfd: Core #40907718424 SUCCESS and Home smoke #40907718583 SUCCESS. New opt-in private metadata journal source head 9978ec61dcedaea2e4a27ca33654cd85b697f99c Core #40908984822 and Home smoke #40908984932 running at observation; this cleanup/checkpoint receipt requires its own exact-head CI.",
+  "ci_status": "Source head 70012be5 Core #40916825609 in_progress (pending), Home smoke #40916825639 in_progress (pending); receipt-head CI must be checked separately.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Single-camera frame-position/visible inventory plus opt-in private JSONL metadata journal published, not yet exact-head CI-accepted. No image evidence, no semantic furniture placement, no independently verified physical identity, and no physical Mac camera acceptance. PR draft/unmerged.",
-  "next_action": "Verify exact-head Core/Home smoke CI for private JSONL event journal, fix failures; then add opt-in last-visible image evidence or safe semantic placement without overstating physical identity or confirmed frame exit.",
+  "known_blocker": "Opt-in private last-confirmed object crops are published on draft PR, not yet exact-head CI-accepted. No witnessed frame crossing, verified identity, furniture placement, or real Mac camera acceptance; privacy review/approval/rollback gates remain.",
+  "next_action": "Verify exact-head Core and Home smoke CI for opt-in event image evidence, repair failures if any, then test physical one-camera visibility/last-seen/re-entry on a consenting Mac separately. Do not claim verified room exit.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T16:11:27.952Z",
-  "observed_branch_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
-  "observed_feature_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
+  "observed_at_utc": "2026-10-29T16:58:35Z",
+  "observed_branch_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+  "observed_feature_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
+    "head_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -64,10 +64,10 @@
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
     "BLOCKED_LAYER": "Physical Mac worktrees unavailable; remote GitHub connector publication and CI available.",
-    "BLOCKER": "New event journal exact-head CI pending; no physical camera acceptance, image evidence or verified identity.",
-    "SAFE_WORK_COMPLETED": "Published opt-in local JSONL metadata journal and live preview wiring at 9978ec61dcedaea2e4a27ca33654cd85b697f99c; 4/4 isolated synthetic tests; previous single-camera inventory Core/Home CI success.",
-    "REMOTE_SHA": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
-    "NEXT_ACTION": "Verify exact-head Core/Home smoke CI for private JSONL event journal, fix failures; then add opt-in last-visible image evidence or safe semantic placement without overstating physical identity or confirmed frame exit."
+    "BLOCKER": "New source and checkpoint exact-head CI pending; no real camera acceptance, trusted identity, or semantic furniture placement.",
+    "SAFE_WORK_COMPLETED": "Published opt-in private event crop module, live preview/journal integration, 6 regression tests, docs at 70012be5. 4/4 isolated synthetic prototype tests passed; prior b146806c exact-head Core/Home CI success.",
+    "REMOTE_SHA": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+    "NEXT_ACTION": "Verify exact-head Core and Home smoke CI for opt-in event image evidence, repair failures if any, then test physical one-camera visibility/last-seen/re-entry on a consenting Mac separately. Do not claim verified room exit."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -684,5 +684,16 @@
     "event_history": "in-memory; no disk evidence yet",
     "tests": "11 isolated prototype cases passed; repository CI pending",
     "physical_camera_accepted": false
+  },
+  "home_event_image_evidence": {
+    "status": "PUBLISHED_AWAITING_CI",
+    "source_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+    "pr_number": 399,
+    "explicit_opt_in": "--event-log-file and --save-event-crops",
+    "images": "last detector-confirmed crop, 320x320 maximum, 0600, 256 per session, person-labeled detections excluded",
+    "scope": "single camera, tentative IDs; NOT_VISIBLE and POSSIBLE_EXIT not proven exits",
+    "reuse": "Existing Pillow crop/thumbnail/JPEG and existing private JSONL journal; no new dependencies or imported code",
+    "isolated_tests": "4/4 pass; repository tests and physical camera not run locally",
+    "physical_mac_accepted": false
   }
 }
