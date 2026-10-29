@@ -594,5 +594,23 @@
     "third_party_code_imported": false,
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false
+  },
+  "home_visual_candidate_geometry_error_guard": {
+    "status": "SOURCE_AND_TEST_PUBLISHED_EXACT_HEAD_CI_PENDING",
+    "source_commit": "5293df8dc305c14182a1fa2c5bc711d833ef24df",
+    "test_commit": "4e48489d68ace6e58c422c518fc131c7d6cb0de3",
+    "source": "app/services/home_agent/visual_instance_candidate.py",
+    "test": "tests/test_home_visual_instance_candidate.py",
+    "scope": "Optional ORB candidate matching fails closed when OpenCV homography estimation raises cv2.error; never upgrades tentative visual similarity to physical-instance identity.",
+    "reuse": "Existing OpenCV exception type and ORB matcher; no new dependency, external code, model, or API.",
+    "isolated_local_reproduction": "Python 3.13.5, OpenCV 4.13.0: synthetic same-image ORB baseline 581 inliers; injected cv2.error was uncaught before fix and returned (0,0.0) after fix. This was a standalone reproduction, not the repository test suite.",
+    "repository_tests": "not run locally; new monkeypatched regression published; exact-head CI pending",
+    "core_ci_run": 40832633441,
+    "home_smoke_run": 40832633429,
+    "exact_head_ci": "pending at source/test head; receipt-head CI also required",
+    "physical_camera_accepted": false,
+    "trusted_instance_identity_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "next_action": "Verify receipt-head Core/Home smoke CI and regression; repair confirmed failures only. Prioritize trusted physical-instance verifier and opt-in live camera-to-memory end-to-end acceptance before merge."
   }
 }
