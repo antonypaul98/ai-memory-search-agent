@@ -49,6 +49,18 @@ def _persisted_frame_id(result: dict) -> str | None:
     return None
 
 
+
+def _validate_capture_options(*, max_frames: int, min_interval: timedelta, location: str) -> None:
+    """Reject invalid capture requests before any camera device is constructed."""
+    if type(max_frames) is not int or not 1 <= max_frames <= 30:
+        raise ValueError("max_frames must be between 1 and 30")
+    if (not isinstance(min_interval, timedelta)
+            or not timedelta(milliseconds=200) <= min_interval <= timedelta(minutes=1)):
+        raise ValueError("min_interval must be between 0.2 and 60 seconds")
+    if not isinstance(location, str) or not location.strip():
+        raise ValueError("explicit location is required")
+
+
 @dataclass(frozen=True)
 class ImageCaptureResult:
     frames_processed: int
@@ -81,13 +93,9 @@ class ImageCaptureBridge:
         source_id: str, location: str, max_frames: int = 3,
         min_interval: timedelta = timedelta(seconds=1),
     ) -> ImageCaptureResult:
-        if type(max_frames) is not int or not 1 <= max_frames <= 30:
-            raise ValueError("max_frames must be between 1 and 30")
-        if (not isinstance(min_interval, timedelta)
-                or not timedelta(milliseconds=200) <= min_interval <= timedelta(minutes=1)):
-            raise ValueError("min_interval must be between 0.2 and 60 seconds")
-        if not isinstance(location, str) or not location.strip():
-            raise ValueError("explicit location is required")
+        _validate_capture_options(
+            max_frames=max_frames, min_interval=min_interval, location=location,
+        )
         # No camera access before server-owned session authorization.
         self._registry.resolve(session_id=session_id, user_id=user_id,
                                source_id=source_id, now=self._clock())
@@ -128,6 +136,13 @@ class ImageCaptureBridge:
         """Opt-in OpenCV device entrypoint; device factory is injectable for tests."""
         if type(device_index) is not int or device_index < 0:
             raise ValueError("device_index must be a non-negative integer")
+        # A factory may open hardware in its constructor. Validate the full
+        # capture request before invoking it, not only the session ownership.
+        _validate_capture_options(
+            max_frames=kwargs.get("max_frames", 3),
+            min_interval=kwargs.get("min_interval", timedelta(seconds=1)),
+            location=kwargs.get("location"),
+        )
         # Device factories can open hardware during construction. Authorize
         # the server-owned session before invoking any factory, including an
         # injected one. run_device rechecks the session before actual I/O.
