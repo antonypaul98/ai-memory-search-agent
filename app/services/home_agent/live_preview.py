@@ -4,8 +4,8 @@ Run from the repository root:
 python -m app.services.home_agent.live_preview --allow-camera --max-seconds 120
 
 The display is live; detections arrive asynchronously. Track IDs are tentative,
-not evidence of persistent physical identity. Video is saved only with
---record-file; annotated snapshots are saved only when S is pressed.
+not evidence of persistent physical identity. Video is saved only with --record-file; annotated snapshots require S.
+Automatic event crops require --event-log-file and --save-event-crops.
 No network or database access is performed here (local model assets required).
 """
 from __future__ import annotations
@@ -280,14 +280,18 @@ def completed_scan_result(future):
 def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
              threshold: float, record_file: Path | None, labels: tuple[str, ...],
              scan_interval: float = 1.0, max_track_age: float = 4.0,
-             event_log_file: Path | None = None, room_name: str = "room-1"):
+             event_log_file: Path | None = None, room_name: str = "room-1",
+             save_event_crops: bool = False):
     import cv2
     import numpy as np
     from PIL import Image
     from .owlvit_detector import LocalOwlViTDetector
     from .frame_inventory import FrameInventory
     from .frame_event_log import PrivateFrameEventLog
+    from .frame_evidence import PrivateFrameEvidenceStore
 
+    if save_event_crops and event_log_file is None:
+        raise ValueError("event crops require an explicit event log")
     print("Loading local OWL-ViT model. This may take a moment...")
     detector = LocalOwlViTDetector(str(model_path), labels=list(labels), threshold=threshold)
     camera = cv2.VideoCapture(camera_index, cv2.CAP_AVFOUNDATION)
@@ -307,12 +311,17 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
     previous_gray = None
     started = monotonic()
     event_log = None
+    event_evidence = None
+    pending_scan_image = None
     print("Live preview running. Press S to save an annotated local image; Q to close.")
     try:
         if event_log_file is not None:
             event_log = PrivateFrameEventLog(event_log_file,
                                              camera_id=f"camera-{camera_index}",
                                              room_name=room_name)
+            if save_event_crops:
+                event_evidence = PrivateFrameEvidenceStore(
+                    event_log_file.parent / (event_log_file.stem + "-evidence"))
         while monotonic() - started < max_seconds:
             ok, frame = camera.read()
             if not ok:
@@ -334,29 +343,37 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
                     scan_at, raw = result
                     # Scores are detector scores, not calibrated probabilities.
                     if scan_result_is_fresh(scan_at, now, max_age=max_track_age):
+                        scan_width, scan_height = (pending_scan_image.size
+                            if pending_scan_image is not None else (width, height))
                         boxes = [box for item in raw
-                                 if (box := normalized_to_pixels(item, width, height)) is not None]
+                                 if (box := normalized_to_pixels(item, scan_width, scan_height)) is not None]
                         tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
                                                            scan_at, next_id,
                                                            max_age=max_track_age)
                         # Only successful, fresh detector scans update visibility.
                         # Optical flow and stale tracks never become current sightings.
                         events = frame_inventory.update(
-                            tracks, scan_at=scan_at, width=width, height=height)
+                            tracks, scan_at=scan_at, width=scan_width, height=scan_height)
                         if event_log is not None:
+                            evidence_files = (event_evidence.record_scan(
+                                image=pending_scan_image, visible=frame_inventory.visible,
+                                events=events) if event_evidence is not None else {})
                             event_log.append_scan(scan_at=scan_at,
                                                   visible=frame_inventory.visible,
-                                                  events=events)
+                                                  events=events,
+                                                  evidence_files=evidence_files)
                         for event in events:
                             print(f"Frame #{event.track_id} {event.label}: {event.status} "
                                   f"at {event.location} (detector metadata only)", flush=True)
                         last_scan_at = scan_at
                 future = None
+                pending_scan_image = None
             if future is None and monotonic() - last_scan_requested >= scan_interval:
                 scan_at = monotonic()
                 last_scan_requested = scan_at
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(rgb)
+                pending_scan_image = image if event_evidence is not None else None
                 future = executor.submit(lambda t=scan_at, im=image: (t, detector.detect(im)))
 
             age = monotonic() - last_scan_at if last_scan_at is not None else None
@@ -466,6 +483,8 @@ def main(argv=None):
                         help="Optional local MP4 recording; nothing saved by default")
     parser.add_argument("--event-log-file", type=Path,
                         help="Opt-in private JSONL detector metadata; no images or verified identity")
+    parser.add_argument("--save-event-crops", action="store_true",
+                        help="Opt-in private object crops linked to event log; people excluded")
     parser.add_argument("--room-name", default="room-1",
                         help="User-provided room label for optional local event log")
     parser.add_argument("--labels", nargs="+", default=DEFAULT_LABELS)
@@ -486,6 +505,8 @@ def main(argv=None):
         parser.error("record-file must be an explicit .mp4 path")
     if args.event_log_file is not None and args.event_log_file.suffix.lower() != ".jsonl":
         parser.error("event-log-file must be an explicit .jsonl path")
+    if args.save_event_crops and args.event_log_file is None:
+        parser.error("save-event-crops requires --event-log-file")
     if not args.room_name.strip() or len(args.room_name) > 100:
         parser.error("room-name must contain 1..100 non-whitespace characters")
     run_demo_supervised(max_seconds=args.max_seconds,
@@ -493,6 +514,7 @@ def main(argv=None):
                         camera_index=args.camera_index, model_path=args.model_path,
                         threshold=args.threshold, record_file=args.record_file,
                         event_log_file=args.event_log_file, room_name=args.room_name,
+                        save_event_crops=args.save_event_crops,
                         labels=tuple(args.labels), scan_interval=args.scan_interval)
 
 

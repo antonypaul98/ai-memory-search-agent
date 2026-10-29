@@ -39,7 +39,8 @@ class PrivateFrameEventLog:
         self.room_name = room_name.strip()
 
     def append_scan(self, *, scan_at: float, visible: Mapping[int, FrameSighting],
-                    events: list[FrameEvent]) -> None:
+                    events: list[FrameEvent],
+                    evidence_files: Mapping[tuple[int, str], str] | None = None) -> None:
         """Persist one fresh scan. Visible inventory applies only to this frame."""
         record = {
             "schema_version": 1,
@@ -59,7 +60,10 @@ class PrivateFrameEventLog:
                  "status": event.status, "last_known_frame_location": event.location,
                  "last_seen_monotonic": event.last_seen_at,
                  "box_xyxy": list(event.xyxy), "evidence": event.evidence,
-                 "identity_verified": False}
+                 "identity_verified": False,
+                 "evidence_image": (evidence_files or {}).get((event.track_id, event.status)),
+                 "evidence_image_kind": ("last_detector_confirmed_crop" if
+                    (evidence_files or {}).get((event.track_id, event.status)) else None)}
                 for event in events
             ],
         }
