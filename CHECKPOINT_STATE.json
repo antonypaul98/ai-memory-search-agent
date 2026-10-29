@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+  "current_branch_sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source head 70012be5; HOME writer/JARVIS follower; physical Mac worktrees inaccessible/uninspected.",
-  "local_test_status": "4/4 isolated Python 3.13/Pillow synthetic crop scenarios passed in ephemeral fixture; 6 new repository tests published but not executed locally. Previous exact-head b146806c Core/Home CI success. No physical camera test.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 at verified source head 38b6fb55dc5f5de4d2186dfcfcbb84588a01720b; HOME writer/JARVIS follower; Mac worktrees inaccessible/uninspected.",
+  "local_test_status": "New public-photo replay not locally executed; trained OWL-ViT + simulated disappearance/reappearance + private event image journal passed remote Home vision smoke at exact source head. Full Core CI passed; no real Mac camera test.",
   "pr_number": 399,
-  "ci_status": "Source head 70012be5 Core #40916825609 in_progress (pending), Home smoke #40916825639 in_progress (pending); receipt-head CI must be checked separately.",
+  "ci_status": "Source head 38b6fb55dc5f5de4d2186dfcfcbb84588a01720b: Core CI #40927113210 SUCCESS (1795 passed, 6 skipped, 4 warnings); Home smoke #40927113221 SUCCESS (20 OpenCV tests and real public-photo detector-to-event journal/crop replay: 3 scans, 9 event images; missing scan simulated). This checkpoint receipt needs its own exact-head CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Opt-in private last-confirmed object crops are published on draft PR, not yet exact-head CI-accepted. No witnessed frame crossing, verified identity, furniture placement, or real Mac camera acceptance; privacy review/approval/rollback gates remain.",
-  "next_action": "Verify exact-head Core and Home smoke CI for opt-in event image evidence, repair failures if any, then test physical one-camera visibility/last-seen/re-entry on a consenting Mac separately. Do not claim verified room exit.",
+  "known_blocker": "Real one-camera physical Mac demo and camera cleanup/permissions pending; recorded genuine motion sequence not yet tested; disappearance/reentry in CI is simulated; furniture-level location, independently verified identity, privacy retention/erasure, reviews and merge approval not accepted.",
+  "next_action": "Verify receipt-head Core/Home CI; then run an actual recorded one-room moving-object sequence through the existing trained detector, frame inventory, event log and evidence before physical Mac acceptance. Preserve unknown identity/exit and privacy. Do not merge without review/approval.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T16:58:35Z",
-  "observed_branch_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
-  "observed_feature_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+  "observed_at_utc": "2026-10-29T18:09:01.693Z",
+  "observed_branch_sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
+  "observed_feature_sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "70012be582304b46da687f83ca6c19c42f4b1aa2",
+    "head_sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40862779362,
-      "sha": "79abcd790673ff5a71a79fe589da84a60346b6b0",
+      "id": 40927113210,
+      "sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40862779503,
-      "sha": "79abcd790673ff5a71a79fe589da84a60346b6b0",
+      "id": 40927113221,
+      "sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac worktrees unavailable; remote GitHub connector publication and CI available.",
-    "BLOCKER": "New source and checkpoint exact-head CI pending; no real camera acceptance, trusted identity, or semantic furniture placement.",
-    "SAFE_WORK_COMPLETED": "Published opt-in private event crop module, live preview/journal integration, 6 regression tests, docs at 70012be5. 4/4 isolated synthetic prototype tests passed; prior b146806c exact-head Core/Home CI success.",
-    "REMOTE_SHA": "70012be582304b46da687f83ca6c19c42f4b1aa2",
-    "NEXT_ACTION": "Verify exact-head Core and Home smoke CI for opt-in event image evidence, repair failures if any, then test physical one-camera visibility/last-seen/re-entry on a consenting Mac separately. Do not claim verified room exit."
+    "BLOCKED_LAYER": "Physical Mac camera and worktrees unavailable; remote GitHub connector and CI available.",
+    "BLOCKER": "Real moving-object camera demo, retention/erasure review and merge approval pending; checkpoint receipt exact-head CI not yet checked.",
+    "SAFE_WORK_COMPLETED": "Published public-photo trained detector to private one-camera event journal/crop replay in scripts/home_vision_smoke.py; corrected initial syntax failure in 38b6fb55dc5f5de4d2186dfcfcbb84588a01720b; source-head Core #40927113210 SUCCESS (1795 passed/6 skipped), Home smoke #40927113221 SUCCESS (3 scans, 9 event images, simulated absence/reappearance).",
+    "REMOTE_SHA": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
+    "NEXT_ACTION": "Verify receipt-head Core/Home CI; then run an actual recorded one-room moving-object sequence through the existing trained detector, frame inventory, event log and evidence before physical Mac acceptance. Preserve unknown identity/exit and privacy. Do not merge without review/approval."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -695,5 +695,23 @@
     "reuse": "Existing Pillow crop/thumbnail/JPEG and existing private JSONL journal; no new dependencies or imported code",
     "isolated_tests": "4/4 pass; repository tests and physical camera not run locally",
     "physical_mac_accepted": false
+  },
+  "demo_readiness": {
+    "status": "NOT_PROVEN",
+    "software_replay": "PASS: trained OWL-ViT detections on pinned public photograph, simulated missing scan and tentative reappearance, JSONL/private crop evidence",
+    "real_moving_frames": "NOT_RUN",
+    "physical_camera": "NOT_RUN",
+    "furniture_level_location": "NOT_IMPLEMENTED",
+    "identity_after_long_absence": "NOT_VERIFIED"
+  },
+  "full_product_completion": "NOT_VERIFIED",
+  "competitor_reuse_review": {
+    "reviewed": "2026-10-29",
+    "sources": [
+      "https://docs.frigate.video/usage/explore/",
+      "https://docs.frigate.video/configuration/snapshots/",
+      "https://docs.scrypted.app/scrypted-nvr/troubleshooting.html"
+    ],
+    "decision": "Frigate/Scrypted already provide object event timelines/snapshots/zones; focus differentiated evidence-backed household object whereabouts and uncertainty. Reuse existing local OWL-ViT/journal/crop components; no external code imported."
   }
 }
