@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
+  "current_branch_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; PR #399 draft/unmerged; HOME sole writer/JARVIS follower; local Mac worktrees uninspected.",
-  "local_test_status": "No local repository/PostgreSQL tests; remote Python 3.11 Core CI and Home smoke passed at d2f894be. Physical Mac camera remains untested.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft/unmerged at 2b621d01b1fbdaa65b92b1b472911906c030ec99, 132 ahead / 0 behind; HOME writer/JARVIS follower; Mac worktrees inaccessible/uninspected.",
+  "local_test_status": "No local repository/PostgreSQL tests; exact-head Python 3.11 Core CI #40821503418 (1757 passed, 6 skipped, 4 warnings) and Home vision smoke #40821503402 (19 OpenCV passed) SUCCESS at 2b621d01. Physical camera not tested.",
   "pr_number": 399,
-  "ci_status": "Exact-head Core #40809879221 SUCCESS (1754 passed, 6 skipped, 4 warnings) and Home smoke #40809879490 SUCCESS (19 OpenCV passed, 3 warnings) at d2f894be, including authenticated PostgreSQL API regression. This receipt-only state update creates a new head requiring fresh CI.",
+  "ci_status": "Exact-head Core CI #40821503418 SUCCESS (1757 passed, 6 skipped, 4 warnings), Home vision smoke #40821503402 SUCCESS (19 OpenCV passed, 3 warnings) at 2b621d01. This state-receipt commit creates a new head requiring fresh exact-head CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Shared capture API and cross-worker PostgreSQL HTTP test pass CI at d2f894be, but PR #399 remains draft/unmerged and lacks complete erasure/rollback and production review. Trusted object identity, long occlusion, person attribution and physical camera remain pending.",
-  "next_action": "Verify receipt-head exact CI; extend authenticated API tests for tenant erasure and rollback, inspect review/security gates, then merge only with approvals. No hardware/product-completion claim.",
+  "known_blocker": "Home capture API erasure and invalid-timestamp HTTP guards have software CI acceptance; PR #399 remains draft/unmerged, review/approvals pending. No trusted physical-instance verifier or end-to-end real-object relocation/person attribution; Mac physical camera acceptance pending. Spawned preview supervisor has synthetic tests but no Mac acceptance.",
+  "next_action": "Verify exact-head CI for this checkpoint receipt; benchmark existing ORB candidate against license-compatible SAM 2 / BoT-SORT in isolated fixtures before integrating any external code. Prove identity under identical-object ambiguity and occlusion; preserve consent, provenance and tenant isolation. No merge without review/approval and exact-head tests.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T03:09:29.391Z",
-  "observed_branch_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
-  "observed_feature_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
+  "observed_at_utc": "2026-10-29T05:13:47.713Z",
+  "observed_branch_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+  "observed_feature_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
+    "head_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40555441943,
-      "sha": "d066e636937087195712f9dbaf3116a966fbec06",
+      "id": 40821503418,
+      "sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40555441978,
-      "sha": "d066e636937087195712f9dbaf3116a966fbec06",
+      "id": 40821503402,
+      "sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Shell GitHub DNS unavailable; connected GitHub publication and CI available. Local Mac worktrees inaccessible.",
-    "BLOCKER": "New shared API integration has not passed exact-head CI or end-to-end cross-worker API acceptance; physical camera pending.",
-    "SAFE_WORK_COMPLETED": "Verified previous exact-head 1748/6 Core and 19 Home smoke; wired shared PostgreSQL capture registry to both API writers and propagated structured capture ID, published five synthetic regression cases. No third-party code.",
-    "REMOTE_SHA": "dbdb9e50894ff5795f680356f381047361ceeec0",
-    "NEXT_ACTION": "Verify exact-head CI for shared API wiring; add authenticated real-PostgreSQL cross-worker API tests for structured and image capture, revocation/expiry, tenant erasure, rollback; review and merge only after approvals and green exact-head checks."
+    "BLOCKED_LAYER": "Shell GitHub DNS unavailable; connected GitHub publication and CI available. Mac worktrees inaccessible/uninspected.",
+    "BLOCKER": "No independently trusted instance-identity verifier, real physical-camera acceptance, complete review/merge. This receipt-head CI pending.",
+    "SAFE_WORK_COMPLETED": "Published structured capture HTTP 422 fix and authenticated naive-timestamp regression; exact-head Python 3.11 Core CI 1757 passed and Home vision smoke 19 passed at 2b621d01; bounded external identity-tracker reuse/license research documented in PR #399 comments.",
+    "REMOTE_SHA": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+    "NEXT_ACTION": "Verify exact-head CI for this checkpoint receipt; benchmark existing ORB candidate against license-compatible SAM 2 / BoT-SORT in isolated fixtures before integrating any external code. Prove identity under identical-object ambiguity and occlusion; preserve consent, provenance and tenant isolation. No merge without review/approval and exact-head tests."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -576,6 +576,22 @@
     "home_smoke_conclusion": "success",
     "external_code_imported": false,
     "local_tests": "not run",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false
+  },
+  "home_capture_detection_validation": {
+    "status": "SOURCE_TEST_EXACT_HEAD_CI_ACCEPTED_RECEIPT_PENDING",
+    "source_sha": "5c3b5d60c2b33f3f76118dac9250a4c3e2ac7919",
+    "test_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+    "scope": "Invalid structured capture timestamp ValueError returns sanitized HTTP 422; authenticated API regression confirms no observation persistence",
+    "local_repository_tests": "not run",
+    "core_ci_run": 40821503418,
+    "core_conclusion": "success",
+    "core_python311": "1757 passed, 6 skipped, 4 warnings",
+    "home_smoke_run": 40821503402,
+    "home_smoke_conclusion": "success",
+    "home_opencv": "19 passed, 3 warnings",
+    "third_party_code_imported": false,
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false
   }
