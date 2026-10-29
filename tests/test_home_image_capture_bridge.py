@@ -336,3 +336,31 @@ def test_run_camera_authorizes_before_constructing_device_factory():
 
     assert factory_calls == []
     assert ingest.calls == []
+
+@pytest.mark.parametrize("invalid", [
+    {"max_frames": 0},
+    {"max_frames": 31},
+    {"max_frames": True},
+    {"min_interval": timedelta(milliseconds=199)},
+    {"min_interval": timedelta(seconds=61)},
+    {"min_interval": None},
+    {"location": ""},
+    {"location": None},
+])
+def test_run_camera_rejects_invalid_capture_options_before_device_factory(invalid):
+    # Some device factories open the camera in their constructor. Invalid
+    # capture options must fail before constructing or touching any device.
+    bridge, _, ingest = setup()
+    factory_calls = []
+
+    def factory(*, device_index):
+        factory_calls.append(device_index)
+        return FakeDevice()
+
+    options = dict(session_id="opaque-session", user_id="tenant-a",
+                   source_id="camera-1", location="office", max_frames=1)
+    options.update(invalid)
+    with pytest.raises(ValueError):
+        bridge.run_camera(device_index=0, device_factory=factory, **options)
+    assert factory_calls == []
+    assert ingest.calls == []
