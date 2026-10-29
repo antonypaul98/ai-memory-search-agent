@@ -188,6 +188,39 @@ def test_capture_session_rejects_duration_above_hard_cap(home_agent_api_client: 
     home_agent_api_client.home_agent_capture_registry.register.assert_not_called()
 
 
+
+def test_capture_detection_rejects_naive_time_without_server_error(
+    home_agent_api_client: TestClient,
+) -> None:
+    """A naive client timestamp must not surface as an unhandled HTTP 500."""
+    from app.main import app
+
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id="capture-naive-time", user_id=AUTHENTICATED_USER_ID,
+        source_id="camera-entry", started_at=now - timedelta(minutes=1),
+        expires_at=now + timedelta(minutes=1),
+    )
+    adapter = MagicMock()
+    app.dependency_overrides[get_home_agent_capture_service] = (
+        lambda: BoundedVisionCaptureService(adapter)
+    )
+    home_agent_api_client.home_agent_capture_registry.resolve.return_value = session
+
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/capture-detections",
+        json={
+            "session_id": session.session_id, "source_id": session.source_id,
+            "object_name": "keys", "location": "office",
+            "observed_at": now.replace(tzinfo=None).isoformat(),
+            "confidence": 0.95, "evidence_id": "naive-timestamp",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid capture detection."}
+    adapter.ingest_detection.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("persistence_result", "expected_stored", "expected_frame_id"),
     [
