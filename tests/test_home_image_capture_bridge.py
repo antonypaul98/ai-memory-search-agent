@@ -314,3 +314,25 @@ def test_authenticated_still_image_rejects_naive_observation_time_before_downstr
             image_bytes=b"synthetic-image", location="office",
             observed_at=NOW.replace(tzinfo=None), now=NOW,
         )
+
+
+def test_run_camera_authorizes_before_constructing_device_factory():
+    # An injected device factory may open physical hardware in __init__.
+    # Denied tenants, sources and sessions must not even construct it.
+    bridge, _, ingest = setup()
+    factory_calls = []
+
+    def factory(*, device_index):
+        factory_calls.append(device_index)
+        return FakeDevice()
+
+    for denied in ({"user_id": "tenant-b"}, {"source_id": "camera-2"},
+                   {"session_id": "not-a-session"}):
+        kwargs = dict(session_id="opaque-session", user_id="tenant-a",
+                      source_id="camera-1", location="office", max_frames=1)
+        kwargs.update(denied)
+        with pytest.raises(PermissionError):
+            bridge.run_camera(device_index=0, device_factory=factory, **kwargs)
+
+    assert factory_calls == []
+    assert ingest.calls == []
