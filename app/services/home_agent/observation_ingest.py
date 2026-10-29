@@ -65,6 +65,7 @@ class HomeObservationIngestService:
         sighting: ObjectSighting,
         consent: ObservationConsent,
         now: datetime | None = None,
+        capture_session_id: str | None = None,
     ) -> bool:
         resolved_now = now or datetime.now(timezone.utc)
         if not consent.allows(
@@ -75,4 +76,9 @@ class HomeObservationIngestService:
             raise PermissionError("physical observation consent is missing, mismatched, or expired")
         if sighting.observed_at_utc > resolved_now.astimezone(timezone.utc) + MAX_OBSERVATION_FUTURE_SKEW:
             raise ValueError("observation timestamp is too far in the future")
-        return self._store.store_sighting(user_id=user_id, sighting=sighting)
+        if capture_session_id is None:
+            return self._store.store_sighting(user_id=user_id, sighting=sighting)
+        return self._store.store_sighting(
+            user_id=user_id, sighting=sighting,
+            capture_session_id=capture_session_id,
+        )

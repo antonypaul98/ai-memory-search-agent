@@ -140,3 +140,45 @@ def test_session_duration_is_hard_capped() -> None:
             now=NOW,
             ttl=MAX_CAPTURE_SESSION_TTL + timedelta(seconds=1),
         )
+
+
+def test_shared_capture_id_reaches_sighting_writer_without_losing_consent_gate() -> None:
+    store = MagicMock()
+    service = _service(store)
+    session = service.start_session(user_id="user-a", source_id="camera-entry", now=NOW)
+    assert service.ingest_detection(
+        user_id="user-a", session=session,
+        detection=_detection(observed_at=NOW + timedelta(seconds=1)),
+        consent=_consent(), now=NOW + timedelta(seconds=1),
+        capture_session_id=session.session_id,
+    ) is True
+    kwargs = store.store_sighting.call_args.kwargs
+    assert kwargs["user_id"] == "user-a"
+    assert kwargs["sighting"].source_id == "camera-entry"
+    assert kwargs["capture_session_id"] == session.session_id
+
+
+def test_mismatched_capture_id_rejected_before_sighting_write() -> None:
+    store = MagicMock()
+    service = _service(store)
+    session = service.start_session(user_id="user-a", source_id="camera-entry", now=NOW)
+    with pytest.raises(PermissionError, match="session ID"):
+        service.ingest_detection(
+            user_id="user-a", session=session, detection=_detection(),
+            consent=_consent(), now=NOW,
+            capture_session_id="another-server-session",
+        )
+    store.store_sighting.assert_not_called()
+
+
+def test_guarded_capture_does_not_bypass_source_consent() -> None:
+    store = MagicMock()
+    service = _service(store)
+    session = service.start_session(user_id="user-a", source_id="camera-entry", now=NOW)
+    with pytest.raises(PermissionError):
+        service.ingest_detection(
+            user_id="user-a", session=session, detection=_detection(),
+            consent=_consent(source_id="camera-office"), now=NOW,
+            capture_session_id=session.session_id,
+        )
+    store.store_sighting.assert_not_called()

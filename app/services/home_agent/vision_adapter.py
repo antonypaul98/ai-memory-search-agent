@@ -51,11 +51,10 @@ class ConsentGatedVisionAdapter:
         detection: VisionDetection,
         consent: ObservationConsent,
         now: datetime | None = None,
+        capture_session_id: str | None = None,
     ) -> bool:
         sighting = detection.to_sighting()
-        return self._ingest_service.ingest(
-            user_id=user_id,
-            sighting=sighting,
-            consent=consent,
-            now=now,
-        )
+        kwargs = dict(user_id=user_id, sighting=sighting, consent=consent, now=now)
+        if capture_session_id is not None:
+            kwargs["capture_session_id"] = capture_session_id
+        return self._ingest_service.ingest(**kwargs)
