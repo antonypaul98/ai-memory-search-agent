@@ -364,3 +364,46 @@ def test_run_camera_rejects_invalid_capture_options_before_device_factory(invali
         bridge.run_camera(device_index=0, device_factory=factory, **options)
     assert factory_calls == []
     assert ingest.calls == []
+
+
+def test_run_camera_closes_factory_opened_device_if_session_revoked_during_factory():
+    # A factory can open the physical camera in its constructor. Revocation
+    # between the first and second session checks must not leak that handle.
+    bridge, registry, ingest = setup()
+    device = FakeDevice()
+
+    def factory(*, device_index):
+        assert device_index == 0
+        device.open()
+        registry.revoke(session_id="opaque-session")
+        return device
+
+    with pytest.raises(PermissionError):
+        bridge.run_camera(
+            device_index=0, device_factory=factory,
+            session_id="opaque-session", user_id="tenant-a",
+            source_id="camera-1", location="office", max_frames=1,
+        )
+    assert device.opened and device.closed and device.reads == 0
+    assert ingest.calls == []
+
+
+def test_run_camera_closes_factory_owned_device_exactly_once_on_normal_exit():
+    class CountingDevice(FakeDevice):
+        def __init__(self):
+            super().__init__(frames=())
+            self.close_calls = 0
+
+        def close(self):
+            self.close_calls += 1
+            super().close()
+
+    bridge, _, ingest = setup()
+    device = CountingDevice()
+    result = bridge.run_camera(
+        device_factory=lambda *, device_index: device,
+        session_id="opaque-session", user_id="tenant-a",
+        source_id="camera-1", location="office", max_frames=1,
+    )
+    assert result.source_closed and device.closed
+    assert device.close_calls == 1 and ingest.calls == []
