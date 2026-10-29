@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "8caaec022834168c7d5322660d97665f10354b95",
+  "current_branch_sha": "931eefe76968fd3022e23c16e2924eb8f8ad0806",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft/unmerged at 2b621d01b1fbdaa65b92b1b472911906c030ec99, 132 ahead / 0 behind; HOME writer/JARVIS follower; Mac worktrees inaccessible/uninspected.",
-  "local_test_status": "No local repository/PostgreSQL tests; exact-head Python 3.11 Core CI #40821503418 (1757 passed, 6 skipped, 4 warnings) and Home vision smoke #40821503402 (19 OpenCV passed) SUCCESS at 2b621d01. Physical camera not tested.",
+  "local_test_status": "New synthetic-verifier PostgreSQL/HTTP integration test not run locally (no repository worktree or PostgreSQL in this runtime). GitHub CI pending; physical camera and trusted identity verification not tested.",
   "pr_number": 399,
-  "ci_status": "Camera factory pre-authorization source/test head 8caaec022834168c7d5322660d97665f10354b95; exact-head Core CI #40839775612 and Home vision smoke #40839775598 pending at checkpoint publication; previous 4d8dd0a7 exact-head CI passed.",
+  "ci_status": "Synthetic verifier-to-verified-query PostgreSQL/HTTP integration test published at 931eefe7; exact-head Core CI #40853629920 and Home vision smoke #40853629927 running at checkpoint creation. Previous exact-head 39705154 Core and Home smoke both passed. Test acceptance pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Home capture API erasure and invalid-timestamp HTTP guards have software CI acceptance; PR #399 remains draft/unmerged, review/approvals pending. No trusted physical-instance verifier or end-to-end real-object relocation/person attribution; Mac physical camera acceptance pending. Spawned preview supervisor has synthetic tests but no Mac acceptance.",
-  "next_action": "Verify exact-head CI for this receipt; if green, preserve safety gate and pursue the trusted physical-instance verifier and live camera-to-memory end-to-end workflow; no merge or physical-camera claim.",
+  "next_action": "Verify exact-head Core CI and Home vision smoke for this receipt; if failure inspect job logs and repair. If green, advance toward a consented trusted physical-instance verifier, preserving identical-object ambiguity as unknown; do not claim hardware or product acceptance.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-29T05:13:47.713Z",
-  "observed_branch_sha": "8caaec022834168c7d5322660d97665f10354b95",
-  "observed_feature_sha": "8caaec022834168c7d5322660d97665f10354b95",
+  "observed_branch_sha": "931eefe76968fd3022e23c16e2924eb8f8ad0806",
+  "observed_feature_sha": "931eefe76968fd3022e23c16e2924eb8f8ad0806",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -643,5 +643,18 @@
     "feature_checkpoint_advanced": false,
     "external_code_or_dependencies_added": false,
     "next_action": "Verify exact receipt-head Core and Home vision smoke CI; repair failures only. Continue trusted physical-instance identity verifier and consented end-to-end object-location acceptance."
+  },
+  "home_synthetic_identity_http_acceptance": {
+    "status": "TEST_PUBLISHED_EXACT_HEAD_CI_PENDING",
+    "test_path": "tests/test_home_capture_api_postgres_acceptance.py",
+    "test_commit": "931eefe76968fd3022e23c16e2924eb8f8ad0806",
+    "scope": "Real PostgreSQL plus authenticated HTTP capture of two distinct synthetic frames, stub verifier proof insertion under server grant, authenticated verified-location query, cross-tenant isolation, and consent revocation erasure. The verifier is a test stub and does not establish real physical-instance identity.",
+    "core_ci_run": 40853629920,
+    "home_smoke_run": 40853629927,
+    "repository_tests": "not run locally; exact-head CI pending",
+    "physical_camera_accepted": false,
+    "trusted_identity_producer": false,
+    "feature_checkpoint_advanced": false,
+    "external_code_or_dependencies_added": false
   }
 }
