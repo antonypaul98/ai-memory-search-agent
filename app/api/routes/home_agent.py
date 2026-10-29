@@ -13,6 +13,7 @@ from app.services.home_agent.image_ingest import MAX_IMAGE_BYTES
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
+from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
 from app.services.home_agent.observation_ingest import ObservationConsent, PHYSICAL_OBSERVATION_SCOPE
 from app.services.home_agent.query_service import HomeAgentQueryService
 from app.services.home_agent.vision_adapter import VisionDetection
@@ -197,7 +198,20 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
     try:
         session = registry.resolve(session_id=body.session_id, user_id=user.user_id, source_id=body.source_id, now=now)
         consent = ObservationConsent(user_id=user.user_id, source_id=session.source_id, scope=PHYSICAL_OBSERVATION_SCOPE, granted_at=session.started_at, expires_at=session.expires_at)
-        stored = service.ingest_detection(user_id=user.user_id, session=session, detection=VisionDetection(object_name=body.object_name, location=body.location, observed_at=body.observed_at, confidence=body.confidence, source_id=body.source_id, evidence_id=body.evidence_id), consent=consent, now=now)
+        ingest_kwargs = dict(
+            user_id=user.user_id, session=session,
+            detection=VisionDetection(
+                object_name=body.object_name, location=body.location,
+                observed_at=body.observed_at, confidence=body.confidence,
+                source_id=body.source_id, evidence_id=body.evidence_id,
+            ),
+            consent=consent, now=now,
+        )
+        # Only the shared registry is backed by a transactional writer.
+        # Legacy test/in-memory registries retain their original contract.
+        if isinstance(registry, PostgresCaptureSessionRegistry):
+            ingest_kwargs["capture_session_id"] = session.session_id
+        stored = service.ingest_detection(**ingest_kwargs)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
     return CaptureDetectionResponse(stored=stored)
