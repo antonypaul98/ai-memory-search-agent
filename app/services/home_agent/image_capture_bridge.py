@@ -61,6 +61,30 @@ def _validate_capture_options(*, max_frames: int, min_interval: timedelta, locat
         raise ValueError("explicit location is required")
 
 
+class _FactoryOwnedDevice:
+    """Close a factory-created device exactly once, including preflight failures.
+
+    A custom factory may open hardware during construction. If authorization is
+    revoked before run_device's second check, its lazy frame iterator is never
+    started and cannot perform cleanup. The factory caller owns that device.
+    """
+
+    def __init__(self, device: FrameDevice) -> None:
+        self._device = device
+        self._closed = False
+
+    def open(self) -> None:
+        self._device.open()
+
+    def read(self) -> bytes | None:
+        return self._device.read()
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            self._device.close()
+
+
 @dataclass(frozen=True)
 class ImageCaptureResult:
     frames_processed: int
@@ -153,4 +177,10 @@ class ImageCaptureBridge:
         if device_factory is None:
             from .opencv_camera import OpenCVCameraDevice
             device_factory = OpenCVCameraDevice
-        return self.run_device(device=device_factory(device_index=device_index), **kwargs)
+        device = _FactoryOwnedDevice(device_factory(device_index=device_index))
+        try:
+            return self.run_device(device=device, **kwargs)
+        finally:
+            # Also close if the second authorization check fails before the
+            # frame stream starts. Normal stream cleanup is close-once.
+            device.close()
