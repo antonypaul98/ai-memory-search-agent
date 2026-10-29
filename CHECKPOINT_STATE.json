@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+  "current_branch_sha": "8caaec022834168c7d5322660d97665f10354b95",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft/unmerged at 2b621d01b1fbdaa65b92b1b472911906c030ec99, 132 ahead / 0 behind; HOME writer/JARVIS follower; Mac worktrees inaccessible/uninspected.",
   "local_test_status": "No local repository/PostgreSQL tests; exact-head Python 3.11 Core CI #40821503418 (1757 passed, 6 skipped, 4 warnings) and Home vision smoke #40821503402 (19 OpenCV passed) SUCCESS at 2b621d01. Physical camera not tested.",
   "pr_number": 399,
-  "ci_status": "Exact-head Core CI #40821503418 SUCCESS (1757 passed, 6 skipped, 4 warnings), Home vision smoke #40821503402 SUCCESS (19 OpenCV passed, 3 warnings) at 2b621d01. This state-receipt commit creates a new head requiring fresh exact-head CI.",
+  "ci_status": "Camera factory pre-authorization source/test head 8caaec022834168c7d5322660d97665f10354b95; exact-head Core CI #40839775612 and Home vision smoke #40839775598 pending at checkpoint publication; previous 4d8dd0a7 exact-head CI passed.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
   "known_blocker": "Home capture API erasure and invalid-timestamp HTTP guards have software CI acceptance; PR #399 remains draft/unmerged, review/approvals pending. No trusted physical-instance verifier or end-to-end real-object relocation/person attribution; Mac physical camera acceptance pending. Spawned preview supervisor has synthetic tests but no Mac acceptance.",
-  "next_action": "Verify exact-head CI for this checkpoint receipt; benchmark existing ORB candidate against license-compatible SAM 2 / BoT-SORT in isolated fixtures before integrating any external code. Prove identity under identical-object ambiguity and occlusion; preserve consent, provenance and tenant isolation. No merge without review/approval and exact-head tests.",
+  "next_action": "Verify exact-head CI for this receipt; if green, preserve safety gate and pursue the trusted physical-instance verifier and live camera-to-memory end-to-end workflow; no merge or physical-camera claim.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-29T05:13:47.713Z",
-  "observed_branch_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
-  "observed_feature_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+  "observed_branch_sha": "8caaec022834168c7d5322660d97665f10354b95",
+  "observed_feature_sha": "8caaec022834168c7d5322660d97665f10354b95",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
+    "head_sha": "8caaec022834168c7d5322660d97665f10354b95",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Shell GitHub DNS unavailable; connected GitHub publication and CI available. Mac worktrees inaccessible/uninspected.",
-    "BLOCKER": "No independently trusted instance-identity verifier, real physical-camera acceptance, complete review/merge. This receipt-head CI pending.",
-    "SAFE_WORK_COMPLETED": "Published structured capture HTTP 422 fix and authenticated naive-timestamp regression; exact-head Python 3.11 Core CI 1757 passed and Home vision smoke 19 passed at 2b621d01; bounded external identity-tracker reuse/license research documented in PR #399 comments.",
-    "REMOTE_SHA": "2b621d01b1fbdaa65b92b1b472911906c030ec99",
-    "NEXT_ACTION": "Verify exact-head CI for this checkpoint receipt; benchmark existing ORB candidate against license-compatible SAM 2 / BoT-SORT in isolated fixtures before integrating any external code. Prove identity under identical-object ambiguity and occlusion; preserve consent, provenance and tenant isolation. No merge without review/approval and exact-head tests."
+    "BLOCKED_LAYER": "Shell GitHub DNS unavailable and Mac worktrees uninspected; connected GitHub publication/CI available.",
+    "BLOCKER": "Trusted physical-instance identity verifier, live preview-to-memory acceptance and physical Mac camera evidence absent; new exact-head CI pending.",
+    "SAFE_WORK_COMPLETED": "Verified prior head 4d8dd0a7 Core/Home smoke CI SUCCESS. Published camera factory pre-authorization fix 65c065fb and regression 8caaec02; 4/4 isolated reproduction tests passed. No third-party code or model added.",
+    "REMOTE_SHA": "8caaec022834168c7d5322660d97665f10354b95",
+    "NEXT_ACTION": "Verify exact-head CI for this receipt; if green, preserve safety gate and pursue the trusted physical-instance verifier and live camera-to-memory end-to-end workflow; no merge or physical-camera claim."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -612,5 +612,21 @@
     "trusted_instance_identity_accepted": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify receipt-head Core/Home smoke CI and regression; repair confirmed failures only. Prioritize trusted physical-instance verifier and opt-in live camera-to-memory end-to-end acceptance before merge."
+  },
+  "home_camera_factory_pre_auth": {
+    "status": "PUBLISHED_SOURCE_TEST_HEAD_CI_PENDING",
+    "source_commit": "65c065fb4bf8a7e47b5ee757880b83ce51ccb085",
+    "test_commit": "8caaec022834168c7d5322660d97665f10354b95",
+    "source": "app/services/home_agent/image_capture_bridge.py",
+    "tests": "tests/test_home_image_capture_bridge.py",
+    "scope": "Authorize server-owned tenant/source/session before invoking any camera device factory; run_device retains second authorization before I/O.",
+    "local_isolated_reproduction": "4/4 passed in a minimal Python 3 environment; not the repository test suite",
+    "full_repo_local_tests": "not run (Mac worktrees inaccessible, shell GitHub DNS unavailable)",
+    "core_ci_run": 40839775612,
+    "home_smoke_run": 40839775598,
+    "ci_conclusion": "pending",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "external_code_or_dependencies_added": false
   }
 }
