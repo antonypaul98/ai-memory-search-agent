@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "e9983b98903fc7963bcfb015d767011659352df4",
+  "current_branch_sha": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer / JARVIS follower; local Mac worktrees inaccessible/uninspected.",
-  "local_test_status": "No local repository/PostgreSQL tests; isolated shell GitHub DNS unavailable. Prior privacy exact-head CI passed; new concurrency tests pending exact-head CI. Physical Mac camera pending.",
+  "branch_remote_status": "Main ac912722; PR #399 draft/unmerged; HOME sole writer/JARVIS follower; local Mac worktrees uninspected.",
+  "local_test_status": "No local repository/PostgreSQL tests; exact-head prior concurrency tests passed 1743/6 and Home smoke 19; new structured guard code/tests pending exact-head CI; physical Mac pending.",
   "pr_number": 399,
-  "ci_status": "Privacy source head e9983b98 Core CI #40777044656 SUCCESS (1740 passed, 6 skipped, 4 warnings) and Home smoke #40777044671 SUCCESS (19 OpenCV); new concurrency test source c2ae22c5 CI queued/pending.",
+  "ci_status": "At d6be3507 Core #40783913645 SUCCESS (1743 passed, 6 skipped, 4 warnings); Home smoke #40783913644 SUCCESS (19 OpenCV); new structured sighting guard at 2646eb5c pending fresh exact-head CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Production API still uses process-local capture sessions and unguarded structured detection writes. Shared image registry/guard is not production-wired. Physical Mac camera acceptance pending.",
-  "next_action": "Verify exact-head Core/Home smoke CI for new concurrency tests; then wire production image API to shared registry and guarded writer without weakening structured detection session semantics; add route/tenant isolation acceptance.",
+  "known_blocker": "Production API still process-local; structured detection service does not yet pass capture_session_id. Shared guarded image and structured store paths exist but are not production-wired; physical Mac camera pending.",
+  "next_action": "Verify exact-head CI for structured sighting guard and revocation tests; if green, propagate session ID through structured detection adapter/service and wire shared registry and guarded stores in production dependencies, with cross-worker API tests.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-28T22:01:41Z",
-  "observed_branch_sha": "e9983b98903fc7963bcfb015d767011659352df4",
-  "observed_feature_sha": "c2ae22c5044d070af67d4fcf4dffef09c53b857f",
+  "observed_branch_sha": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
+  "observed_feature_sha": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "782a0f5b1fb623088c54f2877f4da3bddad92662",
+    "head_sha": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS inaccessible; GitHub connector and Actions available.",
-    "BLOCKER": "Production API not yet wired to shared capture registry/guard; structured detection endpoint needs a safe migration boundary. Physical Mac camera pending.",
-    "SAFE_WORK_COMPLETED": "Verified privacy exact-head CI (1740 passed/6 skipped, Home smoke 19); published three deterministic PostgreSQL concurrency/revocation/expiry regression cases on existing HOME draft branch, no external code/dependency.",
-    "REMOTE_SHA": "c2ae22c5044d070af67d4fcf4dffef09c53b857f",
-    "NEXT_ACTION": "Verify fresh exact-head CI for concurrency tests; if green, integrate production API without bypassing structured detection authorization."
+    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub DNS unavailable; GitHub connector and CI available.",
+    "BLOCKER": "Production API still uses process-local capture sessions; structured route lacks guarded session ID propagation. Physical Mac camera acceptance pending.",
+    "SAFE_WORK_COMPLETED": "Verified previous exact-head Core CI 1743 passed/6 skipped and Home smoke 19; published transaction-scoped structured sighting guard and two real-Postgres regression tests. No external code/dependency.",
+    "REMOTE_SHA": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
+    "NEXT_ACTION": "Verify new exact-head CI, then wire shared capture registry and guarded image/structured API paths with cross-worker regression tests."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -552,5 +552,15 @@
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false,
     "next_action": "Verify exact-head CI, then wire production API and test cross-worker route, revocation, tenant erasure and structured detection safety."
+  },
+  "home_capture_structured_guard": {
+    "status": "PUBLISHED_CI_PENDING",
+    "source_sha": "e1de8095a409fc572e4f17ae3bd5f0b581d3f40b",
+    "source_test_sha": "2646eb5c3e5ab71b3b97a07b895715f75431d814",
+    "tests_added": 2,
+    "scope": "Guard structured sighting insert in same PostgreSQL transaction/row lock as session authorization; fail closed on mismatched guard, tenant/source/time, duplicate and revoke; not yet production wired.",
+    "local_tests": "not run",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false
   }
 }
