@@ -94,7 +94,9 @@ def main():
     image_path = hf_hub_download("huggingface/documentation-images", "coco_sample.png", repo_type="dataset",
                                  revision="541575dc4c26c063abbd2a259c740835e88a3e6d")
     detector = LocalOwlViTDetector(model_path, labels=["cat", "remote control"], threshold=.2)
-    print(json.dumps({"one_camera_event_replay": run_one_camera_photo_replay(\n        image_path=Path(image_path), detector=detector)}))\n    factory = get_postgres_connection_factory(Settings(postgres_dsn_env="MEMORY_AGENT_TEST_POSTGRES_DSN"))
+    print(json.dumps({"one_camera_event_replay": run_one_camera_photo_replay(
+        image_path=Path(image_path), detector=detector)}))
+    factory = get_postgres_connection_factory(Settings(postgres_dsn_env="MEMORY_AGENT_TEST_POSTGRES_DSN"))
     store = PostgresHomeImageStore(factory)
     tenant = "trained-vision-smoke-" + uuid4().hex
     now = datetime.now(timezone.utc)
