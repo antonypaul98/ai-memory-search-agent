@@ -29,10 +29,13 @@ _DEFAULT_LABELS = [
 def get_home_agent_authenticated_image_ingest() -> AuthenticatedHomeImageIngest:
     """Build local raw-image ingest; fail closed when model assets are absent."""
     settings = get_settings()
-    store = PostgresHomeImageStore(get_postgres_connection_factory(settings))
+    registry = get_home_agent_capture_registry()
+    store = PostgresHomeImageStore(
+        get_postgres_connection_factory(settings), capture_registry=registry,
+    )
     detector = LocalOwlViTDetector(str(_MODEL_PATH), labels=_DEFAULT_LABELS)
     image_ingest = HomeImageIngestService(store, detector)
     return AuthenticatedHomeImageIngest(
-        registry=get_home_agent_capture_registry(),
+        registry=registry,
         image_ingest=image_ingest,
     )
