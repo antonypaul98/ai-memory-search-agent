@@ -279,12 +279,14 @@ def completed_scan_result(future):
 
 def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
              threshold: float, record_file: Path | None, labels: tuple[str, ...],
-             scan_interval: float = 1.0, max_track_age: float = 4.0):
+             scan_interval: float = 1.0, max_track_age: float = 4.0,
+             event_log_file: Path | None = None, room_name: str = "room-1"):
     import cv2
     import numpy as np
     from PIL import Image
     from .owlvit_detector import LocalOwlViTDetector
     from .frame_inventory import FrameInventory
+    from .frame_event_log import PrivateFrameEventLog
 
     print("Loading local OWL-ViT model. This may take a moment...")
     detector = LocalOwlViTDetector(str(model_path), labels=list(labels), threshold=threshold)
@@ -304,8 +306,13 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
     last_scan_requested = float("-inf")
     previous_gray = None
     started = monotonic()
+    event_log = None
     print("Live preview running. Press S to save an annotated local image; Q to close.")
     try:
+        if event_log_file is not None:
+            event_log = PrivateFrameEventLog(event_log_file,
+                                             camera_id=f"camera-{camera_index}",
+                                             room_name=room_name)
         while monotonic() - started < max_seconds:
             ok, frame = camera.read()
             if not ok:
@@ -334,8 +341,13 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
                                                            max_age=max_track_age)
                         # Only successful, fresh detector scans update visibility.
                         # Optical flow and stale tracks never become current sightings.
-                        for event in frame_inventory.update(
-                                tracks, scan_at=scan_at, width=width, height=height):
+                        events = frame_inventory.update(
+                            tracks, scan_at=scan_at, width=width, height=height)
+                        if event_log is not None:
+                            event_log.append_scan(scan_at=scan_at,
+                                                  visible=frame_inventory.visible,
+                                                  events=events)
+                        for event in events:
                             print(f"Frame #{event.track_id} {event.label}: {event.status} "
                                   f"at {event.location} (detector metadata only)", flush=True)
                         last_scan_at = scan_at
@@ -396,6 +408,8 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             if key == ord("q"):
                 break
     finally:
+        if event_log is not None:
+            event_log.close()
         camera.release()
         if writer is not None:
             writer.release()
@@ -448,6 +462,10 @@ def main(argv=None):
     parser.add_argument("--scan-interval", type=float, default=1.0)
     parser.add_argument("--record-file", type=Path,
                         help="Optional local MP4 recording; nothing saved by default")
+    parser.add_argument("--event-log-file", type=Path,
+                        help="Opt-in private JSONL detector metadata; no images or verified identity")
+    parser.add_argument("--room-name", default="room-1",
+                        help="User-provided room label for optional local event log")
     parser.add_argument("--labels", nargs="+", default=DEFAULT_LABELS)
     args = parser.parse_args(argv)
     if not args.allow_camera:
@@ -464,10 +482,15 @@ def main(argv=None):
         parser.error("this detector supports 1..32 distinct labels per scan")
     if args.record_file is not None and args.record_file.suffix.lower() != ".mp4":
         parser.error("record-file must be an explicit .mp4 path")
+    if args.event_log_file is not None and args.event_log_file.suffix.lower() != ".jsonl":
+        parser.error("event-log-file must be an explicit .jsonl path")
+    if not args.room_name.strip() or len(args.room_name) > 100:
+        parser.error("room-name must contain 1..100 non-whitespace characters")
     run_demo_supervised(max_seconds=args.max_seconds,
                         startup_grace_seconds=args.startup_grace_seconds,
                         camera_index=args.camera_index, model_path=args.model_path,
                         threshold=args.threshold, record_file=args.record_file,
+                        event_log_file=args.event_log_file, room_name=args.room_name,
                         labels=tuple(args.labels), scan_interval=args.scan_interval)
 
 
