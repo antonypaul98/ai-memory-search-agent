@@ -7,7 +7,7 @@ crossing. All data stays in memory in this software slice.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import hypot, isfinite
 from typing import Mapping
 
 
@@ -49,6 +49,19 @@ def describe_frame_location(box: tuple[int, int, int, int], width: int, height: 
     horizontal = "left" if x < 1 / 3 else "right" if x >= 2 / 3 else "center"
     vertical = "upper" if y < 1 / 3 else "lower" if y >= 2 / 3 else "middle"
     return f"{vertical}-{horizontal} of camera view"
+
+
+def _significant_box_motion(previous: tuple[int, int, int, int],
+                            current: tuple[int, int, int, int],
+                            width: int, height: int) -> bool:
+    """Detect clear detector-box displacement even within one coarse zone.
+
+    Four percent of the frame diagonal suppresses small box jitter. This is
+    tentative screen-space motion, not proof of physical-instance identity.
+    """
+    dx = (current[0] + current[2] - previous[0] - previous[2]) / 2
+    dy = (current[1] + current[3] - previous[1] - previous[3]) / 2
+    return hypot(dx, dy) >= 0.04 * hypot(width, height)
 
 
 class FrameInventory:
@@ -107,7 +120,8 @@ class FrameInventory:
             old = self.visible.get(tid)
             if old is None:
                 status = "REAPPEARED_TENTATIVE" if tid in self._last_seen else "VISIBLE"
-            elif old.location != new.location:
+            elif (old.location != new.location or
+                  _significant_box_motion(old.xyxy, new.xyxy, width, height)):
                 status = "MOVED_IN_FRAME"
             else:
                 status = None
