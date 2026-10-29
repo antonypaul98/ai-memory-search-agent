@@ -408,13 +408,15 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
             if key == ord("q"):
                 break
     finally:
-        if event_log is not None:
-            event_log.close()
         camera.release()
         if writer is not None:
             writer.release()
         cv2.destroyAllWindows()
-        executor.shutdown(wait=True, cancel_futures=True)
+        try:
+            executor.shutdown(wait=True, cancel_futures=True)
+        finally:
+            if event_log is not None:
+                event_log.close()
 
 
 

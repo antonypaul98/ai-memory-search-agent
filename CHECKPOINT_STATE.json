@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "6f486c39b567c454ef650bc8e77621a0e8c7289e",
+  "current_branch_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 at new single-camera source/test head 6f486c39; HOME writer/JARVIS follower; local Mac worktrees unavailable/uninspected.",
-  "local_test_status": "11/11 isolated Python 3.13.5 synthetic prototype tests passed (separate fixture); published repository tests not locally run; exact-head CI pending; no real camera.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 at source head 9978ec61dcedaea2e4a27ca33654cd85b697f99c; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "4/4 isolated Python 3.13.5 metadata-journal prototype tests passed against a copied current FrameInventory; repository tests/CLI wiring not run locally; exact-head CI pending. No physical camera.",
   "pr_number": 399,
-  "ci_status": "Prior exact-head 185f6a93 Core CI #40898279045 and Home smoke #40898278868 SUCCESS; new single-camera source/test 6f486c39 CI pending, receipt-head CI must be verified separately.",
+  "ci_status": "Previous single-camera inventory receipt head 2ff64cfd: Core #40907718424 SUCCESS and Home smoke #40907718583 SUCCESS. New opt-in private metadata journal source head 9978ec61dcedaea2e4a27ca33654cd85b697f99c Core #40908984822 and Home smoke #40908984932 running at observation; this cleanup/checkpoint receipt requires its own exact-head CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Single-camera visible inventory/relative positions and conservative missing/possible-exit state now published but not CI-accepted; history is in-memory only, no durable evidence images/event log or semantic furniture localization yet. Physical camera, verified instance identity, review and merge pending.",
-  "next_action": "Verify exact-head Core and Home smoke CI for single-camera inventory; fix any failures. Then add opt-in private event persistence and evidence capture without overstating physical identity/room exit; keep one camera/room scope.",
+  "known_blocker": "Single-camera frame-position/visible inventory plus opt-in private JSONL metadata journal published, not yet exact-head CI-accepted. No image evidence, no semantic furniture placement, no independently verified physical identity, and no physical Mac camera acceptance. PR draft/unmerged.",
+  "next_action": "Verify exact-head Core/Home smoke CI for private JSONL event journal, fix failures; then add opt-in last-visible image evidence or safe semantic placement without overstating physical identity or confirmed frame exit.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T16:00:00Z",
-  "observed_branch_sha": "6f486c39b567c454ef650bc8e77621a0e8c7289e",
-  "observed_feature_sha": "6f486c39b567c454ef650bc8e77621a0e8c7289e",
+  "observed_at_utc": "2026-10-29T16:11:27.952Z",
+  "observed_branch_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
+  "observed_feature_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "6f486c39b567c454ef650bc8e77621a0e8c7289e",
+    "head_sha": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac worktrees unavailable; GitHub connector publication works.",
-    "BLOCKER": "New exact-head CI pending; durable event evidence and physical camera acceptance not yet implemented.",
-    "SAFE_WORK_COMPLETED": "Published 6f486c39: detector-confirmed single-camera inventory, relative positions, conservative disappearance/reappearance events, and 14 synthetic test cases; 11 isolated prototype tests passed.",
-    "REMOTE_SHA": "6f486c39b567c454ef650bc8e77621a0e8c7289e",
-    "NEXT_ACTION": "Verify exact-head Core and Home smoke CI for single-camera inventory; fix any failures. Then add opt-in private event persistence and evidence capture without overstating physical identity/room exit; keep one camera/room scope."
+    "BLOCKED_LAYER": "Physical Mac worktrees unavailable; remote GitHub connector publication and CI available.",
+    "BLOCKER": "New event journal exact-head CI pending; no physical camera acceptance, image evidence or verified identity.",
+    "SAFE_WORK_COMPLETED": "Published opt-in local JSONL metadata journal and live preview wiring at 9978ec61dcedaea2e4a27ca33654cd85b697f99c; 4/4 isolated synthetic tests; previous single-camera inventory Core/Home CI success.",
+    "REMOTE_SHA": "9978ec61dcedaea2e4a27ca33654cd85b697f99c",
+    "NEXT_ACTION": "Verify exact-head Core/Home smoke CI for private JSONL event journal, fix failures; then add opt-in last-visible image evidence or safe semantic placement without overstating physical identity or confirmed frame exit."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
