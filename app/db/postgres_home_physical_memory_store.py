@@ -62,11 +62,26 @@ class PostgresHomePhysicalMemoryStore:
         self._connect = connection_factory
         ensure_postgres_home_physical_memory_schema(connection_factory)
 
-    def store_sighting(self, *, user_id: str, sighting: ObjectSighting) -> bool:
-        """Store a sighting once; duplicate evidence for the same tenant is ignored."""
+    def store_sighting(self, *, user_id: str, sighting: ObjectSighting,
+                       capture_session_id: str | None = None) -> bool:
+        """Store one sighting, locking shared capture authority when configured.
+
+        Existing non-camera writers remain unguarded. A capture-bound writer
+        cannot silently fall back to unguarded persistence or accept an
+        unauthenticated session ID.
+        """
         user_id = _required("user_id", user_id)
+        capture_registry = getattr(self, "_capture_registry", None)
+        if (capture_registry is None) != (capture_session_id is None):
+            raise PermissionError("transactional capture authorization is required")
         with self._connect() as conn:
             require_active_tenant(conn, user_id=user_id)
+            if capture_session_id is not None:
+                capture_registry.authorize_image_write(
+                    conn, session_id=capture_session_id, user_id=user_id,
+                    source_id=sighting.source_id,
+                    observed_at=sighting.observed_at_utc,
+                )
             result = conn.execute(
                 """
                 INSERT INTO home_object_sightings (
