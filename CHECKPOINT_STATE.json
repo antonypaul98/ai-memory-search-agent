@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
+  "current_branch_sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source/test head 4151a3cb12153f3489b26d8f3dbc4213bb6f33e7; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Isolated geometry assertions 3/3 passed for same-zone displacement, jitter and zone consistency; full repository tests not locally run. Recorded-video replay at c1d09f1b passed exact-head Core/Home CI; physical camera and real moving footage untested.",
+  "branch_remote_status": "Main ac912722; HOME draft PR #399 source/test head edce30a2, HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "5/5 isolated Python 3.13 no-network public fixture tests passed; exact-source-head Python 3.11 Core 1801 passed/7 skipped/4 warnings, Home smoke 33 regression tests passed. Real licensed 8-second cup video probe decoded 21 scans but detected ZERO cup/mug/glass objects, 0 crops, no demo acceptance. No physical Mac test.",
   "pr_number": 399,
-  "ci_status": "Recorded-video replay c1d09f1b exact-head Core #40936859639 SUCCESS and Home smoke #40936859649 SUCCESS. New same-zone motion source/test head 4151a3cb Core #40945528430 and Home smoke #40945528425 IN PROGRESS; not accepted until both succeed at receipt head.",
+  "ci_status": "At source/test edce30a2 Core CI #40954176562 SUCCESS and Home smoke #40954176403 SUCCESS. Important: optional public real-video probe FAILED (zero detections), masked by continue-on-error; green workflow is NOT real-footage acceptance. New checkpoint-receipt head CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "New same-zone movement regression exact-head CI pending; real one-room recorded moving-object footage, physical Mac camera, review, privacy retention/erasure and merge approval remain pending. Tentative tracks cannot prove physical identity or witnessed exit.",
-  "next_action": "Verify both workflows at receipt head; inspect logs; if green, review/privacy/rollback/approval gates before guarded merge. Then test genuine one-room moving footage with frame-by-frame evidence, preserving unknown identity/exit.",
+  "known_blocker": "First real recorded cup-motion probe decoded 21 scans but OWL-ViT at 0.15 threshold returned no target detections; no real moving-object demo proven. Privacy retention/erasure, real Mac camera, review/approval and merge remain pending. Tentative tracks cannot prove physical identity or witnessed room exit.",
+  "next_action": "Verify receipt-head CI; inspect representative real footage and detector suitability/threshold, then run bounded alternative or fallback against true object motion with image/event evidence and negative cases. Do not merge until demo, privacy, physical and approval gates.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T19:01:16Z",
-  "observed_branch_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
-  "observed_feature_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
+  "observed_at_utc": "2026-10-29T21:06:26Z",
+  "observed_branch_sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
+  "observed_feature_sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
+    "head_sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40927113210,
-      "sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
+      "id": 40954176562,
+      "sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40927113221,
-      "sha": "38b6fb55dc5f5de4d2186dfcfcbb84588a01720b",
+      "id": 40954176403,
+      "sha": "edce30a22308e148c82ba1e21f40154fd09c85a2",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac worktrees/camera unavailable; remote GitHub connector and CI available.",
-    "BLOCKER": "New source/test exact-head CI pending; real recorded footage and physical acceptance pending; PR draft with no approvals.",
-    "SAFE_WORK_COMPLETED": "Confirmed c1d09f1b exact-head Core/Home CI success; published same-zone detector-box motion fix 08ff510c and regression test/fix through 4151a3cb; 3/3 isolated geometry checks passed.",
-    "REMOTE_SHA": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
-    "NEXT_ACTION": "Verify new receipt-head CI, then recorded genuine motion demo; do not merge without approvals."
+    "BLOCKED_LAYER": "Physical Mac worktrees/camera inaccessible; GitHub connector/CI available.",
+    "BLOCKER": "Public recorded cup clip decoded but model produced zero detections; genuine one-room moving-object demo, privacy/approval and physical gates pending.",
+    "SAFE_WORK_COMPLETED": "Published optional licensed real-video probe edce30a2; 5 isolated tests and 33 smoke regressions passed; exact-head Core 1801 passed. Recorded 21 genuine video scans, 0 detections; optional probe failed, explicitly not accepted.",
+    "REMOTE_SHA": "edce30a22308e148c82ba1e21f40154fd09c85a2",
+    "NEXT_ACTION": "Verify receipt-head CI; test suitable real object-motion footage or conservative free fallback with observed ground truth; keep PR draft and no hardware claim."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
