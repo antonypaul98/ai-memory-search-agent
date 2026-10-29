@@ -189,7 +189,12 @@ def before_location(body: BeforeLocationRequest, service: HomeAgentQueryService 
 @router.post("/capture-sessions", response_model=CaptureSessionResponse)
 def start_capture_session(body: StartCaptureSessionRequest, service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service), registry: CaptureSessionRegistry = Depends(get_home_agent_capture_registry), user: UserPublic = Depends(get_current_user)) -> CaptureSessionResponse:
     session = service.start_session(user_id=user.user_id, source_id=body.source_id, ttl=timedelta(seconds=body.ttl_seconds))
-    registry.register(session)
+    try:
+        registry.register(session)
+    except PermissionError as exc:
+        # Account-erasure fences reject new sessions. Return a stable denial
+        # rather than leaking an internal exception as HTTP 500.
+        raise HTTPException(status_code=403, detail="Capture session cannot be started.") from exc
     return CaptureSessionResponse(session_id=session.session_id, source_id=session.source_id, started_at=session.started_at.isoformat(), expires_at=session.expires_at.isoformat())
 
 @router.post("/capture-detections", response_model=CaptureDetectionResponse)
