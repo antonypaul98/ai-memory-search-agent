@@ -3,26 +3,26 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
+  "current_branch_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
   "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; PR #399 draft/unmerged; HOME sole writer/JARVIS follower; local Mac worktrees uninspected.",
-  "local_test_status": "No local repository or real-PostgreSQL tests executed (shell GitHub DNS unavailable). New real-PostgreSQL API test published for CI; physical Mac camera not accepted.",
+  "local_test_status": "No local repository/PostgreSQL tests; remote Python 3.11 Core CI and Home smoke passed at d2f894be. Physical Mac camera remains untested.",
   "pr_number": 399,
-  "ci_status": "Core #40804190593 SUCCESS (1753 passed, 6 skipped, 4 warnings) and Home smoke #40804190564 SUCCESS (19 OpenCV passed, 3 warnings) at 7091e85b. New real-PostgreSQL authenticated HTTP capture API test at b7239047 PENDING exact-head CI.",
+  "ci_status": "Exact-head Core #40809879221 SUCCESS (1754 passed, 6 skipped, 4 warnings) and Home smoke #40809879490 SUCCESS (19 OpenCV passed, 3 warnings) at d2f894be, including authenticated PostgreSQL API regression. This receipt-only state update creates a new head requiring fresh CI.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Shared capture API wiring passed prior exact-head CI but is draft/unmerged. New authenticated real-PostgreSQL HTTP cross-worker/revocation/tenant-isolation acceptance test awaits CI. Trusted object identity, long occlusion, mover attribution and physical Mac camera remain pending.",
-  "next_action": "Verify exact-head Core and Home smoke CI for new authenticated PostgreSQL API test; fix any test/implementation failures without bypass; then test erasure/rollback and obtain review before merge. No physical camera acceptance claimed.",
+  "known_blocker": "Shared capture API and cross-worker PostgreSQL HTTP test pass CI at d2f894be, but PR #399 remains draft/unmerged and lacks complete erasure/rollback and production review. Trusted object identity, long occlusion, person attribution and physical camera remain pending.",
+  "next_action": "Verify receipt-head exact CI; extend authenticated API tests for tenant erasure and rollback, inspect review/security gates, then merge only with approvals. No hardware/product-completion claim.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T03:02:36.913Z",
-  "observed_branch_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
+  "observed_at_utc": "2026-10-29T03:09:29.391Z",
+  "observed_branch_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
   "observed_feature_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
+    "head_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -564,13 +564,18 @@
     "feature_checkpoint_advanced": false
   },
   "home_capture_api_postgres_acceptance": {
-    "status": "SOURCE_TEST_PUBLISHED_CI_PENDING",
+    "status": "SOURCE_TEST_EXACT_HEAD_CI_ACCEPTED_REVIEW_PENDING",
     "source_test_sha": "b72390470504acdc3e95acd1d8798877d55ece10",
+    "accepted_head_sha": "d2f894beab13bb17594065f2c9bfe0c8a04fd679",
     "test_file": "tests/test_home_capture_api_postgres_acceptance.py",
-    "scope": "Authenticated FastAPI capture-sessions, structured detections and image capture over isolated real PostgreSQL; separate-worker revocation, duplicate idempotence, cross-tenant rejection, evidence-count invariance",
+    "scope": "Authenticated FastAPI capture-sessions, structured detections and image capture over isolated real PostgreSQL; independent-worker revocation, duplicate idempotence, cross-tenant rejection and evidence-count invariance",
+    "core_ci_run": 40809879221,
+    "core_ci_conclusion": "success",
+    "core_python311": "1754 passed, 6 skipped, 4 warnings",
+    "home_smoke_run": 40809879490,
+    "home_smoke_conclusion": "success",
     "external_code_imported": false,
     "local_tests": "not run",
-    "exact_head_ci": "pending",
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false
   }
