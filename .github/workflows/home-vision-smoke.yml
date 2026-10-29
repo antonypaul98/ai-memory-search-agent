@@ -48,4 +48,12 @@ jobs:
       - name: Public real-motion footage probe (diagnostic, not acceptance)
         continue-on-error: true
         timeout-minutes: 8
-        run: python -m scripts.home_public_motion_probe
+        run: python -m scripts.home_public_motion_probe --review-output public-motion-review.jpg
+      - name: Upload licensed public-frame review only (no household footage)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-public-motion-frame-review
+          path: public-motion-review.jpg
+          if-no-files-found: ignore
+          retention-days: 1

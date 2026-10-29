@@ -3,7 +3,8 @@ from hashlib import sha256
 import stat
 import pytest
 
-from scripts.home_public_motion_probe import download_public_fixture, SOURCE_URL, MAX_BYTES
+from scripts.home_public_motion_probe import (download_public_fixture, create_public_frame_montage,
+                                              SOURCE_URL, MAX_BYTES)
 
 
 class FakeResponse:
@@ -44,3 +45,29 @@ def test_untrusted_or_malformed_fixture_rejected(tmp_path, response):
     with pytest.raises(ValueError):
         download_public_fixture(path, opener=lambda request, timeout: response)
     assert not path.exists()
+
+
+
+def test_public_fixture_review_montage_is_bounded_and_private(tmp_path):
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    from PIL import Image
+    video = tmp_path / "public-test.avi"
+    writer = cv2.VideoWriter(str(video), cv2.VideoWriter_fourcc(*"MJPG"), 5, (320, 180))
+    if not writer.isOpened():
+        pytest.skip("MJPG codec unavailable")
+    try:
+        for i in range(32):
+            frame = np.zeros((180, 320, 3), dtype=np.uint8)
+            cv2.rectangle(frame, (10 + i, 50), (60 + i, 110), (255, 255, 255), -1)
+            writer.write(frame)
+    finally:
+        writer.release()
+    destination = tmp_path / "review.jpg"
+    result = create_public_frame_montage(video, destination)
+    assert result == {"sampled_frames": [0, 30], "width": 960,
+                      "height": 368, "public_fixture_only": True}
+    assert Image.open(destination).size == (960, 368)
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    with pytest.raises(ValueError):
+        create_public_frame_montage(video, destination)

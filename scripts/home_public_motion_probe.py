@@ -51,7 +51,60 @@ def download_public_fixture(destination: Path, *, opener=urlopen) -> dict:
             "license": SOURCE_LICENSE}
 
 
+
+def create_public_frame_montage(video_path: Path, destination: Path) -> dict:
+    """Explicit public-fixture review image; never use this path for household footage."""
+    import cv2
+    from PIL import Image, ImageDraw
+    if (not isinstance(video_path, Path) or not video_path.is_file()
+            or not isinstance(destination, Path) or destination.exists()
+            or destination.is_symlink()):
+        raise ValueError("public montage needs a video and a new output path")
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        capture.release()
+        raise RuntimeError("public review video cannot be decoded")
+    indices = (0, 30, 60, 90, 120, 150, 180, 210)
+    samples = []
+    frame_number = 0
+    try:
+        while len(samples) < len(indices):
+            ok, frame = capture.read()
+            if not ok:
+                break
+            if frame_number == indices[len(samples)]:
+                rgb = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                rgb.thumbnail((240, 135))
+                samples.append((frame_number, rgb))
+            frame_number += 1
+    finally:
+        capture.release()
+    if not samples:
+        raise RuntimeError("public review video has no decodable frames")
+    sheet = Image.new("RGB", (960, 368), "white")
+    draw = ImageDraw.Draw(sheet)
+    for index, (frame_number, thumbnail) in enumerate(samples):
+        left, top = (index % 4) * 240, (index // 4) * 170
+        sheet.paste(thumbnail, (left, top))
+        draw.text((left + 4, top + 138), f"frame {frame_number}", fill="black")
+    draw.text((4, 346), "Pittigrilli / Wikimedia Commons / CC BY-SA 4.0", fill="black")
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                 getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            sheet.save(output, format="JPEG", quality=80)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+    return {"sampled_frames": [number for number, _ in samples],
+            "width": 960, "height": 368, "public_fixture_only": True}
+
+
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--review-output", type=Path)
+    args = parser.parse_args()
     from huggingface_hub import snapshot_download
     from app.services.home_agent.owlvit_detector import LocalOwlViTDetector
     from scripts.home_recorded_replay import replay_recorded_video
@@ -59,6 +112,8 @@ def main() -> None:
     with TemporaryDirectory(prefix="home-public-motion-") as directory:
         root = Path(directory)
         provenance = download_public_fixture(root / "cup.webm")
+        review = (create_public_frame_montage(root / "cup.webm", args.review_output)
+                  if args.review_output is not None else None)
         model_path = snapshot_download(
             "google/owlvit-base-patch32", revision=MODEL_REVISION,
             allow_patterns=["*.json", "*.txt", "pytorch_model.bin"],
@@ -75,7 +130,7 @@ def main() -> None:
         assert all((root / "private-evidence" / event["evidence_image"]).is_file()
                    for row in rows for event in row["events"] if event["evidence_image"])
         print(json.dumps({
-            "fixture": provenance, "model_revision": MODEL_REVISION,
+            "fixture": provenance, "review_montage": review, "model_revision": MODEL_REVISION,
             "detector_threshold": 0.05,
             "text_query_style": "descriptive-photo-phrase",
             "candidate": "higher-resolution 1920x1080 glass-teacup footage",
