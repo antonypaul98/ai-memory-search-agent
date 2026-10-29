@@ -219,6 +219,10 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
         stored = service.ingest_detection(**ingest_kwargs)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
+    except ValueError as exc:
+        # Invalid observation timestamps or malformed capture data are client
+        # errors, not internal server failures. Do not expose private details.
+        raise HTTPException(status_code=422, detail="Invalid capture detection.") from exc
     return CaptureDetectionResponse(stored=stored)
 
 @router.post("/capture-images", response_model=CaptureImageResponse)
