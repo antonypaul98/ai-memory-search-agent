@@ -24,6 +24,7 @@ from app.services.home_agent.capture_session import CaptureSession
 from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
 from app.services.home_agent.image_capture_bridge import ImageCaptureBridge
 from app.services.home_agent.image_ingest import DetectedObject, HomeImageIngestService, ImageObservationBatch
+from app.services.home_agent.physical_memory import ObjectSighting
 
 
 @pytest.fixture
@@ -356,3 +357,122 @@ def test_guarded_image_ingest_rechecks_authority_after_detection(isolated_postgr
         )
     assert _count(factory, "home_image_evidence") == 0
     assert _count(factory, "home_image_observations") == 0
+
+
+def _capture_sighting(*, source_id="camera-a", evidence_id="structured-one",
+                      observed_at):
+    return ObjectSighting(
+        object_name="keys", location="office", observed_at=observed_at,
+        confidence=0.96, source_id=source_id, evidence_id=evidence_id,
+    )
+
+
+def test_transactional_structured_sighting_requires_live_session(isolated_postgres):
+    """Structured detections must not bypass the image capture revocation guard."""
+    unguarded, factory = isolated_postgres
+    registry = PostgresCaptureSessionRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+    sighting = _capture_sighting(observed_at=now - timedelta(seconds=1))
+
+    with pytest.raises(PermissionError, match="transactional capture"):
+        writer.store_sighting(user_id="house-a", sighting=sighting)
+    with pytest.raises(PermissionError, match="transactional capture"):
+        unguarded.store_sighting(
+            user_id="house-a", sighting=sighting,
+            capture_session_id=session.session_id,
+        )
+    for owner, changed in (
+        ("house-b", sighting),
+        ("house-a", _capture_sighting(source_id="camera-b", observed_at=sighting.observed_at)),
+        ("house-a", _capture_sighting(observed_at=session.started_at - timedelta(seconds=1))),
+        ("house-a", _capture_sighting(observed_at=session.expires_at)),
+    ):
+        with pytest.raises(PermissionError):
+            writer.store_sighting(
+                user_id=owner, sighting=changed,
+                capture_session_id=session.session_id,
+            )
+    assert _count(factory, "home_object_sightings") == 0
+
+    assert writer.store_sighting(
+        user_id="house-a", sighting=sighting,
+        capture_session_id=session.session_id,
+    ) is True
+    assert writer.store_sighting(
+        user_id="house-a", sighting=sighting,
+        capture_session_id=session.session_id,
+    ) is False
+    assert registry.revoke(session_id=session.session_id)
+    with pytest.raises(PermissionError):
+        writer.store_sighting(
+            user_id="house-a",
+            sighting=_capture_sighting(evidence_id="structured-after-revoke",
+                                      observed_at=sighting.observed_at),
+            capture_session_id=session.session_id,
+        )
+    assert _count(factory, "home_object_sightings") == 1
+
+
+def test_transactional_structured_sighting_locks_session_through_commit(isolated_postgres):
+    """Revocation cannot overtake a structured sighting's evidence transaction."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    import psycopg
+
+    _, factory = isolated_postgres
+    authorized = Event()
+    release = Event()
+
+    class PausingRegistry(PostgresCaptureSessionRegistry):
+        def authorize_image_write(self, conn, **kwargs):
+            super().authorize_image_write(conn, **kwargs)
+            authorized.set()
+            if not release.wait(timeout=8):
+                raise AssertionError("timed out waiting for structured writer")
+
+    registry = PausingRegistry(factory)
+    writer = PostgresHomeImageStore(factory, capture_registry=registry)
+    now = datetime.now(timezone.utc)
+    session = CaptureSession(
+        session_id=uuid4().hex, user_id="house-a", source_id="camera-a",
+        started_at=now - timedelta(seconds=3),
+        expires_at=now + timedelta(minutes=3),
+    )
+    registry.register(session)
+    sighting = _capture_sighting(observed_at=now - timedelta(seconds=1))
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            writer.store_sighting, user_id="house-a", sighting=sighting,
+            capture_session_id=session.session_id,
+        )
+        try:
+            assert authorized.wait(timeout=8)
+            with factory() as revoker:
+                revoker.execute("SET LOCAL lock_timeout = '200ms'")
+                with pytest.raises(psycopg.errors.LockNotAvailable):
+                    revoker.execute(
+                        "UPDATE home_capture_sessions SET revoked_at=clock_timestamp() "
+                        "WHERE session_id=%s", (session.session_id,),
+                    )
+                revoker.rollback()
+        finally:
+            release.set()
+        assert future.result(timeout=8) is True
+
+    assert _count(factory, "home_object_sightings") == 1
+    assert registry.revoke(session_id=session.session_id)
+    with pytest.raises(PermissionError):
+        writer.store_sighting(
+            user_id="house-a",
+            sighting=_capture_sighting(evidence_id="after-revocation",
+                                      observed_at=sighting.observed_at),
+            capture_session_id=session.session_id,
+        )
+    assert _count(factory, "home_object_sightings") == 1
