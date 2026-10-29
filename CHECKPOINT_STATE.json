@@ -628,5 +628,20 @@
     "physical_camera_accepted": false,
     "feature_checkpoint_advanced": false,
     "external_code_or_dependencies_added": false
+  },
+  "home_camera_factory_option_preflight": {
+    "status": "SOURCE_TEST_PUBLISHED_EXACT_HEAD_CI_PENDING",
+    "source_commit": "9a942543fc1c31871bcaf99d1cc7f84529c267f1",
+    "test_commit": "215531896b5b15f8c5275471622789c3c4b771e6",
+    "source": "app/services/home_agent/image_capture_bridge.py",
+    "tests": "tests/test_home_image_capture_bridge.py",
+    "scope": "Validate frame count, interval and explicit location before invoking a camera factory that may open hardware in its constructor; preserve server-session authorization before device creation and run_device revalidation.",
+    "new_parameterized_regressions": 8,
+    "isolated_reproduction": "9/9 standalone Python checks passed (8 invalid requests and 1 valid); not repository suite",
+    "repository_tests": "not run locally; GitHub CI pending at receipt head",
+    "physical_camera_accepted": false,
+    "feature_checkpoint_advanced": false,
+    "external_code_or_dependencies_added": false,
+    "next_action": "Verify exact receipt-head Core and Home vision smoke CI; repair failures only. Continue trusted physical-instance identity verifier and consented end-to-end object-location acceptance."
   }
 }
