@@ -85,7 +85,11 @@ def _geometry(a, b, cv2, np) -> tuple[int, float]:
         return 0, 0.0
     src = np.float32([points_a[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
     dst = np.float32([points_b[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-    _, mask = cv2.findHomography(src, dst, cv2.RANSAC, 3.0)
+    try:
+        _, mask = cv2.findHomography(src, dst, cv2.RANSAC, 3.0)
+    except cv2.error:
+        # Degenerate or adversarial feature geometry is not identity evidence.
+        return 0, 0.0
     if mask is None:
         return 0, 0.0
     inliers = int(mask.ravel().sum())
