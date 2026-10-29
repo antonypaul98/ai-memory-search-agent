@@ -140,3 +140,20 @@ def test_near_tie_below_absolute_fraction_cutoff_is_still_ambiguous(monkeypatch)
         sighting("query", image, seconds=10),
         [sighting("reference-a", image), sighting("reference-b", image)],
     ) is None
+
+
+def test_opencv_homography_solver_error_fails_closed(monkeypatch):
+    # Valid-looking ORB features can still produce degenerate geometry.
+    # An optional candidate failure must not crash the identity workflow.
+    image = pattern(9)
+    calls = []
+
+    def failed_homography(*args, **kwargs):
+        calls.append(True)
+        raise cv2.error("synthetic degenerate homography")
+
+    monkeypatch.setattr(cv2, "findHomography", failed_homography)
+    assert tentative_visual_candidate(
+        sighting("new", image, seconds=10), [sighting("old", image)]
+    ) is None
+    assert calls, "the synthetic solver failure must actually be exercised"
