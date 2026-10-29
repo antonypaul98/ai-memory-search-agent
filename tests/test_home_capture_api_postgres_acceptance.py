@@ -313,6 +313,8 @@ def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
             for location, color in (
                 ("desk", (20, 30, 40)),
                 ("kitchen", (40, 30, 20)),
+                # Same detector class, independently identified second object.
+                ("hallway", (20, 40, 30)),
             ):
                 image = BytesIO()
                 Image.new("RGB", (32, 32), color).save(image, format="PNG")
@@ -347,7 +349,8 @@ def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
             proofs = {
                 observation_id: VerifiedInstanceProof(
                     user_id="verified-house", observation_id=observation_id,
-                    source_id=source_id, instance_id="keys-1",
+                    source_id=source_id,
+                    instance_id="keys-1" if index < 2 else "keys-2",
                     identity_evidence_id=f"synthetic-independent-{index}",
                     identity_confidence=0.99,
                 )
@@ -370,12 +373,25 @@ def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
             ingest = VerifiedInstanceIngestService(
                 verifier=SyntheticVerifier(), store=store,
             )
-            for observation_id in observations:
+            # Two lookalike class sightings with different verified identities
+            # cannot imply a physical relocation through the HTTP query.
+            for observation_id in (observations[0], observations[2]):
                 assert ingest.ingest(
                     user_id="verified-house", observation_id=observation_id,
                     source_id=source_id, consent=consent,
                     now=datetime.now(timezone.utc),
                 )
+            ambiguous = client.post(endpoint, json=query)
+            assert ambiguous.status_code == 200, ambiguous.text
+            assert ambiguous.json() == {"changes": []}
+
+            # Only a second independently verified sighting of keys-1 can
+            # establish an observed change; keys-2 remains a separate object.
+            assert ingest.ingest(
+                user_id="verified-house", observation_id=observations[1],
+                source_id=source_id, consent=consent,
+                now=datetime.now(timezone.utc),
+            )
 
             linked = client.post(endpoint, json=query)
             assert linked.status_code == 200, linked.text
@@ -398,7 +414,7 @@ def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
 
             assert store.revoke_instance_identity_consent(
                 user_id="verified-house", source_id=source_id,
-            ) == 2
+            ) == 3
             revoked = client.post(endpoint, json=query)
             assert revoked.status_code == 200, revoked.text
             assert revoked.json() == {"changes": []}
@@ -406,6 +422,6 @@ def test_synthetic_identity_proofs_link_http_frames_to_query_and_revoke(
                 assert conn.execute(
                     "SELECT COUNT(*) AS n FROM home_object_sightings WHERE user_id=%s",
                     ("verified-house",),
-                ).fetchone()["n"] == 2
+                ).fetchone()["n"] == 3
     finally:
         app.dependency_overrides.clear()
