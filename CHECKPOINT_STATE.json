@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "0e436291d7debc0aa69695f4c44fa5ce4a0b1c27",
+  "current_branch_sha": "9cebc57687c6dff40ed24968aa9838290c0aae38",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source head 0e436291d7debc0aa69695f4c44fa5ce4a0b1c27, 145 ahead / 0 behind main at pre-receipt; HOME writer/JARVIS follower; local Mac worktrees uninspected.",
-  "local_test_status": "No local repository/PostgreSQL tests in this connector-only runtime. Prior exact-head b8c9ece3 Core CI #40853860981 passed (1767 passed, 6 skipped, 4 warnings); Home smoke #40853860971 passed (20 OpenCV tests, 3 warnings). New lookalike HTTP/PostgreSQL regression at 0e436291d7debc0aa69695f4c44fa5ce4a0b1c27 awaiting CI; no real camera.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 at source/test head 9cebc576; HOME writer/JARVIS follower; local Mac worktrees unavailable/uninspected.",
+  "local_test_status": "3/3 isolated Python camera factory ownership/revocation scenarios passed; not repository CI. New source/test commits 2fc32c54 and 9cebc576 awaiting exact-head CI. Previous 79abcd79 Core CI 1767 passed/6 skipped and Home smoke 20 OpenCV passed. No real Mac camera test.",
   "pr_number": 399,
-  "ci_status": "Prior receipt b8c9ece3 exact-head Core CI #40853860981 and Home smoke #40853860971 SUCCESS; new same-class lookalike/verified-identity HTTP regression published at 0e436291d7debc0aa69695f4c44fa5ce4a0b1c27; new exact-head CI PENDING. No product/hardware acceptance.",
+  "ci_status": "Previous exact-head 79abcd79 Core CI #40862779362 and Home smoke #40862779503 SUCCESS; new camera factory cleanup source/test head 9cebc576 Core #40898196054 and Home smoke #40898195941 QUEUED/PENDING at observation; new receipt-head CI must be verified separately.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Home capture API erasure and invalid-timestamp HTTP guards have software CI acceptance; PR #399 remains draft/unmerged, review/approvals pending. No trusted physical-instance verifier or end-to-end real-object relocation/person attribution; Mac physical camera acceptance pending. Spawned preview supervisor has synthetic tests but no Mac acceptance.",
-  "next_action": "Verify exact-head CI at the new receipt commit, repair any failure, then pursue an opt-in trusted physical-instance identity producer and live camera-to-memory acceptance; identical objects must remain unknown without independent evidence. No merge or hardware claim.",
+  "known_blocker": "Factory-opened camera cleanup on between-check revocation now guarded in source, pending exact-head CI; no trusted physical-instance verifier, long-occlusion/identical-object acceptance, person attribution or physical Mac camera evidence. PR #399 draft/unmerged; approvals pending.",
+  "next_action": "Verify receipt-head Core and Home smoke CI for camera factory revocation cleanup, repair failures before any merge; continue bounded opt-in trusted identity verifier work while identical objects remain unknown.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-29T11:03:07Z",
-  "observed_branch_sha": "0e436291d7debc0aa69695f4c44fa5ce4a0b1c27",
-  "observed_feature_sha": "0e436291d7debc0aa69695f4c44fa5ce4a0b1c27",
+  "observed_branch_sha": "9cebc57687c6dff40ed24968aa9838290c0aae38",
+  "observed_feature_sha": "9cebc57687c6dff40ed24968aa9838290c0aae38",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "8caaec022834168c7d5322660d97665f10354b95",
+    "head_sha": "9cebc57687c6dff40ed24968aa9838290c0aae38",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40853860981,
-      "sha": "b8c9ece3a85291247ecd95a7faa57debd40bfea0",
+      "id": 40862779362,
+      "sha": "79abcd790673ff5a71a79fe589da84a60346b6b0",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40853860971,
-      "sha": "b8c9ece3a85291247ecd95a7faa57debd40bfea0",
+      "id": 40862779503,
+      "sha": "79abcd790673ff5a71a79fe589da84a60346b6b0",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Local Mac worktrees and shell GitHub transport not available from connector-only runtime; GitHub connector publication/CI available.",
-    "BLOCKER": "No trusted physical-instance verifier or live camera-to-memory hardware acceptance; new exact-head CI pending.",
-    "SAFE_WORK_COMPLETED": "Verified b8c9ece3 Core/Home CI success (1767 Python passed; 20 OpenCV passed). Published 0e436291d7debc0aa69695f4c44fa5ce4a0b1c27 extending authenticated HTTP/PostgreSQL identity proof test to reject false moves between same-class instances; no third-party code or dependency.",
-    "REMOTE_SHA": "0e436291d7debc0aa69695f4c44fa5ce4a0b1c27",
-    "NEXT_ACTION": "Verify receipt-head Core and Home smoke CI, repair if necessary; next trusted verifier requires bounded reuse/licensing/compatibility review and independent ambiguity evidence."
+    "BLOCKED_LAYER": "Physical Mac worktrees inaccessible; remote GitHub connector writes and CI available.",
+    "BLOCKER": "Exact-head receipt CI pending; trusted physical-instance verifier and real Mac camera acceptance not done.",
+    "SAFE_WORK_COMPLETED": "Published factory-owned device close-once guard at 2fc32c54 and two regression tests at 9cebc576; 3/3 isolated synthetic scenarios passed; prior exact-head 79abcd79 Core/Home CI success.",
+    "REMOTE_SHA": "9cebc57687c6dff40ed24968aa9838290c0aae38",
+    "NEXT_ACTION": "Verify new receipt-head CI; no merge until security/approval/rollback checks and physical acceptance separated."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -665,5 +665,14 @@
       "opencv": "20 passed, 3 warnings",
       "conclusion": "success"
     }
+  },
+  "home_camera_factory_cleanup": {
+    "status": "SOURCE_TEST_PUBLISHED_RECEIPT_CI_PENDING",
+    "source_sha": "2fc32c542384010e0a4913c14ea35e207a8d9cfe",
+    "test_sha": "9cebc57687c6dff40ed24968aa9838290c0aae38",
+    "scope": "Factory-created camera handle closed once even if capture session revoked during factory construction; direct run_device denial remains no-camera-open.",
+    "isolated_reproduction": "3/3 synthetic checks passed outside repository; not CI",
+    "hardware_accepted": false,
+    "external_code_imported": false
   }
 }
