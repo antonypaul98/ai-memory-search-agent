@@ -160,3 +160,106 @@ def test_authenticated_api_cross_worker_capture_revocation_and_tenant_isolation(
             assert _counts(factory) == retained
     finally:
         app.dependency_overrides.clear()
+
+
+def test_authenticated_capture_erasure_fences_future_http_writes(
+    capture_api_database, test_settings,
+):
+    """Erasing one tenant removes sessions/evidence and prevents HTTP resurrection."""
+    from app.main import app
+    from app.api import dependencies as home_dependencies
+    from app.api import home_image_dependencies as image_dependencies
+    from app.db.account_erasure_fence import AccountErasureFence
+    from app.db.home_physical_privacy import delete_user_home_physical_data
+
+    factory = capture_api_database
+    identity = {"user_id": "erased-home"}
+    app.dependency_overrides[get_current_user] = lambda: UserPublic(
+        user_id=identity["user_id"], display_name="Synthetic Home",
+    )
+    try:
+        with (
+            patch.object(home_dependencies, "get_postgres_connection_factory", lambda _: factory),
+            patch.object(image_dependencies, "get_postgres_connection_factory", lambda _: factory),
+            patch.object(home_dependencies, "get_settings", lambda: test_settings),
+            patch.object(image_dependencies, "get_settings", lambda: test_settings),
+            patch.object(image_dependencies, "LocalOwlViTDetector", lambda *a, **k: _FixtureDetector()),
+            patch("app.main.get_settings", lambda: test_settings),
+            TestClient(app) as client,
+        ):
+            sessions = {}
+            params = {}
+            for user_id in ("erased-home", "neighbor-home"):
+                identity["user_id"] = user_id
+                source_id = "camera-" + user_id
+                start = client.post(
+                    "/api/v1/home-agent/capture-sessions",
+                    json={"source_id": source_id, "ttl_seconds": 180},
+                )
+                assert start.status_code == 200, start.text
+                sessions[user_id] = start.json()["session_id"]
+                params[user_id] = {
+                    "session_id": sessions[user_id], "source_id": source_id,
+                    "location": "office",
+                    "observed_at": datetime.now(timezone.utc).isoformat(),
+                }
+                image = client.post(
+                    "/api/v1/home-agent/capture-images",
+                    params=params[user_id], content=_png(),
+                )
+                assert image.status_code == 200, image.text
+                assert image.json()["stored"] is True
+                detection = client.post(
+                    "/api/v1/home-agent/capture-detections",
+                    json={
+                        **params[user_id], "object_name": "keys",
+                        "confidence": 0.96, "evidence_id": "structured-" + user_id,
+                    },
+                )
+                assert detection.status_code == 200, detection.text
+                assert detection.json() == {"stored": True}
+
+            assert _counts(factory) == (2, 4)
+            AccountErasureFence(factory).fence(user_id="erased-home")
+            erased = delete_user_home_physical_data(factory, user_id="erased-home")
+            assert erased["capture_sessions"] == 1
+            assert erased["image_evidence"] == 1
+            assert erased["sightings"] == 2
+            with factory() as conn:
+                for table in ("home_capture_sessions", "home_image_evidence", "home_object_sightings"):
+                    assert conn.execute(
+                        f"SELECT COUNT(*) AS n FROM {table} WHERE user_id=%s",
+                        ("erased-home",),
+                    ).fetchone()["n"] == 0
+                    assert conn.execute(
+                        f"SELECT COUNT(*) AS n FROM {table} WHERE user_id=%s",
+                        ("neighbor-home",),
+                    ).fetchone()["n"] >= 1
+
+            identity["user_id"] = "erased-home"
+            new_session = client.post(
+                "/api/v1/home-agent/capture-sessions",
+                json={"source_id": "camera-erased-home", "ttl_seconds": 180},
+            )
+            assert new_session.status_code == 403, new_session.text
+            assert "account erasure" not in new_session.text
+            assert client.post(
+                "/api/v1/home-agent/capture-images",
+                params=params["erased-home"], content=_png(),
+            ).status_code == 403
+            assert client.post(
+                "/api/v1/home-agent/capture-detections",
+                json={
+                    **params["erased-home"], "object_name": "keys",
+                    "confidence": 0.96, "evidence_id": "after-erasure",
+                },
+            ).status_code == 403
+            assert _counts(factory) == (1, 2)
+            identity["user_id"] = "neighbor-home"
+            assert client.post(
+                "/api/v1/home-agent/capture-images",
+                params=params["neighbor-home"], content=_png(),
+            ).status_code == 200
+            assert _counts(factory) == (1, 2)
+    finally:
+        app.dependency_overrides.clear()
