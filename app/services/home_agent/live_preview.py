@@ -284,6 +284,7 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
     import numpy as np
     from PIL import Image
     from .owlvit_detector import LocalOwlViTDetector
+    from .frame_inventory import FrameInventory
 
     print("Loading local OWL-ViT model. This may take a moment...")
     detector = LocalOwlViTDetector(str(model_path), labels=list(labels), threshold=threshold)
@@ -297,6 +298,7 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
     executor = ThreadPoolExecutor(max_workers=1)
     future = None
     tracks: dict[int, Track] = {}
+    frame_inventory = FrameInventory()
     next_id = 1
     last_scan_at = None
     last_scan_requested = float("-inf")
@@ -330,6 +332,12 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
                         tracks, next_id = reconcile_tracks(tracks, suppress_duplicates(boxes),
                                                            scan_at, next_id,
                                                            max_age=max_track_age)
+                        # Only successful, fresh detector scans update visibility.
+                        # Optical flow and stale tracks never become current sightings.
+                        for event in frame_inventory.update(
+                                tracks, scan_at=scan_at, width=width, height=height):
+                            print(f"Frame #{event.track_id} {event.label}: {event.status} "
+                                  f"at {event.location} (detector metadata only)", flush=True)
                         last_scan_at = scan_at
                 future = None
             if future is None and monotonic() - last_scan_requested >= scan_interval:
@@ -349,12 +357,14 @@ def run_demo(*, camera_index: int, model_path: Path, max_seconds: int,
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 suffix = "stale" if track_age >= 1.5 else (
                     "flow" if track.flow_updated else "scan")
+                location = frame_inventory.visible.get(track.track_id)
+                location_text = f" | {location.location}" if location is not None else " | last seen"
                 cv2.putText(frame, f"#{track.track_id} {track.box.label} "
-                            f"{track.box.score:.2f} {suffix}",
+                            f"{track.box.score:.2f} {suffix}{location_text}",
                             (x1, max(20, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX,
                             0.50, color, 2)
             scan_text = "Scanning..." if age is None else f"Last AI scan: {age:.1f}s ago"
-            cv2.putText(frame, f"Home Agent | {scan_text} | {len(tracks)} detections",
+            cv2.putText(frame, f"Home Agent | {scan_text} | {len(frame_inventory.visible)} visible",
                         (15, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.62,
                         (255, 255, 255), 2)
             if writer is None and record_file is not None:
