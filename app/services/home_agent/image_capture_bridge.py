@@ -128,6 +128,13 @@ class ImageCaptureBridge:
         """Opt-in OpenCV device entrypoint; device factory is injectable for tests."""
         if type(device_index) is not int or device_index < 0:
             raise ValueError("device_index must be a non-negative integer")
+        # Device factories can open hardware during construction. Authorize
+        # the server-owned session before invoking any factory, including an
+        # injected one. run_device rechecks the session before actual I/O.
+        self._registry.resolve(
+            session_id=kwargs["session_id"], user_id=kwargs["user_id"],
+            source_id=kwargs["source_id"], now=self._clock(),
+        )
         if device_factory is None:
             from .opencv_camera import OpenCVCameraDevice
             device_factory = OpenCVCameraDevice
