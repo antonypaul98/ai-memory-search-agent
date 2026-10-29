@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "5b4335a02f4c56a8532288914499c455bdd99c49",
+  "current_branch_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 at prior exact-head 5b4335a0; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected. Recorded-video replay source/test awaiting new exact-head CI.",
-  "local_test_status": "New offline replay script and tests passed isolated Python py_compile; no full repository local run or physical Mac camera. Previous 5b4335a0 Core 1795 passed/6 skipped, Home smoke 20 OpenCV passed and 3-scan/9-image simulated replay.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source/test head 4151a3cb12153f3489b26d8f3dbc4213bb6f33e7; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Isolated geometry assertions 3/3 passed for same-zone displacement, jitter and zone consistency; full repository tests not locally run. Recorded-video replay at c1d09f1b passed exact-head Core/Home CI; physical camera and real moving footage untested.",
   "pr_number": 399,
-  "ci_status": "Previous exact-head 5b4335a0 Core #40928083070 and Home smoke #40928083199 SUCCESS. New recorded-video replay commit must pass new exact-head CI; not yet run.",
+  "ci_status": "Recorded-video replay c1d09f1b exact-head Core #40936859639 SUCCESS and Home smoke #40936859649 SUCCESS. New same-zone motion source/test head 4151a3cb Core #40945528430 and Home smoke #40945528425 IN PROGRESS; not accepted until both succeed at receipt head.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Recorded-video decoder/journal harness awaiting exact-head CI and genuine recorded moving-object footage; physical Mac camera, privacy retention/erasure, review and merge approval remain pending. No real motion or identity acceptance.",
-  "next_action": "Verify new exact-head Core/Home CI, repair failures; then run trained OWL-ViT on a genuine consented moving-object recording with source provenance and review frame-by-frame evidence. Keep identity/exit uncertain.",
+  "known_blocker": "New same-zone movement regression exact-head CI pending; real one-room recorded moving-object footage, physical Mac camera, review, privacy retention/erasure and merge approval remain pending. Tentative tracks cannot prove physical identity or witnessed exit.",
+  "next_action": "Verify both workflows at receipt head; inspect logs; if green, review/privacy/rollback/approval gates before guarded merge. Then test genuine one-room moving footage with frame-by-frame evidence, preserving unknown identity/exit.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-29T19:01:16Z",
-  "observed_branch_sha": "5b4335a02f4c56a8532288914499c455bdd99c49",
-  "observed_feature_sha": "5b4335a02f4c56a8532288914499c455bdd99c49",
+  "observed_branch_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
+  "observed_feature_sha": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Physical Mac camera and worktrees inaccessible; remote GitHub connector and CI available.",
-    "BLOCKER": "Real moving-object footage and physical camera acceptance pending; new recorded-video replay exact-head CI pending; review/retention gates outstanding.",
-    "SAFE_WORK_COMPLETED": "Prepared local-only recorded-video replay reusing existing frame inventory, event journal and JPEG evidence; synthetic-video regression tests and workflow integration; isolated Python syntax checks passed, not full repository acceptance.",
-    "REMOTE_SHA": "5b4335a02f4c56a8532288914499c455bdd99c49",
-    "NEXT_ACTION": "Verify new exact-head Core/Home CI; run a genuine consented one-room recorded clip before physical Mac acceptance."
+    "BLOCKED_LAYER": "Physical Mac worktrees/camera unavailable; remote GitHub connector and CI available.",
+    "BLOCKER": "New source/test exact-head CI pending; real recorded footage and physical acceptance pending; PR draft with no approvals.",
+    "SAFE_WORK_COMPLETED": "Confirmed c1d09f1b exact-head Core/Home CI success; published same-zone detector-box motion fix 08ff510c and regression test/fix through 4151a3cb; 3/3 isolated geometry checks passed.",
+    "REMOTE_SHA": "4151a3cb12153f3489b26d8f3dbc4213bb6f33e7",
+    "NEXT_ACTION": "Verify new receipt-head CI, then recorded genuine motion demo; do not merge without approvals."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
