@@ -144,6 +144,31 @@ def test_capture_session_uses_authenticated_identity(home_agent_api_client: Test
     home_agent_api_client.home_agent_capture_registry.register.assert_called_once_with(session)
 
 
+
+def test_capture_session_fenced_account_returns_403_without_internal_details(
+    home_agent_api_client: TestClient,
+) -> None:
+    started_at = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
+    session = CaptureSession(
+        session_id="fenced-session", user_id=AUTHENTICATED_USER_ID,
+        source_id="camera-entry", started_at=started_at,
+        expires_at=started_at + timedelta(minutes=5),
+    )
+    home_agent_api_client.home_agent_capture_service.start_session.return_value = session
+    home_agent_api_client.home_agent_capture_registry.register.side_effect = PermissionError(
+        "account erasure is in progress or completed"
+    )
+
+    response = home_agent_api_client.post(
+        "/api/v1/home-agent/capture-sessions",
+        json={"source_id": "camera-entry", "ttl_seconds": 300},
+    )
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Capture session cannot be started."}
+    assert "account erasure" not in response.text
+    home_agent_api_client.home_agent_capture_registry.register.assert_called_once_with(session)
+
+
 def test_capture_session_rejects_caller_supplied_user_id(home_agent_api_client: TestClient) -> None:
     response = home_agent_api_client.post(
         "/api/v1/home-agent/capture-sessions",
