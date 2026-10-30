@@ -4,7 +4,7 @@ import stat
 import pytest
 
 from scripts.home_public_motion_probe import (download_public_fixture, create_public_frame_montage,
-                                              SOURCE_URL, MAX_BYTES)
+                                              SOURCE_URL, BOTTLE_SOURCE_URL, BOTTLE_SOURCE_PAGE, MAX_BYTES)
 
 
 class FakeResponse:
@@ -71,3 +71,22 @@ def test_public_fixture_review_montage_is_bounded_and_private(tmp_path):
     assert stat.S_IMODE(destination.stat().st_mode) == 0o600
     with pytest.raises(ValueError):
         create_public_frame_montage(video, destination)
+
+
+def test_bottle_fixture_is_explicit_and_provenance_is_correct(tmp_path):
+    path = tmp_path / "bottle.webm"
+    payload = b"v" * 1200
+    result = download_public_fixture(
+        path, fixture="bottle",
+        opener=lambda request, timeout: FakeResponse(data=payload, url=BOTTLE_SOURCE_URL))
+    assert result["author"] == "Cirosantilli2"
+    assert result["source"] == BOTTLE_SOURCE_PAGE
+    assert result["sha256"] == sha256(payload).hexdigest()
+
+
+def test_unknown_fixture_rejected_without_download(tmp_path):
+    path = tmp_path / "fixture.webm"
+    with pytest.raises(ValueError, match="unsupported"):
+        download_public_fixture(path, fixture="untrusted",
+                                opener=lambda *_a, **_k: pytest.fail("network called"))
+    assert not path.exists()
