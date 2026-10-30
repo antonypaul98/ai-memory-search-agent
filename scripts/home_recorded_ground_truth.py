@@ -97,6 +97,14 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
                 not isinstance(row.get("visible"), list) or
                 not isinstance(row.get("events"), list)):
             raise ValueError("journal scan is malformed or out of order")
+        origin = row.get("recorded_video")
+        if not isinstance(origin, dict) or origin.get("sha256") != digest:
+            raise ValueError("journal source video hash does not match")
+        if (type(origin.get("sample_every")) is not int or
+                origin["sample_every"] != sample_every or
+                type(origin.get("frame_index")) is not int or
+                origin["frame_index"] != sample["frame_index"]):
+            raise ValueError("journal source sampling does not match")
         matches = [s for s in row["visible"] if isinstance(s, dict) and s.get("label") == label]
         states.append(state)
         for event in row["events"]:

@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+  "current_branch_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 source/test/docs head cacd907e; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Isolated Python 3.13.5 pytest for new ground-truth audit: 14 passed; compileall passed. Full repository suite not run locally. New exact-head GitHub CI pending. No physical Mac test.",
+  "branch_remote_status": "Main ac912722; HOME draft PR #399 head 9bd79c74 before provenance source/test/docs publication; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Prior 14 synthetic ground-truth cases passed isolated Python 3.13.5; new provenance tests not run locally; exact-head CI required. No physical Mac test.",
   "pr_number": 399,
-  "ci_status": "New annotated-audit source/test/docs head cacd907e: exact-head Core/Home CI pending or in progress; previous b1083bad Core 1817 passed/8 skipped and Home 43 focused passed. Do not transfer previous-head success.",
+  "ci_status": "At prior head 9bd79c74 Core #41077716424 SUCCESS 1831 passed/8 skipped; Home #41077716231 SUCCESS 43 focused plus trained-vision/Postgres. New provenance commit exact-head CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no submitted reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "No genuinely fixed-camera manually annotated real footage with witnessed exit and return. New ground-truth audit has only synthetic metadata tests. Automatic retention expiry, backups/copies, noncooperating writers and directory races unresolved. Physical Mac and review approvals pending.",
-  "next_action": "Verify exact-head CI for the new annotated-audit checkpoint; obtain consented/licensed fixed-camera footage, independently annotate every sampled frame, run offline replay plus ground-truth audit, inspect crops, then address privacy and guarded review. Keep physical Mac gate separate.",
+  "known_blocker": "No independently annotated real fixed-camera exit/reentry footage. Automatic retention expiry, backups/copies, noncooperating writer/directory races, review approvals and physical Mac acceptance remain outstanding.",
+  "next_action": "Verify new provenance exact-head Core/Home CI, then obtain and annotate consented/licensed fixed-camera exit/reentry video, replay and audit with bound journal and crop inspection; finish privacy/approval gates; physical Mac separate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-30T07:11:23Z",
-  "observed_branch_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
-  "observed_feature_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+  "observed_at_utc": "2026-10-30T17:57:15Z",
+  "observed_branch_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+  "observed_feature_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+    "head_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 41018088828,
-      "sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+      "id": 41077716424,
+      "sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 41018088829,
-      "sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+      "id": 41077716231,
+      "sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Real fixed-camera evidence and remaining privacy/review/hardware gates",
-    "BLOCKER": "No independently annotated witnessed exit/reentry video; retention expiry, backup deletion, uncooperative writer races, review and physical Mac acceptance pending.",
-    "SAFE_WORK_COMPLETED": "Published offline SHA-bound ground-truth/journal comparison, 14 isolated synthetic adversarial tests passed on Python 3.13.5, documentation updated; exact-head repository CI pending. No hardware access, merge or handoff.",
-    "REMOTE_SHA": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
-    "NEXT_ACTION": "Verify exact-head CI for the new annotated-audit checkpoint; obtain consented/licensed fixed-camera footage, independently annotate every sampled frame, run offline replay plus ground-truth audit, inspect crops, then address privacy and guarded review. Keep physical Mac gate separate."
+    "BLOCKED_LAYER": "Real footage and privacy/review/hardware acceptance gates",
+    "BLOCKER": "Real fixed-camera annotated footage unavailable; privacy and approvals pending.",
+    "SAFE_WORK_COMPLETED": "Prepared bounded recorded-video/journal provenance binding, new negative tests, and docs; exact-head CI required. No merge, camera or handoff.",
+    "REMOTE_SHA": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+    "NEXT_ACTION": "Verify new provenance exact-head Core/Home CI, then obtain and annotate consented/licensed fixed-camera exit/reentry video, replay and audit with bound journal and crop inspection; finish privacy/approval gates; physical Mac separate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -752,7 +752,7 @@
     "physical_camera_accepted": false
   },
   "home_recorded_ground_truth_audit": {
-    "status": "PUBLISHED_SYNTHETIC_TESTS_PASSED_EXACT_HEAD_CI_PENDING",
+    "status": "PREVIOUS_EXACT_HEAD_CI_PASSED_NEW_PROVENANCE_SOURCE_TEST_PENDING",
     "source": "scripts/home_recorded_ground_truth.py",
     "tests": "tests/test_home_recorded_ground_truth.py",
     "docs": "docs/HOME_RECORDED_VIDEO_DEMO.md",
@@ -760,9 +760,10 @@
     "isolated_python_version": "3.13.5",
     "isolated_pytest_passed": 14,
     "isolated_compileall": "passed",
-    "repository_ci": "pending",
+    "repository_ci": "Core #41077716424 and Home #41077716231 SUCCESS at prior head 9bd79c74; new provenance head pending",
     "real_video_annotated": false,
     "automatic_demo_acceptance": false,
-    "physical_camera_accepted": false
+    "physical_camera_accepted": false,
+    "source_binding": "Replay journal records source SHA-256, sample interval, source frame index; audit fail-closed on mismatch; unverified until new-head CI."
   }
 }

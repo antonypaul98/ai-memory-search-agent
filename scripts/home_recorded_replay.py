@@ -5,8 +5,17 @@ converted into a witnessed exit.
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _single_track_transition_pattern(events) -> bool:
@@ -54,6 +63,7 @@ def replay_recorded_video(*, video_path: Path, output_dir: Path, detector,
         raise ValueError("sample_every must be 1..60")
     if not isinstance(room_name, str) or not room_name.strip() or len(room_name) > 100:
         raise ValueError("invalid room name")
+    source_digest = _sha256_file(video_path)
     capture = cv2.VideoCapture(str(video_path))
     if not capture.isOpened():
         capture.release()
@@ -91,15 +101,21 @@ def replay_recorded_video(*, video_path: Path, output_dir: Path, detector,
                 refs = evidence.record_scan(image=image, visible=inventory.visible,
                                             events=events)
                 journal.append_scan(scan_at=scan_at, visible=inventory.visible,
-                                    events=events, evidence_files=refs)
+                                    events=events, evidence_files=refs,
+                                    source_video_sha256=source_digest,
+                                    source_frame_index=frames - 1,
+                                    source_sample_every=sample_every)
                 statuses.update(event.status for event in events)
                 scans += 1
     finally:
         capture.release()
     if not scans:
         raise RuntimeError("recorded video contained no decodable sampled frames")
+    if _sha256_file(video_path) != source_digest:
+        raise RuntimeError("recorded video changed during replay")
     return {
         "source": "locally_supplied_recorded_video",
+        "source_video_sha256": source_digest,
         "scans": scans,
         "statuses": sorted(statuses),
         "last_visible": [

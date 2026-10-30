@@ -76,7 +76,12 @@ Annotation JSON schema (example shape; fill all sampled scans, not just these):
     }
 
 The source hash must be computed from the exact original video, and the scan
-interval must equal the replay's --sample-every. For sample scan N (starting
+interval must equal the replay's --sample-every. The replay now stores the
+source video's SHA-256 digest, sampled frame index and sampling interval in
+every journal row; the audit rejects missing or inconsistent journal origins.
+The replay also rejects a video whose bytes change between its initial and
+final hash checks. This guards accidental source mixing, not deliberate
+forgery, tampering between checks, or proof of who reviewed the video. For sample scan N (starting
 at 1), frame_index is (N-1) * sample_every (zero-based). The example above is
 illustrative metadata, not a reviewed real video or acceptance evidence.
 
@@ -90,8 +95,10 @@ Run after replay (with its private journal still present):
 The audit compares annotated visibility with journal detections, checks
 box overlap, detects false absences and unexpected detections, and checks
 referenced private crop files without opening their pixels. It rejects
-mismatched video hashes, incomplete scan annotations, unreviewed or non-fixed
-camera claims, and unsafe evidence paths. A reviewer-supplied annotation is
+mismatched annotation/video or journal/video hashes, inconsistent source frame
+sampling, incomplete scan annotations, unreviewed or non-fixed camera claims,
+and unsafe evidence paths. Older unbound journals must be replayed from the
+original source video; do not retrofit a hash into historical evidence. A reviewer-supplied annotation is
 not independently authenticated, and the audit never automatically marks
 the demo, physical identity or physical camera as accepted. Inspect actual
 crops and ambiguous identities separately before any approval.

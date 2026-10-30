@@ -9,6 +9,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import stat
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,8 +49,19 @@ class PrivateFrameEventLog:
 
     def append_scan(self, *, scan_at: float, visible: Mapping[int, FrameSighting],
                     events: list[FrameEvent],
-                    evidence_files: Mapping[tuple[int, str], str] | None = None) -> None:
-        """Persist one fresh scan. Visible inventory applies only to this frame."""
+                    evidence_files: Mapping[tuple[int, str], str] | None = None,
+                    source_video_sha256: str | None = None,
+                    source_frame_index: int | None = None,
+                    source_sample_every: int | None = None) -> None:
+        """Persist one fresh scan. Optional video origin is not an authenticity signature."""
+        if source_video_sha256 is None:
+            if source_frame_index is not None or source_sample_every is not None:
+                raise ValueError("video provenance fields must be supplied together")
+        elif (not isinstance(source_video_sha256, str) or
+              re.fullmatch(r"[0-9a-f]{64}", source_video_sha256) is None or
+              type(source_frame_index) is not int or source_frame_index < 0 or
+              type(source_sample_every) is not int or not 1 <= source_sample_every <= 60):
+            raise ValueError("invalid recorded-video provenance")
         record = {
             "schema_version": 1,
             "camera_id": self.camera_id,
@@ -75,6 +87,12 @@ class PrivateFrameEventLog:
                 for event in events
             ],
         }
+        if source_video_sha256 is not None:
+            record["recorded_video"] = {
+                "sha256": source_video_sha256,
+                "frame_index": source_frame_index,
+                "sample_every": source_sample_every,
+            }
         self._output.write(json.dumps(record, ensure_ascii=False, allow_nan=False, separators=(",", ":")) + "\n")
         self._output.flush()
         os.fsync(self._output.fileno())

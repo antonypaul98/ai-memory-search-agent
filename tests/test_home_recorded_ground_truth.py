@@ -23,6 +23,9 @@ def make_inputs(tmp_path, *, states=STATES, detected=None, box=None):
         samples.append({"scan": i, "frame_index": i - 1,
                         "state": state, "box_xyxy": gtbox})
         rows.append({"schema_version": 1, "scan_at_monotonic": i,
+                     "recorded_video": {
+                         "sha256": hashlib.sha256(video.read_bytes()).hexdigest(),
+                         "frame_index": i - 1, "sample_every": 1},
                      "events": [],
                      "visible": [{"label": "cup", "box_xyxy": box or [10, 10, 50, 50]}]
                      if detected[i - 1] else []})
@@ -81,6 +84,35 @@ def test_mismatched_video_rejected(tmp_path):
     paths = make_inputs(tmp_path)
     paths[0].write_bytes(b"changed")
     with pytest.raises(ValueError, match="hash"):
+        audit(paths)
+
+
+def test_unrelated_journal_source_rejected(tmp_path):
+    paths = make_inputs(tmp_path)
+    rows = [json.loads(x) for x in paths[2].read_text().splitlines()]
+    rows[0]["recorded_video"]["sha256"] = "0" * 64
+    paths[2].write_text("\n".join(json.dumps(x) for x in rows) + "\n")
+    with pytest.raises(ValueError, match="journal source video hash"):
+        audit(paths)
+
+
+def test_unbound_journal_source_rejected(tmp_path):
+    paths = make_inputs(tmp_path)
+    rows = [json.loads(x) for x in paths[2].read_text().splitlines()]
+    del rows[0]["recorded_video"]
+    paths[2].write_text("\n".join(json.dumps(x) for x in rows) + "\n")
+    with pytest.raises(ValueError, match="journal source video hash"):
+        audit(paths)
+
+
+@pytest.mark.parametrize("field,value", [("frame_index", 999), ("sample_every", 2),
+                                         ("frame_index", True)])
+def test_journal_source_sampling_mismatch_rejected(tmp_path, field, value):
+    paths = make_inputs(tmp_path)
+    rows = [json.loads(x) for x in paths[2].read_text().splitlines()]
+    rows[0]["recorded_video"][field] = value
+    paths[2].write_text("\n".join(json.dumps(x) for x in rows) + "\n")
+    with pytest.raises(ValueError, match="journal source sampling"):
         audit(paths)
 
 

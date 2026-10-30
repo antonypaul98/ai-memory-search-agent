@@ -1,4 +1,5 @@
 """Recorded-video pipeline regressions. Synthetic pixels are not camera acceptance."""
+import hashlib
 import json
 from types import SimpleNamespace
 import pytest
@@ -74,6 +75,11 @@ def test_decoded_video_tracks_location_disappearance_and_tentative_reentry(tmp_p
                                    max_scans=6, sample_every=1)
     rows = [json.loads(x) for x in (out / "events.jsonl").read_text().splitlines()]
     assert result["scans"] == 6 and len(rows) == 6
+    digest = hashlib.sha256(video.read_bytes()).hexdigest()
+    assert result["source_video_sha256"] == digest
+    assert all(row["recorded_video"] == {"sha256": digest,
+                                          "frame_index": i, "sample_every": 1}
+               for i, row in enumerate(rows))
     assert result["recorded_video_processed"] and not result["physical_camera_tested"]
     assert not result["physical_identity_verified"]
     assert rows[0]["visible"][0]["location"].endswith("left of camera view")
@@ -102,6 +108,22 @@ def test_inference_failure_does_not_invent_missing_object(tmp_path):
                               max_scans=2, sample_every=1)
     rows = [json.loads(x) for x in (out / "events.jsonl").read_text().splitlines()]
     assert len(rows) == 1 and rows[0]["events"][0]["status"] == "VISIBLE"
+
+
+def test_changed_source_during_replay_fails_closed(tmp_path):
+    video = tmp_path / "moving-cup.avi"
+    make_video(video, [10])
+
+    class MutatingDetector(RedObjectDetector):
+        def detect(self, image):
+            result = super().detect(image)
+            video.write_bytes(b"source changed during detector invocation")
+            return result
+
+    with pytest.raises(RuntimeError, match="changed during replay"):
+        replay_recorded_video(video_path=video, output_dir=tmp_path / "private",
+                              detector=MutatingDetector(), max_scans=1,
+                              sample_every=1)
 
 
 def test_empty_detections_do_not_claim_demo_pass(tmp_path):
