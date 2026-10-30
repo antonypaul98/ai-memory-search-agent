@@ -6,6 +6,7 @@ No expiry scheduler or camera access is involved.
 """
 from __future__ import annotations
 
+import fcntl
 import os
 import re
 import stat
@@ -39,9 +40,23 @@ def erase_stopped_frame_session(journal: Path) -> dict[str, int]:
             or journal.suffix.lower() != ".jsonl" or journal.name in {".", ".."}):
         raise ValueError("provide an absolute .jsonl journal path")
     parent_fd = os.open(journal.parent, _DIR_FLAGS)
+    journal_fd = None
     try:
         _private_directory(parent_fd)
         _private_file(journal.name, parent_fd)
+        journal_fd = os.open(journal.name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                             | getattr(os, "O_NONBLOCK", 0), dir_fd=parent_fd)
+        opened = os.fstat(journal_fd)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_mode & 0o077
+                or opened.st_nlink != 1):
+            raise PermissionError("session journal must be private and regular")
+        try:
+            fcntl.flock(journal_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise PermissionError("session journal is active; stop recording before erasure") from exc
+        named = os.stat(journal.name, dir_fd=parent_fd, follow_symlinks=False)
+        if (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino):
+            raise PermissionError("session journal changed during erasure preflight")
         crop_dir = journal.stem + "-evidence"
         try:
             evidence_fd = os.open(crop_dir, _DIR_FLAGS, dir_fd=parent_fd)
@@ -66,6 +81,8 @@ def erase_stopped_frame_session(journal: Path) -> dict[str, int]:
         os.unlink(journal.name, dir_fd=parent_fd)
         return {"journals_unlinked": 1, "event_crops_unlinked": len(crop_names)}
     finally:
+        if journal_fd is not None:
+            os.close(journal_fd)
         os.close(parent_fd)
 
 

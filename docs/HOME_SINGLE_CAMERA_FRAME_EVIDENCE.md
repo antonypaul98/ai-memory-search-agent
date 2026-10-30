@@ -50,10 +50,14 @@ It deletes only that journal and the sibling `<journal-stem>-evidence/` director
 which must contain exclusively the expected private JPEG event crops. It rejects
 symlinks, hardlinked files, unexpected entries, or public permissions rather
 than recursively deleting arbitrary paths. Unrelated snapshots, MP4 recordings,
-other session journals, and any cloud/backups remain untouched. Never run it
-while a camera preview or replay is writing the same journal.
+other session journals, and any cloud/backups remain untouched. The current
+POSIX journal writer holds an advisory lock for its lifetime; erasure refuses
+when that cooperating writer is active. Stop recording before erasing. Older
+writers without this lock, uncooperative processes, and concurrent directory
+changes are not fully protected by the advisory lock.
 
 This is **explicit unlinking, not automatic retention expiry**, cryptographic
 secure erasure, recovery-proof deletion, or erasure of copies/backups. Automatic
-expiry, cross-device/backup deletion, and concurrent-writer lifecycle controls
-still require separate design and acceptance before a privacy-complete claim.
+expiry, cross-device/backup deletion, and complete concurrent-writer/race
+protection still require separate design and acceptance before a privacy-complete
+claim. This local advisory lock is not a transaction or atomic deletion.

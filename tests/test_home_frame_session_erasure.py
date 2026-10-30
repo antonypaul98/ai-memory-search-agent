@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.services.home_agent.frame_session_erasure import erase_stopped_frame_session, main
+from app.services.home_agent.frame_event_log import PrivateFrameEventLog
 
 
 def fixture(tmp_path):
@@ -110,3 +111,22 @@ def test_hardlinked_crop_rejected(tmp_path):
     with pytest.raises(PermissionError):
         erase_stopped_frame_session(journal)
     assert journal.exists() and crop.exists()
+
+def test_active_journal_refuses_erasure_until_writer_closes(tmp_path):
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    journal = private / "active.jsonl"
+    with PrivateFrameEventLog(journal, camera_id="cam", room_name="office") as writer:
+        writer.append_scan(scan_at=1.0, visible={}, events=[])
+        evidence = private / "active-evidence"
+        evidence.mkdir(mode=0o700)
+        crop = evidence / f"0000-{uuid4().hex}.jpg"
+        crop.write_bytes(b"jpeg-placeholder")
+        crop.chmod(0o600)
+        with pytest.raises(PermissionError, match="active"):
+            erase_stopped_frame_session(journal)
+        assert journal.exists() and crop.exists()
+    assert erase_stopped_frame_session(journal) == {
+        "journals_unlinked": 1, "event_crops_unlinked": 1,
+    }
+    assert not journal.exists() and not evidence.exists()

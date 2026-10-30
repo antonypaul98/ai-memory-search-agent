@@ -6,6 +6,7 @@ image pixels or physical-instance identity are stored by this module.
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import stat
@@ -34,7 +35,14 @@ class PrivateFrameEventLog:
             raise PermissionError("event log directory must be private (0700)")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(destination, flags, 0o600)
-        self._output = os.fdopen(fd, "w", encoding="utf-8", newline="\n")
+        try:
+            # POSIX advisory lock stays held for the journal's open lifetime.
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self._output = os.fdopen(fd, "w", encoding="utf-8", newline="\n")
+        except BaseException:
+            os.close(fd)
+            destination.unlink(missing_ok=True)
+            raise
         self.camera_id = camera_id.strip()
         self.room_name = room_name.strip()
 
