@@ -37,10 +37,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
-          cache-dependency-path: requirements-home-vision.txt
+          # Avoid restoring multi-GB cached GPU wheels on the bounded runner.
+      - name: Install CPU-only PyTorch (no CUDA wheels)
+        run: python -m pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install vision dependencies
-        run: python -m pip install -r requirements-home-vision.txt
+        run: python -m pip install --no-cache-dir -r requirements-home-vision.txt
       - name: Trained image detection, persistence and last-seen retrieval
         env:
           MEMORY_AGENT_TEST_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/home_vision_test
