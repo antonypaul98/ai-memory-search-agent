@@ -23,17 +23,27 @@ or an undecodable frame never becomes a missing-object event. A successful
 empty detection may mark an object NOT_VISIBLE or POSSIBLE_EXIT, not out
 of the room. A re-entry is tentative, not independently verified identity.
 
-The summary reports only observed statuses. The field
-complete_transition_sequence_observed means the journal contains VISIBLE,
-MOVED_IN_FRAME, a disappearance status and REAPPEARED_TENTATIVE. It does not
-prove a specific physical object exited and returned. Last-visible positions
-are coarse camera-frame coordinates, not furniture-level placement.
-Scan timestamps are replay indexes, not video or wall-clock timestamps.
+The summary reports detector-event statuses only. The field
+complete_transition_sequence_observed requires an ordered VISIBLE ->
+MOVED_IN_FRAME -> NOT_VISIBLE/POSSIBLE_EXIT -> REAPPEARED_TENTATIVE pattern
+for one session-local tentative track with a consistent label. It does not
+prove a witnessed frame crossing, persistent physical identity, or that the
+object left the room. Missed detections can produce a similar event pattern.
+Last-visible positions are coarse camera-frame coordinates, not furniture-level
+placement. Scan timestamps are replay indexes, not video or wall-clock timestamps.
 
 Synthetic red-rectangle videos in CI test decoding and event wiring only.
-For real recorded-footage acceptance, review actual source frames and saved
-event crops against visible motion and check failures, occlusion, duplicate
-objects and consent. A separate consenting physical Mac camera test is
-still required. Automatic retention/erasure is not yet verified; erase
-local output when no longer needed. Avoid videos with other people without
+For real recorded-footage acceptance, annotate actual source frames showing
+initial visibility, movement, a witnessed boundary crossing, absence and
+re-entry of a distinguishable object. Compare every sampled detector box,
+visible inventory, status and saved crop with those annotations; record false
+disappearances from detector misses and ambiguity from occlusion or duplicate
+objects. A complete status pattern alone is not an acceptance pass.
+A separate consenting physical Mac camera test is still required.
+
+Explicit stopped-session journal/crop unlinking is available through
+app.services.home_agent.frame_session_erasure (see
+docs/HOME_SINGLE_CAMERA_FRAME_EVIDENCE.md), but automatic retention expiry,
+backup/copy deletion and full concurrent-writer safety remain unverified.
+Do not claim privacy-complete erasure. Avoid videos with other people without
 consent: object crops can incidentally contain people.
