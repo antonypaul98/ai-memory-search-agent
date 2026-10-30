@@ -3,18 +3,18 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+  "current_branch_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source/test/docs head 04de9632b0b3b1cb2e69d6fe99ab442562905328; HOME writer/JARVIS follower; no merge, no handoff; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Isolated POSIX two-descriptor advisory-lock fixture passed; full repository tests not run locally. Exact source-head Core CI 1817 passed/8 skipped/4 warnings; Home smoke 43 focused passed plus trained vision/Postgres. No physical Mac test.",
+  "branch_remote_status": "Main ac912722; HOME draft PR #399 source/test/docs head cacd907e; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Isolated Python 3.13.5 pytest for new ground-truth audit: 14 passed; compileall passed. Full repository suite not run locally. New exact-head GitHub CI pending. No physical Mac test.",
   "pr_number": 399,
-  "ci_status": "Exact source/test/docs head 04de9632b0b3b1cb2e69d6fe99ab442562905328: Core #41018088828 SUCCESS (1817 passed/8 skipped/4 warnings); Home #41018088829 SUCCESS (43 focused tests plus trained vision/Postgres). Checkpoint receipt head CI pending.",
-  "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no reviews/approvals",
+  "ci_status": "New annotated-audit source/test/docs head cacd907e: exact-head Core/Home CI pending or in progress; previous b1083bad Core 1817 passed/8 skipped and Home 43 focused passed. Do not transfer previous-head success.",
+  "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no submitted reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Real annotated fixed-camera exit/re-entry not demonstrated; no witnessed crossing or physical identity. Active cooperating journal writer is now guarded by POSIX advisory lock, but automatic retention expiry, copies/backups, older/uncooperative writers and concurrent directory races remain unresolved. Physical Mac camera and PR approval pending; do not merge.",
-  "next_action": "Verify exact-head CI on this checkpoint receipt; then annotate fixed-camera moving-object footage and replay detector/inventory/journal/crops against ground truth. Complete retention and directory-race safeguards before guarded review; physical Mac acceptance separate.",
+  "known_blocker": "No genuinely fixed-camera manually annotated real footage with witnessed exit and return. New ground-truth audit has only synthetic metadata tests. Automatic retention expiry, backups/copies, noncooperating writers and directory races unresolved. Physical Mac and review approvals pending.",
+  "next_action": "Verify exact-head CI for the new annotated-audit checkpoint; obtain consented/licensed fixed-camera footage, independently annotate every sampled frame, run offline replay plus ground-truth audit, inspect crops, then address privacy and guarded review. Keep physical Mac gate separate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
@@ -22,8 +22,8 @@
   ],
   "schema_version": 2,
   "observed_at_utc": "2026-10-30T07:11:23Z",
-  "observed_branch_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
-  "observed_feature_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+  "observed_branch_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+  "observed_feature_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+    "head_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Real fixed-camera demo and remaining privacy/review/hardware gates",
-    "BLOCKER": "No annotated witnessed frame exit/reentry; automatic retention/copy erasure and noncooperating/concurrent directory writer races pending; zero approvals and physical Mac acceptance pending.",
-    "SAFE_WORK_COMPLETED": "Added advisory POSIX journal writer/eraser locking and one active-writer adversarial regression; isolated lock fixture passed; exact source-head Core CI 1817 passed/8 skipped, Home smoke 43 focused passed plus trained vision/Postgres. No physical camera or merge.",
-    "REMOTE_SHA": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
-    "NEXT_ACTION": "Verify exact-head CI on this checkpoint receipt; then annotate fixed-camera moving-object footage and replay detector/inventory/journal/crops against ground truth. Complete retention and directory-race safeguards before guarded review; physical Mac acceptance separate."
+    "BLOCKED_LAYER": "Real fixed-camera evidence and remaining privacy/review/hardware gates",
+    "BLOCKER": "No independently annotated witnessed exit/reentry video; retention expiry, backup deletion, uncooperative writer races, review and physical Mac acceptance pending.",
+    "SAFE_WORK_COMPLETED": "Published offline SHA-bound ground-truth/journal comparison, 14 isolated synthetic adversarial tests passed on Python 3.13.5, documentation updated; exact-head repository CI pending. No hardware access, merge or handoff.",
+    "REMOTE_SHA": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+    "NEXT_ACTION": "Verify exact-head CI for the new annotated-audit checkpoint; obtain consented/licensed fixed-camera footage, independently annotate every sampled frame, run offline replay plus ground-truth audit, inspect crops, then address privacy and guarded review. Keep physical Mac gate separate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -749,6 +749,20 @@
     "isolated_python_313_tests": 12,
     "python_311_core_tests_passed": 1816,
     "limits": "Manual unlink only, stopped writer, no expiry/secure wipe/backups/concurrency guarantee",
+    "physical_camera_accepted": false
+  },
+  "home_recorded_ground_truth_audit": {
+    "status": "PUBLISHED_SYNTHETIC_TESTS_PASSED_EXACT_HEAD_CI_PENDING",
+    "source": "scripts/home_recorded_ground_truth.py",
+    "tests": "tests/test_home_recorded_ground_truth.py",
+    "docs": "docs/HOME_RECORDED_VIDEO_DEMO.md",
+    "source_test_docs_sha": "cacd907e6c6b9cc2a6a84d638d4d0c5bcfd5f7a6",
+    "isolated_python_version": "3.13.5",
+    "isolated_pytest_passed": 14,
+    "isolated_compileall": "passed",
+    "repository_ci": "pending",
+    "real_video_annotated": false,
+    "automatic_demo_acceptance": false,
     "physical_camera_accepted": false
   }
 }
