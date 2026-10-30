@@ -33,3 +33,27 @@ this experimental feature does not claim a verified privacy-erasure workflow.
 
 Validation requires synthetic event/permission tests, exact-head Core CI and
 Home vision smoke, then separate consenting physical Mac camera acceptance.
+
+## Explicit local erasure (stopped session only)
+
+After stopping the preview/replay and closing its event journal, an operator
+can delete **one named session** and its matching event crops:
+
+```sh
+python -m app.services.home_agent.frame_session_erasure \
+  --journal "$HOME/PrivateHomeAgent/events.jsonl" \
+  --confirm-erase-stopped-session
+```
+
+The command requires an **absolute** JSONL path in a private (0700) directory.
+It deletes only that journal and the sibling `<journal-stem>-evidence/` directory,
+which must contain exclusively the expected private JPEG event crops. It rejects
+symlinks, hardlinked files, unexpected entries, or public permissions rather
+than recursively deleting arbitrary paths. Unrelated snapshots, MP4 recordings,
+other session journals, and any cloud/backups remain untouched. Never run it
+while a camera preview or replay is writing the same journal.
+
+This is **explicit unlinking, not automatic retention expiry**, cryptographic
+secure erasure, recovery-proof deletion, or erasure of copies/backups. Automatic
+expiry, cross-device/backup deletion, and concurrent-writer lifecycle controls
+still require separate design and acceptance before a privacy-complete claim.
