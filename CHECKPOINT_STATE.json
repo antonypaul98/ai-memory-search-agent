@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
+  "current_branch_sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 source/test head 1ac674fd, HOME writer/JARVIS follower; Mac worktrees inaccessible/uninspected.",
-  "local_test_status": "No local repository suite this run. Source/test head 1ac674fd Core CI 1801 passed/8 skipped/4 warnings; Home smoke 34 offline regressions passed and trained-photo/Postgres smoke passed. Optional real HD video probe failed: 24 scans, 0 visible detections, 0 evidence crops. Public frame montage inspected; no intact cup visible in 8 sampled frames. No physical Mac test.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 at tested source head 728029df1feb7214c454e1dcbc7f64914f8c2454; HOME writer/JARVIS follower; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Exact-source-head Core CI 1804 passed, 8 skipped, 4 warnings; Home 37 offline tests passed, 3 warnings plus trained OWL-ViT/Postgres smoke. Licensed handheld bottle 11 scans, 8 visible, 9 evidence crops. No local Mac/physical camera acceptance.",
   "pr_number": 399,
-  "ci_status": "Source/test head 1ac674fd Core CI #40971389541 SUCCESS and Home vision smoke #40971389500 SUCCESS. Optional real-video probe FAILED (0 detections) despite workflow success due continue-on-error; public montage artifact #12940891256 reviewed. New checkpoint receipt-head CI pending.",
-  "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED",
+  "ci_status": "Exact source head 728029df Core #40984430174 SUCCESS; Home smoke #40984431782 SUCCESS; checkpoint-receipt head CI pending.",
+  "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Licensed 1920x1080 glass-cup smash video is an unsuitable detection fixture: manually reviewed frames 0/30/60/90/120/150/180/210 show background, falling fragments and shattered glass, not a sustained intact cup. 0/24 detections. Real moving-object demo unproven; physical Mac camera, privacy retention/erasure, review/approval and guarded merge pending. No witnessed room exit or persistent physical identity.",
-  "next_action": "Select a consented or licensed fixed-camera indoor recording with a recognizable intact object visible across multiple consecutive frames, then movement, disappearance and reappearance; inspect sampled ground-truth frames before model testing. Reuse current replay/journal/evidence pipeline; if trained detection fails on valid frames, evaluate existing Apache-2.0 OpenCV motion-only fallback labeled UNKNOWN. No merge or handoff before gates.",
+  "known_blocker": "Real licensed handheld bottle video yielded 8/11 detector-positive scans and 9 event crops, but NOT a fixed-camera exit/reentry ground truth. The apparent complete status pattern can result from detector misses, not witnessed crossing. Furniture-level location, physical Mac camera, privacy retention/erasure review and PR approval remain pending; do not merge.",
+  "next_action": "Use fixed-camera licensed/consented indoor footage with annotated object visibility, movement, witnessed frame crossing and reentry. Verify detector boxes against frames, distinguish missed detections from exits, and test evidence/room inventory without false identity. Complete privacy review and guarded PR approval before merge; physical Mac test remains separate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-29T23:17:38Z",
-  "observed_branch_sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
-  "observed_feature_sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
+  "observed_at_utc": "2026-10-30T01:18:00Z",
+  "observed_branch_sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
+  "observed_feature_sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
+    "head_sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 40971389541,
-      "sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
+      "id": 40984430174,
+      "sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 40971389500,
-      "sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
+      "id": 40984431782,
+      "sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Real-footage acceptance fixture suitability, not GitHub/CI transport",
-    "BLOCKER": "Public 1080p cup-shatter clip lacks a sustained intact target in inspected sampled frames; optional detector probe 0/24 scans. Real end-to-end moving-object acceptance unproven.",
-    "SAFE_WORK_COMPLETED": "Published HD candidate probe 0a18c54d and public-frame review 1ac674fd. Exact-head Core CI 1801 passed/8 skipped, Home smoke 34 passed; optional probe negative. Reviewed 8-frame CC BY-SA montage; no merge or physical acceptance.",
-    "REMOTE_SHA": "1ac674fda620a151b187d15aac0f73f99e34dea6",
-    "NEXT_ACTION": "Select a consented or licensed fixed-camera indoor recording with a recognizable intact object visible across multiple consecutive frames, then movement, disappearance and reappearance; inspect sampled ground-truth frames before model testing. Reuse current replay/journal/evidence pipeline; if trained detection fails on valid frames, evaluate existing Apache-2.0 OpenCV motion-only fallback labeled UNKNOWN. No merge or handoff before gates."
+    "BLOCKED_LAYER": "Real fixed-camera end-to-end acceptance and guarded merge review",
+    "BLOCKER": "No annotated genuine exit/reentry; tentative detector gaps cannot prove crossing. Physical Mac acceptance, privacy review and PR approvals pending.",
+    "SAFE_WORK_COMPLETED": "Inspected licensed bottle montage and source, published detector-probe commit 728029df, verified exact-head Core CI 1804 passed/8 skipped and Home smoke 37 passed; real 11 scans/8 visible/9 private crops. No physical camera or merge.",
+    "REMOTE_SHA": "728029df1feb7214c454e1dcbc7f64914f8c2454",
+    "NEXT_ACTION": "Use fixed-camera licensed/consented indoor footage with annotated object visibility, movement, witnessed frame crossing and reentry. Verify detector boxes against frames, distinguish missed detections from exits, and test evidence/room inventory without false identity. Complete privacy review and guarded PR approval before merge; physical Mac test remains separate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -699,7 +699,7 @@
   "demo_readiness": {
     "status": "NOT_PROVEN",
     "software_replay": "PASS: trained OWL-ViT detections on pinned public photograph, simulated missing scan and tentative reappearance, JSONL/private crop evidence",
-    "real_moving_frames": "NOT_RUN",
+    "real_moving_frames": "PARTIAL: 11 real handheld-bottle scans, 8 visible and 9 crops; detector-miss gaps not proven physical exit/reentry",
     "physical_camera": "NOT_RUN",
     "furniture_level_location": "NOT_IMPLEMENTED",
     "identity_after_long_absence": "NOT_VERIFIED"
@@ -715,19 +715,26 @@
     "decision": "Frigate/Scrypted already provide object event timelines/snapshots/zones; focus differentiated evidence-backed household object whereabouts and uncertainty. Reuse existing local OWL-ViT/journal/crop components; no external code imported."
   },
   "home_real_footage_diagnostic": {
-    "status": "NEGATIVE_VALID_FIXTURE_NOT_ESTABLISHED",
-    "source_head_sha": "1ac674fda620a151b187d15aac0f73f99e34dea6",
-    "source": "https://commons.wikimedia.org/wiki/File:Ultra_slow-motion_video_of_glass_tea_cup_smashed_on_concrete_floor.webm",
+    "status": "PARTIAL_REAL_BOTTLE_DETECTION_NOT_DEMO_ACCEPTANCE",
+    "source_head_sha": "728029df1feb7214c454e1dcbc7f64914f8c2454",
+    "source": "https://commons.wikimedia.org/wiki/File:Shake_water_sample_in_1_liter_bottle.webm",
     "license": "CC BY-SA 4.0",
-    "author": "Pittigrilli",
-    "source_sha256": "33948501a7183dd67ff1beed2a03f786ae465be95ca59249daaadfadd52ce827",
-    "scans": 24,
-    "visible_scans": 0,
-    "evidence_crops": 0,
-    "manual_montage_review": "8 frames reviewed; no intact cup sustained; not full video annotation",
-    "artifact_url": "https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/40971389500/artifacts/12940891256",
-    "core_ci_run": 40971389541,
-    "home_smoke_run": 40971389500,
+    "author": "Cirosantilli2",
+    "source_sha256": "b39f47b3d46e28ce63416407f22e05da988cd2c7aa341db6695a70811b2a45a5",
+    "scans": 11,
+    "visible_scans": 8,
+    "evidence_crops": 9,
+    "statuses": [
+      "MOVED_IN_FRAME",
+      "NOT_VISIBLE",
+      "POSSIBLE_EXIT",
+      "REAPPEARED_TENTATIVE",
+      "VISIBLE"
+    ],
+    "manual_montage_review": "Frames 0, 30, 60, 90 reviewed: plastic bottle visibly held and moved; no witnessed exit or reentry in sampled montage; not a fixed camera.",
+    "artifact_url": "https://github.com/antonypaul98/ai-memory-search-agent/actions/runs/40983352034/artifacts/12945159969",
+    "core_ci_run": 40984430174,
+    "home_smoke_run": 40984431782,
     "physical_camera_accepted": false,
     "demo_readiness": "unverified",
     "full_product_completion": "unverified"
