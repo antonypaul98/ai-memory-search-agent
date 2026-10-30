@@ -47,3 +47,51 @@ docs/HOME_SINGLE_CAMERA_FRAME_EVIDENCE.md), but automatic retention expiry,
 backup/copy deletion and full concurrent-writer safety remain unverified.
 Do not claim privacy-complete erasure. Avoid videos with other people without
 consent: object crops can incidentally contain people.
+
+
+## Ground-truth audit (offline, reviewer supplied)
+
+For the demo gate, independently inspect the actual fixed-camera video frame by
+frame. Record every sampled scan with a bounding box for the *visible part* of
+one distinguishable object, and one of VISIBLE, CROSSING_OUT, OUT_OF_FRAME,
+CROSSING_IN. Do not infer a crossing from a missing detector box. A fixed camera,
+manual review, and the video's SHA-256 digest must be explicitly recorded.
+
+Annotation JSON schema (example shape; fill all sampled scans, not just these):
+
+    {
+      "schema_version": 1,
+      "video_sha256": "<64 lowercase hex characters>",
+      "camera_fixed": true,
+      "manual_frame_review_completed": true,
+      "object_label": "cup",
+      "sample_every": 1,
+      "samples": [
+        {"scan": 1, "frame_index": 0, "state": "VISIBLE", "box_xyxy": [10, 10, 50, 50]},
+        {"scan": 2, "frame_index": 1, "state": "CROSSING_OUT", "box_xyxy": [25, 10, 65, 50]},
+        {"scan": 3, "frame_index": 2, "state": "OUT_OF_FRAME", "box_xyxy": null},
+        {"scan": 4, "frame_index": 3, "state": "CROSSING_IN", "box_xyxy": [25, 10, 65, 50]},
+        {"scan": 5, "frame_index": 4, "state": "VISIBLE", "box_xyxy": [10, 10, 50, 50]}
+      ]
+    }
+
+The source hash must be computed from the exact original video, and the scan
+interval must equal the replay's --sample-every. For sample scan N (starting
+at 1), frame_index is (N-1) * sample_every (zero-based). The example above is
+illustrative metadata, not a reviewed real video or acceptance evidence.
+
+Run after replay (with its private journal still present):
+
+    python -m scripts.home_recorded_ground_truth \
+      --video /path/to/consented-room-video.mp4 \
+      --annotations /path/to/reviewed-annotations.json \
+      --journal "$HOME/PrivateHomeAgent/replay-001/events.jsonl"
+
+The audit compares annotated visibility with journal detections, checks
+box overlap, detects false absences and unexpected detections, and checks
+referenced private crop files without opening their pixels. It rejects
+mismatched video hashes, incomplete scan annotations, unreviewed or non-fixed
+camera claims, and unsafe evidence paths. A reviewer-supplied annotation is
+not independently authenticated, and the audit never automatically marks
+the demo, physical identity or physical camera as accepted. Inspect actual
+crops and ambiguous identities separately before any approval.
