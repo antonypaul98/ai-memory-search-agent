@@ -9,6 +9,28 @@ import json
 from pathlib import Path
 
 
+def _single_track_transition_pattern(events) -> bool:
+    """Ordered statuses for one tentative track; never proof of physical exit."""
+    stages: dict[int, tuple[str, int]] = {}
+    for event in events:
+        tid, label, status = event.track_id, event.label, event.status
+        if status == "VISIBLE":
+            stages[tid] = (label, 1)
+            continue
+        previous_label, stage = stages.get(tid, (None, 0))
+        if previous_label != label:
+            stages[tid] = (label, 0)
+            continue
+        if status == "MOVED_IN_FRAME" and stage == 1:
+            stage = 2
+        elif status in {"NOT_VISIBLE", "POSSIBLE_EXIT"} and stage == 2:
+            stage = 3
+        elif status == "REAPPEARED_TENTATIVE" and stage == 3:
+            return True
+        stages[tid] = (label, stage)
+    return False
+
+
 def replay_recorded_video(*, video_path: Path, output_dir: Path, detector,
                           room_name: str = "room-1", max_scans: int = 90,
                           sample_every: int = 5) -> dict:
@@ -88,10 +110,7 @@ def replay_recorded_video(*, video_path: Path, output_dir: Path, detector,
         "recorded_video_processed": True,
         "physical_camera_tested": False,
         "physical_identity_verified": False,
-        "complete_transition_sequence_observed": (
-            {"VISIBLE", "MOVED_IN_FRAME", "REAPPEARED_TENTATIVE"} <= statuses
-            and bool({"NOT_VISIBLE", "POSSIBLE_EXIT"} & statuses)
-        ),
+        "complete_transition_sequence_observed": _single_track_transition_pattern(inventory.history),
         "journal": str(output_dir / "events.jsonl"),
     }
 

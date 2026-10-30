@@ -5,7 +5,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 np = pytest.importorskip("numpy")
-from scripts.home_recorded_replay import replay_recorded_video
+from scripts.home_recorded_replay import replay_recorded_video, _single_track_transition_pattern
 
 
 class RedObjectDetector:
@@ -40,6 +40,29 @@ def make_video(path, positions):
             writer.write(frame)
     finally:
         writer.release()
+
+
+@pytest.mark.parametrize(
+    "events,expected",
+    [
+        ([(1, "VISIBLE", "bottle"), (1, "MOVED_IN_FRAME", "bottle"),
+          (1, "NOT_VISIBLE", "bottle"), (1, "REAPPEARED_TENTATIVE", "bottle")], True),
+        ([(1, "VISIBLE", "bottle"), (1, "MOVED_IN_FRAME", "bottle"),
+          (1, "POSSIBLE_EXIT", "bottle"), (1, "REAPPEARED_TENTATIVE", "bottle")], True),
+        ([(1, "VISIBLE", "bottle"), (2, "MOVED_IN_FRAME", "bottle"),
+          (3, "NOT_VISIBLE", "bottle"), (4, "REAPPEARED_TENTATIVE", "bottle")], False),
+        ([(1, "MOVED_IN_FRAME", "bottle"), (1, "NOT_VISIBLE", "bottle"),
+          (1, "REAPPEARED_TENTATIVE", "bottle"), (1, "VISIBLE", "bottle")], False),
+        ([(1, "VISIBLE", "bottle"), (1, "MOVED_IN_FRAME", "bottle"),
+          (1, "NOT_VISIBLE", "bottle"), (1, "REAPPEARED_TENTATIVE", "cup")], False),
+        ([(1, "VISIBLE", "bottle"), (1, "NOT_VISIBLE", "bottle"),
+          (1, "REAPPEARED_TENTATIVE", "bottle")], False),
+    ],
+)
+def test_demo_pattern_requires_one_ordered_tentative_track(events, expected):
+    sequence = [SimpleNamespace(track_id=tid, status=status, label=label)
+                for tid, status, label in events]
+    assert _single_track_transition_pattern(sequence) is expected
 
 
 def test_decoded_video_tracks_location_disappearance_and_tentative_reentry(tmp_path):
