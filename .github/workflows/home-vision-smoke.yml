@@ -45,21 +45,15 @@ jobs:
         run: python scripts/home_vision_smoke.py
       - name: Offline visual-candidate regressions (Python 3.11, OpenCV)
         run: python -m pytest -q tests/test_home_visual_instance_candidate.py tests/test_home_recorded_replay.py tests/test_home_public_motion_probe.py
-      - name: Public real-motion footage probe (diagnostic, not acceptance)
+      - name: Licensed bottle detection probe (diagnostic, not acceptance)
         continue-on-error: true
         timeout-minutes: 8
-        run: python -m scripts.home_public_motion_probe --review-output public-motion-review.jpg
-      - name: Review bottle candidate frames (public media only, no detector)
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python -m scripts.home_public_motion_probe --fixture bottle --review-only --review-output public-bottle-review.jpg
+        run: python -m scripts.home_public_motion_probe --fixture bottle --review-output public-bottle-review.jpg
       - name: Upload licensed public-frame review only (no household footage)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: home-public-motion-frame-review
-          path: |
-            public-motion-review.jpg
-            public-bottle-review.jpg
+          path: public-bottle-review.jpg
           if-no-files-found: ignore
           retention-days: 1

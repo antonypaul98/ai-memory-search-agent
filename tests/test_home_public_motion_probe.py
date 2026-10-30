@@ -4,7 +4,8 @@ import stat
 import pytest
 
 from scripts.home_public_motion_probe import (download_public_fixture, create_public_frame_montage,
-                                              SOURCE_URL, BOTTLE_SOURCE_URL, BOTTLE_SOURCE_PAGE, MAX_BYTES)
+                                              SOURCE_URL, BOTTLE_SOURCE_URL, BOTTLE_SOURCE_PAGE,
+                                              MAX_BYTES, detector_labels_for_fixture)
 
 
 class FakeResponse:
@@ -90,3 +91,11 @@ def test_unknown_fixture_rejected_without_download(tmp_path):
         download_public_fixture(path, fixture="untrusted",
                                 opener=lambda *_a, **_k: pytest.fail("network called"))
     assert not path.exists()
+
+ 
+def test_detector_prompts_are_fixture_specific_and_fail_closed():
+    assert "plastic bottle" in " ".join(detector_labels_for_fixture("bottle"))
+    assert "cup" in " ".join(detector_labels_for_fixture("cup"))
+    assert detector_labels_for_fixture("bottle") != detector_labels_for_fixture("cup")
+    with pytest.raises(ValueError, match="unsupported"):
+        detector_labels_for_fixture("other")

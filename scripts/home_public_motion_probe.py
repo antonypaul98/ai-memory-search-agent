@@ -1,4 +1,4 @@
-"""Opt-in CI diagnostic of *real* higher-resolution public cup-motion footage; never camera acceptance.
+"""Opt-in CI diagnostic of *real* licensed public object-motion footage; never camera acceptance.
 
 The fixture is not vendored or uploaded. Attribution: Pittigrilli, Wikimedia
 Commons, CC BY-SA 4.0. Video is downloaded only by explicit invocation.
@@ -26,6 +26,17 @@ BOTTLE_SOURCE_URL = (
 )
 BOTTLE_SOURCE_PAGE = "https://commons.wikimedia.org/wiki/File:Shake_water_sample_in_1_liter_bottle.webm"
 MAX_BYTES = 4_000_000
+
+
+def detector_labels_for_fixture(fixture: str) -> tuple[str, ...]:
+    """Select grounded text prompts without changing detector architecture."""
+    if fixture == "cup":
+        return ("a photo of a glass teacup", "a photo of a glass cup",
+                "a photo of a drinking glass", "a photo of a cup")
+    if fixture == "bottle":
+        return ("a photo of a clear plastic bottle", "a photo of a water bottle",
+                "a photo of a plastic bottle")
+    raise ValueError("unsupported public fixture")
 
 
 def download_public_fixture(destination: Path, *, opener=urlopen, fixture: str = "cup") -> dict:
@@ -117,8 +128,6 @@ def main() -> None:
     parser.add_argument("--fixture", choices=("cup", "bottle"), default="cup")
     parser.add_argument("--review-only", action="store_true")
     args = parser.parse_args()
-    if args.fixture == "bottle" and not args.review_only:
-        parser.error("bottle candidate is frame-review-only until suitability is verified")
     if args.review_only and args.review_output is None:
         parser.error("--review-only requires --review-output")
     with TemporaryDirectory(prefix="home-public-motion-") as directory:
@@ -142,7 +151,9 @@ def main() -> None:
             "google/owlvit-base-patch32", revision=MODEL_REVISION,
             allow_patterns=["*.json", "*.txt", "pytorch_model.bin"],
         )
-        detector = LocalOwlViTDetector(model_path, labels=["a photo of a glass teacup", "a photo of a glass cup", "a photo of a drinking glass", "a photo of a cup"], threshold=0.05)
+        detector = LocalOwlViTDetector(model_path,
+                                      labels=list(detector_labels_for_fixture(args.fixture)),
+                                      threshold=0.05)
         result = replay_recorded_video(
             video_path=video, output_dir=root / "private-evidence",
             detector=detector, room_name="public-fixture-room",
@@ -157,7 +168,9 @@ def main() -> None:
             "fixture": provenance, "review_montage": review, "model_revision": MODEL_REVISION,
             "detector_threshold": 0.05,
             "text_query_style": "descriptive-photo-phrase",
-            "candidate": "higher-resolution 1920x1080 glass-teacup footage",
+            "candidate": ("1080x1920 handheld plastic bottle, partial recognition/movement only"
+                          if args.fixture == "bottle" else
+                          "1920x1080 glass-teacup footage, known unsuitable"),
             "scans": result["scans"], "statuses": result["statuses"],
             "visible_scans": sum(bool(row["visible"]) for row in rows),
             "saved_event_crops": sum(bool(event["evidence_image"])
@@ -165,7 +178,7 @@ def main() -> None:
             "complete_transition_sequence_observed": result["complete_transition_sequence_observed"],
             "real_recorded_video": True, "physical_camera_tested": False,
             "manual_frame_review_completed": False,
-            "interpretation": "diagnostic only; clip does not show verified exit/re-entry",
+            "interpretation": "diagnostic only; no verified exit/re-entry or physical identity",
         }, sort_keys=True))
         if not any(row["visible"] for row in rows):
             raise RuntimeError("trained detector found no visible target in public video")
