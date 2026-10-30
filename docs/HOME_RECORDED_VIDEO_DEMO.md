@@ -94,7 +94,8 @@ Run after replay (with its private journal still present):
 
 The audit compares annotated visibility with journal detections, checks
 box overlap, detects false absences and unexpected detections, and checks
-referenced private crop files without opening their pixels. It rejects
+referenced private JPEG crops by decoding bounded image pixels, without proving
+the pixels correspond to the source frame or the correct physical object. It rejects
 mismatched annotation/video or journal/video hashes, inconsistent source frame
 sampling, incomplete scan annotations, unreviewed or non-fixed camera claims,
 and unsafe evidence paths. Older unbound journals must be replayed from the

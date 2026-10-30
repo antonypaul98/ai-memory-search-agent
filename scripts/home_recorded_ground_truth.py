@@ -1,15 +1,18 @@
 """Offline comparison of reviewed fixed-camera frames with Home's replay journal.
 
 Annotations are external claims, not independent proof of physical identity.
-No camera, model, API, or evidence files are opened by this tool.
+No camera, model or API is used; private JPEG crops are decoded but not matched to video frames.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import stat
+
+from PIL import Image
 from pathlib import Path
 
 _STATES = {"VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN"}
@@ -37,6 +40,32 @@ def _iou(a, b):
     area_a = (a[2] - a[0]) * (a[3] - a[1])
     area_b = (b[2] - b[0]) * (b[3] - b[1])
     return intersection / (area_a + area_b - intersection)
+
+
+
+def _private_jpeg_decodes(path: Path) -> bool:
+    """Check bounded private JPEG pixels, not correspondence to source frames."""
+    fd = None
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                     | getattr(os, "O_NONBLOCK", 0))
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077
+                or info.st_nlink != 1 or not 1 <= info.st_size <= 1_000_000):
+            return False
+        with os.fdopen(fd, "rb") as stream:
+            fd = None
+            with Image.open(stream) as crop:
+                if (crop.format != "JPEG" or not 1 <= crop.width <= 320
+                        or not 1 <= crop.height <= 320):
+                    return False
+                crop.load()
+        return True
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def audit_ground_truth(*, video_path: Path, annotations_path: Path,
@@ -73,7 +102,7 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
     rows = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
     if len(rows) != len(samples):
         raise ValueError("journal and annotations have different scan counts")
-    states, missing, unexpected, poor, missing_evidence = [], [], [], [], []
+    states, missing, unexpected, poor, missing_evidence, invalid_evidence = [], [], [], [], [], []
     evidence_references = 0
     for index, (sample, row) in enumerate(zip(samples, rows), 1):
         if not isinstance(sample, dict) or not isinstance(row, dict):
@@ -124,6 +153,8 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
                 missing_evidence.append(index)
             elif not stat.S_ISREG(image.stat().st_mode) or image.stat().st_mode & 0o077:
                 raise ValueError("evidence file is not private and regular")
+            elif not _private_jpeg_decodes(image):
+                invalid_evidence.append(index)
         if state == "OUT_OF_FRAME":
             if matches:
                 unexpected.append(index)
@@ -148,6 +179,7 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
         "poor_localization_scans": poor,
         "evidence_images_referenced": evidence_references,
         "missing_evidence_image_scans": missing_evidence,
+        "invalid_evidence_image_scans": invalid_evidence,
         "automatic_demo_acceptance": False,
         "physical_identity_verified": False,
         "physical_camera_tested": False,

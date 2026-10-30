@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from scripts.home_recorded_ground_truth import audit_ground_truth
 
 STATES = ["VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN", "VISIBLE"]
@@ -176,3 +177,36 @@ def test_evidence_path_traversal_rejected(tmp_path):
     paths[2].write_text("\n".join(json.dumps(x) for x in rows))
     with pytest.raises(ValueError, match="unsafe evidence"):
         audit(paths)
+
+
+def _add_private_crop(paths, *, corrupt=False, oversized=False):
+    evidence_dir = paths[2].parent / "events-evidence"
+    evidence_dir.mkdir(mode=0o700)
+    name = "0000-" + "a" * 32 + ".jpg"
+    image = evidence_dir / name
+    if corrupt:
+        image.write_bytes(b"not a decodable JPEG")
+    else:
+        Image.new("RGB", (321 if oversized else 16, 16), "red").save(image, format="JPEG")
+    image.chmod(0o600)
+    rows = [json.loads(x) for x in paths[2].read_text().splitlines()]
+    rows[0]["events"] = [{"evidence_image": "events-evidence/" + name}]
+    paths[2].write_text("\n".join(json.dumps(x) for x in rows) + "\n")
+
+
+def test_private_evidence_pixels_decode(tmp_path):
+    paths = make_inputs(tmp_path)
+    _add_private_crop(paths)
+    report = audit(paths)
+    assert report["evidence_images_referenced"] == 1
+    assert report["missing_evidence_image_scans"] == []
+    assert report["invalid_evidence_image_scans"] == []
+
+
+@pytest.mark.parametrize("corrupt,oversized", [(True, False), (False, True)])
+def test_invalid_private_evidence_pixels_reported(tmp_path, corrupt, oversized):
+    paths = make_inputs(tmp_path)
+    _add_private_crop(paths, corrupt=corrupt, oversized=oversized)
+    report = audit(paths)
+    assert report["invalid_evidence_image_scans"] == [1]
+    assert report["automatic_demo_acceptance"] is False
