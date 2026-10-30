@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
+  "current_branch_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME PR #399 draft/unmerged at verified code/test/docs head 1dc33f8b01d16d1e5376391914f2c54cdff20532, HOME writer/JARVIS follower, Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Isolated Python 3.13.5 frame-session erasure tests 12 passed and compileall passed; exact-head Python 3.11 Core CI 1816 passed/8 skipped/4 warnings; Home smoke 43 focused passed plus trained vision/Postgres. No physical Mac test.",
+  "branch_remote_status": "Main ac912722d94208a398d2f3c3cbbf91ca56256376; HOME draft PR #399 source/test/docs head 04de9632b0b3b1cb2e69d6fe99ab442562905328; HOME writer/JARVIS follower; no merge, no handoff; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Isolated POSIX two-descriptor advisory-lock fixture passed; full repository tests not run locally. Exact source-head Core CI 1817 passed/8 skipped/4 warnings; Home smoke 43 focused passed plus trained vision/Postgres. No physical Mac test.",
   "pr_number": 399,
-  "ci_status": "Exact source/test/docs head 1dc33f8b Core #41006476514 SUCCESS and Home #41006476499 SUCCESS; checkpoint receipt head CI pending.",
+  "ci_status": "Exact source/test/docs head 04de9632b0b3b1cb2e69d6fe99ab442562905328: Core #41018088828 SUCCESS (1817 passed/8 skipped/4 warnings); Home #41018088829 SUCCESS (43 focused tests plus trained vision/Postgres). Checkpoint receipt head CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "Real fixed-camera annotated object exit/re-entry not demonstrated; no witnessed crossing or physical identity. Explicit stopped-session unlinking is implemented and tested but automatic retention expiry, backup/copy erasure and concurrent-writer safety remain unverified. Physical Mac camera and PR approvals pending; do not merge.",
-  "next_action": "Verify exact-head CI on this checkpoint receipt, then inspect/license-screen and annotate fixed-camera moving-object footage; replay detector/inventory/journal/crops against ground truth, distinguish missed detections from witnessed exit, complete retention/erasure and review gates; physical Mac acceptance separate.",
+  "known_blocker": "Real annotated fixed-camera exit/re-entry not demonstrated; no witnessed crossing or physical identity. Active cooperating journal writer is now guarded by POSIX advisory lock, but automatic retention expiry, copies/backups, older/uncooperative writers and concurrent directory races remain unresolved. Physical Mac camera and PR approval pending; do not merge.",
+  "next_action": "Verify exact-head CI on this checkpoint receipt; then annotate fixed-camera moving-object footage and replay detector/inventory/journal/crops against ground truth. Complete retention and directory-race safeguards before guarded review; physical Mac acceptance separate.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-30T05:12:00Z",
-  "observed_branch_sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
-  "observed_feature_sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
+  "observed_at_utc": "2026-10-30T07:11:23Z",
+  "observed_branch_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+  "observed_feature_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
+    "head_sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 41006476514,
-      "sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
+      "id": 41018088828,
+      "sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 41006476499,
-      "sha": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
+      "id": 41018088829,
+      "sha": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Genuine fixed-camera demo and remaining privacy/review/hardware gates",
-    "BLOCKER": "No annotated witnessed frame exit/reentry; automatic retention/copy erasure and concurrent-writer lifecycle pending; zero approvals and physical Mac acceptance pending.",
-    "SAFE_WORK_COMPLETED": "Added explicit fail-closed stopped-session local erasure, 12 adversarial tests and docs; isolated tests 12/12, exact-head Core CI 1816 passed/8 skipped, Home smoke 43 passed; no physical camera or merge.",
-    "REMOTE_SHA": "1dc33f8b01d16d1e5376391914f2c54cdff20532",
-    "NEXT_ACTION": "Verify exact-head CI on this checkpoint receipt, then inspect/license-screen and annotate fixed-camera moving-object footage; replay detector/inventory/journal/crops against ground truth, distinguish missed detections from witnessed exit, complete retention/erasure and review gates; physical Mac acceptance separate."
+    "BLOCKED_LAYER": "Real fixed-camera demo and remaining privacy/review/hardware gates",
+    "BLOCKER": "No annotated witnessed frame exit/reentry; automatic retention/copy erasure and noncooperating/concurrent directory writer races pending; zero approvals and physical Mac acceptance pending.",
+    "SAFE_WORK_COMPLETED": "Added advisory POSIX journal writer/eraser locking and one active-writer adversarial regression; isolated lock fixture passed; exact source-head Core CI 1817 passed/8 skipped, Home smoke 43 focused passed plus trained vision/Postgres. No physical camera or merge.",
+    "REMOTE_SHA": "04de9632b0b3b1cb2e69d6fe99ab442562905328",
+    "NEXT_ACTION": "Verify exact-head CI on this checkpoint receipt; then annotate fixed-camera moving-object footage and replay detector/inventory/journal/crops against ground truth. Complete retention and directory-race safeguards before guarded review; physical Mac acceptance separate."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
