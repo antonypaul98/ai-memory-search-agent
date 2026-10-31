@@ -185,6 +185,7 @@ def test_replay_to_ground_truth_audit_on_synthetic_boundary_crossing(tmp_path):
     assert result["complete_transition_sequence_observed"] is True
     assert report["scans_compared"] == 5
     assert report["source_hash_matched"] is True
+    assert report["sampled_source_frames_decoded"] is True
     assert report["reviewer_claims_frame_exit_return"] is True
     assert report["missed_visible_scans"] == []
     assert report["unexpected_out_of_frame_detections"] == []
