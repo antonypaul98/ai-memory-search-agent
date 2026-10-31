@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "fe9d68d700aadf584f74cf0f8952db3b64467d9e",
+  "current_branch_sha": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 at pre-edit head fe9d68d; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Isolated OpenCV decoder prototype passed; first exact-head Home smoke #41191078634 SUCCESS (70 focused). Core #41191078753 SUCCESS but 22 metadata tests skipped because cv2 absent in Core; new test-only fix restores independent metadata coverage; exact-head CI pending.",
+  "branch_remote_status": "Main ac912722; HOME PR #399 draft/unmerged; HOME writer, JARVIS follower; local Mac worktrees uninspected. Pre-ledger head c7387442; CI pending.",
+  "local_test_status": "Isolated Linux Python 3.13.5 OpenCV/Pillow prototype: 13 synthetic pixel-audit tests passed; py_compile passed. Not pinned Python 3.11 repository suite; exact-head Core and Home CI pending.",
   "pr_number": 399,
-  "ci_status": "Prior fe9d68d Core #41191078753 SUCCESS (1817 passed/9 skipped), Home #41191078634 SUCCESS (70 focused); new test-only coverage repair exact-head CI pending.",
+  "ci_status": "New pixel-audit source/test/workflow/docs head c7387442: Core #41195336008 pending, Home smoke #41195336014 in progress. Prior d9862f2 Core #41191536498 and Home #41191536380 SUCCESS only at prior head.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no submitted reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "No independently annotated real fixed-camera exit/reentry footage. Crop-to-source pixel matching, automatic evidence expiry, backup/copy erasure, noncooperating writer races, review approvals and physical Mac acceptance remain outstanding.",
-  "next_action": "Verify exact-head Core and Home smoke after restoring metadata-only Core tests; then pursue genuine fixed-camera licensed annotated video and crop review; preserve privacy/approval/hardware gates.",
+  "known_blocker": "Real licensed independently annotated fixed-camera exit/reentry footage unavailable; pixel diagnostic synthetic-only, automatic evidence expiry, backup/copy erasure, noncooperating writer races, independent approval and physical Mac acceptance outstanding.",
+  "next_action": "Verify exact-head Core and Home vision smoke for new crop pixel diagnostic; repair regressions before merge. Then obtain independently annotated licensed fixed-camera object exit/reentry footage, run replay+ground truth+pixel audit and visually inspect; preserve privacy/approval/hardware gates.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-31T10:08:00Z",
-  "observed_branch_sha": "fe9d68d700aadf584f74cf0f8952db3b64467d9e",
-  "observed_feature_sha": "fe9d68d700aadf584f74cf0f8952db3b64467d9e",
+  "observed_at_utc": "2026-10-31T11:05:00Z",
+  "observed_branch_sha": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
+  "observed_feature_sha": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,7 +34,7 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "fe9d68d700aadf584f74cf0f8952db3b64467d9e",
+    "head_sha": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Real fixed-camera footage and privacy/review/hardware acceptance gates",
-    "BLOCKER": "No licensed independently annotated fixed-camera exit/reentry footage; local Mac worktrees inaccessible.",
-    "SAFE_WORK_COMPLETED": "Added source-frame decode and bounds validation; exact-head Home smoke passed 70 focused. Repaired Core test skip regression by mocking optional decoder in metadata-only tests, retaining actual decode in replay integration. New exact-head CI pending; no merge or hardware acceptance.",
-    "REMOTE_SHA": "fe9d68d700aadf584f74cf0f8952db3b64467d9e",
-    "NEXT_ACTION": "Verify exact-head Core and Home smoke after restoring metadata-only Core tests; then pursue genuine fixed-camera licensed annotated video and crop review; preserve privacy/approval/hardware gates."
+    "BLOCKED_LAYER": "Real fixed-camera footage, independent approval and hardware gates",
+    "BLOCKER": "No independently annotated licensed real fixed-camera exit/reentry clip; Mac worktrees inaccessible.",
+    "SAFE_WORK_COMPLETED": "Published isolated source-crop pixel diagnostic, 13 synthetic prototype tests passed on Python 3.13.5, workflow and docs updated. New-head Core and Home CI pending. No merge or physical acceptance.",
+    "REMOTE_SHA": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
+    "NEXT_ACTION": "Verify exact-head Core and Home vision smoke for new crop pixel diagnostic; repair regressions before merge. Then obtain independently annotated licensed fixed-camera object exit/reentry footage, run replay+ground truth+pixel audit and visually inspect; preserve privacy/approval/hardware gates."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",
@@ -765,5 +765,20 @@
     "automatic_demo_acceptance": false,
     "physical_camera_accepted": false,
     "source_binding": "Replay journal records source SHA-256, sample interval, source frame index; audit fail-closed on mismatch; unverified until new-head CI."
+  },
+  "home_recorded_pixel_audit": {
+    "status": "PUBLISHED_EXACT_HEAD_CI_PENDING",
+    "source": "scripts/home_recorded_pixel_audit.py",
+    "tests": "tests/test_home_recorded_pixel_audit.py",
+    "source_head_sha": "c7387442c2a779e48f034a3b90efdb8fb6c999c1",
+    "local_prototype": {
+      "python": "3.13.5",
+      "passed": 13,
+      "syntax": "passed",
+      "pinned_ci": "pending"
+    },
+    "core_ci_run": 41195336008,
+    "home_smoke_run": 41195336014,
+    "scope": "Read-only source-frame vs private JPEG pixel correspondence diagnostic; absent-event crop must match prior confirmed scan. No automatic demo, identity or physical camera acceptance."
   }
 }
