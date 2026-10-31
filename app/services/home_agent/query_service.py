@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 from .physical_memory import ObjectSighting
+from .instance_location import InstanceObservation, ObservedLocationChange, derive_observed_location_changes
 
 class PhysicalMemoryStore(Protocol):
     def latest(self, *, user_id: str, object_name: str, min_confidence: float = 0.0) -> ObjectSighting | None: ...
@@ -57,21 +58,63 @@ class HomeAgentQueryService:
         if not frame_id.strip(): return None
         f=getattr(self._store,"get_image",None); return f(user_id=user_id,frame_id=frame_id) if callable(f) else None
     def history(self, *, user_id:str, object_name:str, min_confidence:float=0.0, limit:int=20)->list[ObjectSighting]: return self._store.history(user_id=user_id,object_name=object_name,min_confidence=min_confidence,limit=limit)
+    def observed_location_changes(
+        self, *, user_id: str, object_name: str,
+        min_confidence: float = 0.9, limit: int = 20,
+    ) -> list[ObservedLocationChange]:
+        """Query only explicitly verified physical-instance observations.
+
+        The ordinary sighting history has object *classes*, not persistent
+        instance identity. Never infer identity or relocation from that legacy
+        history. Until the store implements a trusted, tenant-scoped verified
+        observation reader, this method returns no location changes.
+        """
+        if not isinstance(user_id, str) or not user_id.strip():
+            raise ValueError("user_id is required")
+        if not isinstance(object_name, str) or not object_name.strip():
+            raise ValueError("object_name is required")
+        if (isinstance(min_confidence, bool) or not isinstance(min_confidence, (int, float))
+                or not 0 <= min_confidence <= 1):
+            raise ValueError("min_confidence must be between 0 and 1")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+        reader = getattr(self._store, "verified_instance_observations", None)
+        if not callable(reader):
+            return []
+        observations = reader(
+            user_id=user_id, object_name=object_name,
+            min_confidence=min_confidence, limit=limit,
+        )
+        if observations is None:
+            return []
+        verified = []
+        for observation in observations:
+            # A malformed or cross-tenant store result invalidates the entire
+            # response rather than partially exposing a questionable chain.
+            if (not isinstance(observation, InstanceObservation)
+                    or observation.user_id != user_id
+                    or observation.object_class.casefold() != object_name.strip().casefold()):
+                return []
+            verified.append(observation)
+        return derive_observed_location_changes(
+            verified, user_id=user_id, min_identity_confidence=max(0.9, min_confidence),
+        )
+
     def movement_history(self, *, user_id:str, object_name:str, min_confidence:float=.5, limit:int=20, since:datetime|None=None, until:datetime|None=None)->list[MovementEvent]:
+        """Legacy movement records cannot prove that two class sightings are one object.
+
+        The old response shape has no instance identity or identity-association
+        provenance. Returning a class-derived movement would falsely assert a
+        relocation of a physical object. Use observed_location_changes for
+        evidence-backed *observed* changes instead; never label them a pickup.
+        """
         if since is not None and since.tzinfo is None: raise ValueError("since must be timezone-aware")
         if until is not None and until.tzinfo is None: raise ValueError("until must be timezone-aware")
         if since is not None and until is not None and since>=until: raise ValueError("since must be earlier than until")
-        sightings=self.history(user_id=user_id,object_name=object_name,min_confidence=min_confidence,limit=limit); events=[]; previous=None
-        for current in reversed(sightings):
-            if previous is not None and current.location!=previous.location:
-                moved_at=current.observed_at
-                if moved_at.tzinfo is None: raise ValueError("physical-memory timestamps must be timezone-aware")
-                if (since is None or moved_at>=since) and (until is None or moved_at<until): events.append(MovementEvent(current.object_name,previous.location,current.location,moved_at.isoformat(),current.confidence,current.source_id,previous.evidence_id,current.evidence_id))
-            previous=current
-        return events
+        return []
+
     def before_location(self, *, user_id:str, object_name:str, location:str, min_confidence:float=.5, limit:int=20)->BeforeLocationAnswer|None:
+        """Fail closed: the legacy movement chain has no physical-instance proof."""
         target=location.strip().casefold()
         if not target: return None
-        for m in reversed(self.movement_history(user_id=user_id,object_name=object_name,min_confidence=min_confidence,limit=limit)):
-            if m.to_location.strip().casefold()==target: return BeforeLocationAnswer(m.object_name,m.from_location,m.to_location,m.moved_at,m.confidence,m.source_id,m.from_evidence_id,m.to_evidence_id)
         return None

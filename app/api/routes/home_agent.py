@@ -8,9 +8,12 @@ from app.api.dependencies import get_home_agent_capture_registry, get_home_agent
 from app.api.home_image_dependencies import get_home_agent_authenticated_image_ingest
 from app.models.user import UserPublic
 from app.services.home_agent.authenticated_image_ingest import AuthenticatedHomeImageIngest
+from app.services.home_agent.image_capture_bridge import _persisted_frame_id
+from app.services.home_agent.image_ingest import MAX_IMAGE_BYTES
 from app.services.home_agent.authenticated_query import AuthenticatedHomeAgentQuery
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
+from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
 from app.services.home_agent.observation_ingest import ObservationConsent, PHYSICAL_OBSERVATION_SCOPE
 from app.services.home_agent.query_service import HomeAgentQueryService
 from app.services.home_agent.vision_adapter import VisionDetection
@@ -33,6 +36,11 @@ class HistoryRequest(_StrictRequest):
 class MovementHistoryRequest(_StrictRequest):
     object_name: str = Field(min_length=1, max_length=200)
     min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    limit: int = Field(default=20, ge=1, le=100)
+
+class ObservedLocationChangesRequest(_StrictRequest):
+    object_name: str = Field(min_length=1, max_length=200)
+    min_confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     limit: int = Field(default=20, ge=1, le=100)
 
 class BeforeLocationRequest(MovementHistoryRequest):
@@ -88,6 +96,21 @@ class MovementEventResponse(BaseModel):
 class MovementHistoryResponse(BaseModel):
     movements: list[MovementEventResponse]
 
+class ObservedLocationChangeResponse(BaseModel):
+    instance_id: str
+    object_class: str
+    from_location: str
+    to_location: str
+    last_seen_from: datetime
+    first_seen_to: datetime
+    from_evidence_id: str
+    to_evidence_id: str
+    from_identity_evidence_id: str
+    to_identity_evidence_id: str
+
+class ObservedLocationChangesResponse(BaseModel):
+    changes: list[ObservedLocationChangeResponse]
+
 class BeforeLocationResponse(BaseModel):
     found: bool
     text: str | None = None
@@ -139,6 +162,23 @@ def movement_history(body: MovementHistoryRequest, service: HomeAgentQueryServic
     movements = AuthenticatedHomeAgentQuery(service=service, user=user).movement_history(object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit)
     return MovementHistoryResponse(movements=[MovementEventResponse(object_name=item.object_name, from_location=item.from_location, to_location=item.to_location, moved_at=item.moved_at, confidence=item.confidence, source_id=item.source_id, from_evidence_id=item.from_evidence_id, to_evidence_id=item.to_evidence_id) for item in movements])
 
+@router.post("/observed-location-changes", response_model=ObservedLocationChangesResponse)
+def observed_location_changes(body: ObservedLocationChangesRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> ObservedLocationChangesResponse:
+    """Only verified same-instance changes; class-only sightings never qualify."""
+    changes = AuthenticatedHomeAgentQuery(service=service, user=user).observed_location_changes(
+        object_name=body.object_name, min_confidence=body.min_confidence, limit=body.limit
+    )
+    return ObservedLocationChangesResponse(changes=[
+        ObservedLocationChangeResponse(
+            instance_id=item.instance_id, object_class=item.object_class,
+            from_location=item.from_location, to_location=item.to_location,
+            last_seen_from=item.last_seen_from, first_seen_to=item.first_seen_to,
+            from_evidence_id=item.from_evidence_id, to_evidence_id=item.to_evidence_id,
+            from_identity_evidence_id=item.from_identity_evidence_id,
+            to_identity_evidence_id=item.to_identity_evidence_id,
+        ) for item in changes
+    ])
+
 @router.post("/before-location", response_model=BeforeLocationResponse)
 def before_location(body: BeforeLocationRequest, service: HomeAgentQueryService = Depends(get_home_agent_query_service), user: UserPublic = Depends(get_current_user)) -> BeforeLocationResponse:
     answer = AuthenticatedHomeAgentQuery(service=service, user=user).before_location(object_name=body.object_name, location=body.location, min_confidence=body.min_confidence, limit=body.limit)
@@ -149,7 +189,12 @@ def before_location(body: BeforeLocationRequest, service: HomeAgentQueryService 
 @router.post("/capture-sessions", response_model=CaptureSessionResponse)
 def start_capture_session(body: StartCaptureSessionRequest, service: BoundedVisionCaptureService = Depends(get_home_agent_capture_service), registry: CaptureSessionRegistry = Depends(get_home_agent_capture_registry), user: UserPublic = Depends(get_current_user)) -> CaptureSessionResponse:
     session = service.start_session(user_id=user.user_id, source_id=body.source_id, ttl=timedelta(seconds=body.ttl_seconds))
-    registry.register(session)
+    try:
+        registry.register(session)
+    except PermissionError as exc:
+        # Account-erasure fences reject new sessions. Return a stable denial
+        # rather than leaking an internal exception as HTTP 500.
+        raise HTTPException(status_code=403, detail="Capture session cannot be started.") from exc
     return CaptureSessionResponse(session_id=session.session_id, source_id=session.source_id, started_at=session.started_at.isoformat(), expires_at=session.expires_at.isoformat())
 
 @router.post("/capture-detections", response_model=CaptureDetectionResponse)
@@ -158,18 +203,52 @@ def ingest_capture_detection(body: CaptureDetectionRequest, service: BoundedVisi
     try:
         session = registry.resolve(session_id=body.session_id, user_id=user.user_id, source_id=body.source_id, now=now)
         consent = ObservationConsent(user_id=user.user_id, source_id=session.source_id, scope=PHYSICAL_OBSERVATION_SCOPE, granted_at=session.started_at, expires_at=session.expires_at)
-        stored = service.ingest_detection(user_id=user.user_id, session=session, detection=VisionDetection(object_name=body.object_name, location=body.location, observed_at=body.observed_at, confidence=body.confidence, source_id=body.source_id, evidence_id=body.evidence_id), consent=consent, now=now)
+        ingest_kwargs = dict(
+            user_id=user.user_id, session=session,
+            detection=VisionDetection(
+                object_name=body.object_name, location=body.location,
+                observed_at=body.observed_at, confidence=body.confidence,
+                source_id=body.source_id, evidence_id=body.evidence_id,
+            ),
+            consent=consent, now=now,
+        )
+        # Only the shared registry is backed by a transactional writer.
+        # Legacy test/in-memory registries retain their original contract.
+        if isinstance(registry, PostgresCaptureSessionRegistry):
+            ingest_kwargs["capture_session_id"] = session.session_id
+        stored = service.ingest_detection(**ingest_kwargs)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
+    except ValueError as exc:
+        # Invalid observation timestamps or malformed capture data are client
+        # errors, not internal server failures. Do not expose private details.
+        raise HTTPException(status_code=422, detail="Invalid capture detection.") from exc
     return CaptureDetectionResponse(stored=stored)
 
 @router.post("/capture-images", response_model=CaptureImageResponse)
 async def ingest_capture_image(request: Request, session_id: str, source_id: str, location: str, observed_at: datetime, service: AuthenticatedHomeImageIngest = Depends(get_home_agent_authenticated_image_ingest), user: UserPublic = Depends(get_current_user)) -> CaptureImageResponse:
-    image_bytes = await request.body()
+    # Enforce the existing image-size cap while receiving, before decoding or detection.
+    # A declared Content-Length is not trusted; streamed chunks are counted directly.
+    image_buffer = bytearray()
+    async for chunk in request.stream():
+        if len(chunk) > MAX_IMAGE_BYTES - len(image_buffer):
+            raise HTTPException(status_code=413, detail="Image exceeds 10 MiB.")
+        image_buffer.extend(chunk)
+    image_bytes = bytes(image_buffer)
     try:
         result = service.ingest(session_id=session_id, user_id=user.user_id, source_id=source_id, image_bytes=image_bytes, location=location, observed_at=observed_at)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail="Capture session is missing, mismatched, or expired.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return CaptureImageResponse(stored=bool(result.get("stored", True)), frame_id=result.get("frame_id"), detection_ms=result.get("detection_ms"), ingestion_ms=result.get("ingestion_ms"))
+    try:
+        persisted_frame_id = _persisted_frame_id(result)
+    except ValueError as exc:
+        # A malformed internal store result must never be presented as retained evidence.
+        raise HTTPException(status_code=500, detail="Invalid image persistence result.") from exc
+    return CaptureImageResponse(
+        stored=persisted_frame_id is not None,
+        frame_id=result.get("frame_id"),
+        detection_ms=result.get("detection_ms"),
+        ingestion_ms=result.get("ingestion_ms"),
+    )

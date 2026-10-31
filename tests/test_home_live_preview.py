@@ -1,0 +1,504 @@
+"""Synthetic-only preview contract checks; never open a camera or load weights."""
+from types import SimpleNamespace
+
+import pytest
+
+from app.services.home_agent.live_preview import (
+    DEFAULT_LABELS, PreviewBox, Track, advance_with_optical_flow,
+    normalized_to_pixels, reconcile_tracks, suppress_duplicates,
+)
+
+
+def test_default_labels_within_current_detector_cap():
+    assert len(DEFAULT_LABELS) == 32
+    assert len(set(DEFAULT_LABELS)) == 32
+
+
+def test_real_home_detection_contract_scales_normalized_float_before_rounding():
+    detection = SimpleNamespace(object_class="water bottle", confidence=0.204,
+                                box=(0.25, 0.1, 0.75, 0.8))
+    assert normalized_to_pixels(detection, 1280, 720) == PreviewBox(
+        "water bottle", 0.204, (320, 72, 960, 576))
+
+
+def test_invalid_or_tiny_boxes_not_drawn():
+    detection = SimpleNamespace(object_class="bottle", confidence=0.2,
+                                box=(0.1, 0.1, 0.1, 0.3))
+    assert normalized_to_pixels(detection, 640, 480) is None
+    detection.box = (0.1, 0.1, 0.10001, 0.3)
+    assert normalized_to_pixels(detection, 640, 480) is None
+
+
+def test_same_label_overlapping_box_preserves_tentative_id():
+    original = {8: Track(8, PreviewBox("bottle", 0.5, (20, 20, 90, 100)), 2)}
+    current, next_id = reconcile_tracks(original, [PreviewBox("bottle", 0.6, (30, 22, 100, 102))], 3, 9)
+    assert list(current) == [8]
+    assert next_id == 9
+
+
+def test_new_class_or_nonoverlap_gets_new_id():
+    original = {8: Track(8, PreviewBox("bottle", 0.5, (20, 20, 90, 100)), 2)}
+    current, next_id = reconcile_tracks(original, [PreviewBox("cup", 0.6, (30, 22, 100, 102))], 3, 9)
+    assert list(current) == [9, 8]
+    assert current[8].observed_at == 2  # unmatched is last-seen, not observed now
+    assert next_id == 10
+
+
+def test_old_track_not_reused_after_age_limit():
+    original = {8: Track(8, PreviewBox("bottle", 0.5, (20, 20, 90, 100)), 2)}
+    current, _ = reconcile_tracks(original, [PreviewBox("bottle", 0.6, (20, 20, 90, 100))], 30, 9)
+    assert list(current) == [9]
+
+
+def test_flow_tracks_textured_synthetic_object_movement():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    rng = np.random.default_rng(42)
+    old = np.zeros((160, 240), dtype=np.uint8)
+    old[40:90, 50:100] = rng.integers(0, 255, (50, 50), dtype=np.uint8)
+    shifted = np.zeros_like(old)
+    shifted[45:95, 60:110] = old[40:90, 50:100]
+    tracks = {1: Track(1, PreviewBox("box", 0.9, (50, 40, 100, 90)), 0)}
+    advance_with_optical_flow(cv2, np, old, shifted, tracks)
+    assert tracks[1].flow_updated
+    x1, y1, x2, y2 = tracks[1].box.xyxy
+    assert abs(x1 - 60) <= 2 and abs(y1 - 45) <= 2
+    assert abs(x2 - 110) <= 2 and abs(y2 - 95) <= 2
+
+
+def test_flow_fails_safe_when_no_features():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    old = np.zeros((120, 160), dtype=np.uint8)
+    tracks = {1: Track(1, PreviewBox("bottle", 0.2, (20, 20, 80, 80)), 0)}
+    advance_with_optical_flow(cv2, np, old, old.copy(), tracks)
+    assert tracks[1].box.xyxy == (20, 20, 80, 80)
+    assert not tracks[1].flow_updated
+
+def test_unmatched_detection_is_bounded_last_seen_not_a_new_observation():
+    original = {7: Track(7, PreviewBox("bottle", 0.8, (10, 10, 40, 60)), 1)}
+    current, next_id = reconcile_tracks(original, [], 3, 8, max_age=4)
+    assert list(current) == [7]
+    assert current[7].observed_at == 1
+    current, _ = reconcile_tracks(current, [], 6, next_id, max_age=4)
+    assert current == {}
+
+
+def test_nonfinite_detection_rejected():
+    for invalid in [float("nan"), float("inf"), float("-inf")]:
+        obj = SimpleNamespace(object_class="bottle", confidence=0.6,
+                              box=(invalid, 0.2, 0.8, 0.9))
+        assert normalized_to_pixels(obj, 640, 480) is None
+        obj.box = (0.1, 0.2, 0.8, 0.9)
+        obj.confidence = invalid
+        assert normalized_to_pixels(obj, 640, 480) is None
+
+
+def test_duplicate_boxes_suppressed_without_deleting_distinct_objects():
+    detections = [
+        PreviewBox("bottle", 0.8, (10, 10, 50, 90)),
+        PreviewBox("bottle", 0.7, (11, 11, 51, 91)),
+        PreviewBox("cup", 0.6, (150, 20, 190, 80)),
+    ]
+    assert suppress_duplicates(detections) == [detections[0], detections[2]]
+
+
+def test_equal_score_overlapping_detections_choose_same_box_in_any_order():
+    first = PreviewBox("cup", 0.8, (10, 10, 60, 60))
+    second = PreviewBox("cup", 0.8, (11, 11, 61, 61))
+    assert suppress_duplicates([first, second]) == [first]
+    assert suppress_duplicates([second, first]) == [first]
+
+
+def test_equal_score_synonym_duplicates_choose_same_label_in_any_order():
+    specific = PreviewBox("water bottle", 0.8, (10, 10, 60, 60))
+    generic = PreviewBox("bottle", 0.8, (10, 10, 60, 60))
+    assert suppress_duplicates([specific, generic]) == [generic]
+    assert suppress_duplicates([generic, specific]) == [generic]
+
+
+def test_cross_label_same_box_suppressed_but_nested_box_retained():
+    detections = [
+        PreviewBox("water bottle", 0.8, (10, 10, 50, 90)),
+        PreviewBox("bottle", 0.7, (10, 10, 50, 90)),
+        PreviewBox("phone", 0.5, (15, 20, 30, 40)),
+    ]
+    assert suppress_duplicates(detections) == [detections[0], detections[2]]
+
+
+def test_stale_overlay_uses_last_detector_box_not_flow_drift():
+    from app.services.home_agent.live_preview import display_box
+    observed = PreviewBox("floor lamp", 0.8, (10, 10, 40, 80))
+    track = Track(7, observed, 0)
+    track.box = PreviewBox("floor lamp", 0.8, (30, 10, 60, 80))
+    assert display_box(track, 0.5).xyxy == (30, 10, 60, 80)
+    assert display_box(track, 2.0).xyxy == (10, 10, 40, 80)
+    assert track.last_detected_box == observed
+
+
+def test_stale_track_cannot_be_dragged_by_occluder_optical_flow():
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    rng = np.random.default_rng(42)
+    old = np.zeros((160, 240), dtype=np.uint8)
+    old[40:90, 50:100] = rng.integers(0, 255, (50, 50), dtype=np.uint8)
+    shifted = np.zeros_like(old)
+    shifted[45:95, 60:110] = old[40:90, 50:100]
+    track = Track(1, PreviewBox("floor lamp", 0.9, (50, 40, 100, 90)), 0)
+    advance_with_optical_flow(cv2, np, old, shifted, {1: track}, now=3.0)
+    assert track.box.xyxy == (50, 40, 100, 90)
+    assert not track.flow_updated
+
+def test_bottle_synonym_preserves_tentative_id_across_detector_label_changes():
+    original = {7: Track(7, PreviewBox("water bottle", 0.8, (10, 10, 50, 90)), 1)}
+    current, next_id = reconcile_tracks(
+        original, [PreviewBox("bottle", 0.9, (12, 12, 52, 92))], 2, 8
+    )
+    assert list(current) == [7]
+    assert next_id == 8
+
+
+def test_bottle_synonym_suppresses_near_duplicate_but_keeps_separate_bottle():
+    detections = [
+        PreviewBox("water bottle", 0.8, (10, 10, 50, 90)),
+        PreviewBox("bottle", 0.7, (14, 14, 54, 94)),
+        PreviewBox("bottle", 0.6, (90, 10, 130, 90)),
+    ]
+    assert suppress_duplicates(detections) == [detections[0], detections[2]]
+
+
+@pytest.mark.parametrize("scan_at, now, max_age, expected", [
+    (1.0, 3.0, 4.0, True),
+    (1.0, 5.0, 4.0, True),
+    (1.0, 5.001, 4.0, False),
+    (10.0, 9.0, 4.0, False),
+    (float("nan"), 5.0, 4.0, False),
+    (1.0, float("inf"), 4.0, False),
+    (1.0, 3.0, 0.0, False),
+])
+def test_delayed_inference_result_never_counts_as_live_detection(scan_at, now, max_age, expected):
+    from app.services.home_agent.live_preview import scan_result_is_fresh
+    assert scan_result_is_fresh(scan_at, now, max_age=max_age) is expected
+
+def test_malformed_detector_coordinates_fail_closed():
+    from types import SimpleNamespace
+    for malformed in (0.5, iter((0.1, 0.1, 0.8, 0.8)), object()):
+        detection = SimpleNamespace(
+            object_class="bottle", confidence=0.7, box=malformed
+        )
+        assert normalized_to_pixels(detection, 640, 480) is None
+    valid = SimpleNamespace(
+        object_class="bottle", confidence=0.7, box=(0.1, 0.1, 0.8, 0.8)
+    )
+    assert normalized_to_pixels(valid, 640, 480) is not None
+
+
+def test_nonfinite_optical_flow_is_ignored_without_crashing():
+    np = pytest.importorskip("numpy")
+
+    class StubFlow:
+        @staticmethod
+        def goodFeaturesToTrack(*args, **kwargs):
+            return np.array([[[20., 20.]], [[30., 30.]], [[40., 40.]]],
+                            dtype=np.float32)
+
+        @staticmethod
+        def calcOpticalFlowPyrLK(old, new, points, ignored):
+            moved = points.copy()
+            moved[:, :, 0] = float("nan")
+            return moved, np.ones((3, 1), dtype=np.uint8), None
+
+    before = PreviewBox("cup", 0.8, (10, 10, 70, 70))
+    track = Track(1, before, 0)
+    gray = np.zeros((100, 100), dtype=np.uint8)
+    advance_with_optical_flow(StubFlow(), np, gray, gray.copy(), {1: track})
+    assert track.box == before
+    assert not track.flow_updated
+
+
+def test_snapshot_private_permissions_and_no_overwrite(tmp_path):
+    import os
+    import stat
+    from app.services.home_agent.live_preview import save_private_snapshot
+
+    class StubCV2:
+        @staticmethod
+        def imencode(extension, frame):
+            assert extension == ".jpg"
+            return True, SimpleNamespace(tobytes=lambda: b"synthetic-image")
+
+    directory = tmp_path / "existing"
+    directory.mkdir(mode=0o755)
+    os.chmod(directory, 0o755)
+    destination = directory / "snapshot.jpg"
+    assert save_private_snapshot(StubCV2(), None, destination)
+    assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert destination.read_bytes() == b"synthetic-image"
+    with pytest.raises(FileExistsError):
+        save_private_snapshot(StubCV2(), None, destination)
+    assert destination.read_bytes() == b"synthetic-image"
+
+
+def test_snapshot_rejects_symlink_directory(tmp_path):
+    from app.services.home_agent.live_preview import save_private_snapshot
+
+    target = tmp_path / "target"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+
+    class StubCV2:
+        @staticmethod
+        def imencode(*args):
+            raise AssertionError("encoding must not run for symlink directory")
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        save_private_snapshot(StubCV2(), None, alias / "snapshot.jpg")
+    assert not (target / "snapshot.jpg").exists()
+
+
+def test_recording_reservation_is_private_and_never_overwrites(tmp_path):
+    import stat
+    from app.services.home_agent.live_preview import reserve_private_file
+
+    destination = tmp_path / "recording.mp4"
+    reserve_private_file(destination)
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    destination.write_bytes(b"keep-existing")
+    with pytest.raises(FileExistsError):
+        reserve_private_file(destination)
+    assert destination.read_bytes() == b"keep-existing"
+
+
+def test_recording_video_writer_keeps_reserved_file_private(tmp_path):
+    import stat
+    cv2 = pytest.importorskip("cv2")
+    np = pytest.importorskip("numpy")
+    from app.services.home_agent.live_preview import reserve_private_file
+
+    destination = tmp_path / "recording.mp4"
+    reserve_private_file(destination)
+    writer = cv2.VideoWriter(
+        str(destination), cv2.VideoWriter_fourcc(*"mp4v"), 20, (64, 64)
+    )
+    if not writer.isOpened():
+        pytest.skip("OpenCV build has no MP4 encoder")
+    try:
+        writer.write(np.zeros((64, 64, 3), dtype=np.uint8))
+    finally:
+        writer.release()
+    assert destination.stat().st_size > 0
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+def test_ambiguous_same_class_tracking_is_independent_of_detection_order():
+    """Reordered detector results must not exchange tentative on-screen IDs."""
+    previous = {
+        1: Track(1, PreviewBox("cup", 0.8, (0, 0, 100, 100)), 0),
+        2: Track(2, PreviewBox("cup", 0.8, (30, 0, 130, 100)), 0),
+    }
+    first = PreviewBox("cup", 0.8, (10, 0, 110, 100))
+    second = PreviewBox("cup", 0.7, (40, 0, 140, 100))
+    for ordered in ((first, second), (second, first)):
+        tracks, next_id = reconcile_tracks(previous, ordered, 1, 3)
+        assert {tid: track.box.xyxy for tid, track in tracks.items()} == {
+            1: first.xyxy, 2: second.xyxy
+        }
+        assert next_id == 3
+
+
+def test_extra_ambiguous_detection_gets_same_new_id_after_reordering():
+    previous = {5: Track(5, PreviewBox("cup", 0.9, (0, 0, 100, 100)), 0)}
+    closer = PreviewBox("cup", 0.8, (5, 0, 105, 100))
+    farther = PreviewBox("cup", 0.7, (20, 0, 120, 100))
+    for ordered in ((closer, farther), (farther, closer)):
+        tracks, next_id = reconcile_tracks(previous, ordered, 1, 6)
+        assert {tid: track.box.xyxy for tid, track in tracks.items()} == {
+            5: closer.xyxy, 6: farther.xyxy
+        }
+        assert next_id == 7
+
+def test_completed_inference_failure_is_not_a_camera_crash_or_observation():
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    failed = Future()
+    failed.set_exception(RuntimeError("synthetic detector error"))
+    assert completed_scan_result(failed) is None
+
+    cancelled = Future()
+    assert cancelled.cancel()
+    assert completed_scan_result(cancelled) is None
+
+    unfinished = Future()
+    assert completed_scan_result(unfinished) is None
+
+    success = Future()
+    success.set_result((1.0, []))
+    assert completed_scan_result(success) == (1.0, [])
+
+
+@pytest.mark.parametrize("payload", [
+    None, 42, (1.0,), (1.0, [], "extra"), (1.0, None), (1.0, 4),
+    (1.0, iter(())), (float("nan"), []), (float("inf"), []),
+    ("not-time", []), (True, []), (1.0, [None] * 101),
+])
+def test_completed_inference_rejects_malformed_success_payload(payload):
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    future = Future()
+    future.set_result(payload)
+    assert completed_scan_result(future) is None
+
+
+@pytest.mark.parametrize("payload", [
+    (1.0, []), (1, ()), (1.0, [None] * 100),
+])
+def test_completed_inference_accepts_valid_payload_shape(payload):
+    from concurrent.futures import Future
+    from app.services.home_agent.live_preview import completed_scan_result
+
+    future = Future()
+    future.set_result(payload)
+    assert completed_scan_result(future) == payload
+
+
+def test_supervised_preview_returns_after_normal_child_exit(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = 0
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+
+        def is_alive(self):
+            return False
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            assert target is preview.run_demo
+            assert kwargs == {"max_seconds": 3, "camera_index": 0}
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context() if mode == "spawn" else None)
+    preview.run_demo_supervised(max_seconds=3, startup_grace_seconds=2, camera_index=0)
+    assert events == ["start", ("join", 5), "close"]
+
+
+def test_supervised_preview_terminates_stalled_inference(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = None
+        alive = True
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+            if timeout == 2 and "terminate" in events:
+                self.alive = False
+
+        def is_alive(self):
+            return self.alive
+
+        def terminate(self):
+            events.append("terminate")
+
+        def kill(self):
+            raise AssertionError("terminate should have been sufficient")
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        preview.run_demo_supervised(max_seconds=4, startup_grace_seconds=2)
+    assert events == ["start", ("join", 6), "terminate", ("join", 2), "close"]
+
+
+def test_supervised_preview_escalates_to_kill_if_terminate_stalls(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = None
+        alive = True
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+            if "kill" in events:
+                self.alive = False
+
+        def is_alive(self):
+            return self.alive
+
+        def terminate(self):
+            events.append("terminate")
+
+        def kill(self):
+            events.append("kill")
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        preview.run_demo_supervised(max_seconds=4, startup_grace_seconds=2)
+    assert events == ["start", ("join", 6), "terminate", ("join", 2), "kill", ("join", 2), "close"]
+
+
+def test_supervised_preview_reports_failed_child(monkeypatch):
+    import app.services.home_agent.live_preview as preview
+
+    events = []
+
+    class Child:
+        exitcode = 1
+
+        def start(self):
+            events.append("start")
+
+        def join(self, timeout):
+            events.append(("join", timeout))
+
+        def is_alive(self):
+            return False
+
+        def close(self):
+            events.append("close")
+
+    class Context:
+        def Process(self, *, target, kwargs):
+            return Child()
+
+    monkeypatch.setattr(preview, "get_context", lambda mode: Context())
+    with pytest.raises(RuntimeError, match="exited unsuccessfully"):
+        preview.run_demo_supervised(max_seconds=3, startup_grace_seconds=2)
+    assert events == ["start", ("join", 5), "close"]

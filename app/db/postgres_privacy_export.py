@@ -32,7 +32,7 @@ PORTABLE_TABLES = (
     "youtube_connector_metrics", "import_runs", "agent_runs", "ingest_agent_rules",
     "concept_capsules", "creator_profiles", "learning_edges", "intelligence_events",
     "home_object_sightings", "home_image_evidence", "home_physical_objects",
-    "home_image_observations", "connector_oauth_tokens",
+    "home_image_observations", "home_capture_sessions", "connector_oauth_tokens",
 )
 # Exclusions happen in SQL, before private bytes/credentials reach Python.
 EXCLUDED_COLUMNS = {

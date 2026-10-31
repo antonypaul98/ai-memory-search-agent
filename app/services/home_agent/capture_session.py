@@ -98,6 +98,7 @@ class BoundedVisionCaptureService:
         detection: VisionDetection,
         consent: ObservationConsent,
         now: datetime | None = None,
+        capture_session_id: str | None = None,
     ) -> bool:
         resolved_now = now or datetime.now(timezone.utc)
         if not session.allows(
@@ -108,9 +109,10 @@ class BoundedVisionCaptureService:
         ):
             raise PermissionError("capture session is missing, mismatched, or expired")
 
-        return self._adapter.ingest_detection(
-            user_id=user_id,
-            detection=detection,
-            consent=consent,
-            now=resolved_now,
-        )
+        if capture_session_id is not None and capture_session_id != session.session_id:
+            raise PermissionError("capture session ID does not match server-issued session")
+        kwargs = dict(user_id=user_id, detection=detection, consent=consent,
+                      now=resolved_now)
+        if capture_session_id is not None:
+            kwargs["capture_session_id"] = capture_session_id
+        return self._adapter.ingest_detection(**kwargs)

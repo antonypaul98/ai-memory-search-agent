@@ -7,6 +7,14 @@ on:
       - 'app/db/postgres_home*'
       - 'requirements-home-vision.txt'
       - 'scripts/home_vision_smoke.py'
+      - 'scripts/home_recorded_replay.py'
+      - 'scripts/home_recorded_ground_truth.py'
+      - 'scripts/home_recorded_pixel_audit.py'
+      - 'tests/test_home_recorded_pixel_audit.py'
+      - 'tests/test_home_recorded_ground_truth.py'
+      - 'scripts/home_public_motion_probe.py'
+      - 'tests/test_home_recorded_replay.py'
+      - 'tests/test_home_public_motion_probe.py'
       - '.github/workflows/home-vision-smoke.yml'
 permissions:
   contents: read
@@ -31,11 +39,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
-          cache-dependency-path: requirements-home-vision.txt
+          # Avoid restoring multi-GB cached GPU wheels on the bounded runner.
+      - name: Install CPU-only PyTorch (no CUDA wheels)
+        run: python -m pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
       - name: Install vision dependencies
-        run: python -m pip install -r requirements-home-vision.txt
+        run: python -m pip install --no-cache-dir -r requirements-home-vision.txt
       - name: Trained image detection, persistence and last-seen retrieval
         env:
           MEMORY_AGENT_TEST_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/home_vision_test
         run: python scripts/home_vision_smoke.py
+      - name: Offline visual-candidate regressions (Python 3.11, OpenCV)
+        run: python -m pytest -q tests/test_home_visual_instance_candidate.py tests/test_home_recorded_replay.py tests/test_home_recorded_ground_truth.py tests/test_home_recorded_pixel_audit.py tests/test_home_public_motion_probe.py
+      - name: Licensed bottle detection probe (diagnostic, not acceptance)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: python -m scripts.home_public_motion_probe --fixture bottle --review-output public-bottle-review.jpg
+      - name: Upload licensed public-frame review only (no household footage)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-public-motion-frame-review
+          path: public-bottle-review.jpg
+          if-no-files-found: ignore
+          retention-days: 1

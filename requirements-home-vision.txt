@@ -3,3 +3,5 @@ Pillow>=10.0.0
 transformers>=4.40.0,<6
 # OWL-ViT's image processor may use torchvision in recent Transformers releases.
 torchvision>=0.19.0
+# GUI-capable OpenCV for local preview and offline ORB candidate matching.
+opencv-python>=4.10,<5

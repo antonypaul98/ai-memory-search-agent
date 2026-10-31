@@ -24,6 +24,68 @@ from app.services.home_agent.query_service import HomeAgentQueryService
 MODEL_REVISION = "cbc355fb364588351c5d51c7f74465e8e7ec6f72"
 
 
+def run_one_camera_photo_replay(*, image_path: Path, detector) -> dict:
+    """Repeatable *software* replay of real photo detections through event evidence.
+
+    The second scan is deliberately an empty simulated detector result; the
+    third reuses the same public photo. This does NOT prove real camera exit,
+    motion, or physical-instance identity.
+    """
+    from tempfile import TemporaryDirectory
+    from PIL import Image
+    from app.services.home_agent.frame_inventory import FrameInventory
+    from app.services.home_agent.frame_event_log import PrivateFrameEventLog
+    from app.services.home_agent.frame_evidence import PrivateFrameEvidenceStore
+    from app.services.home_agent.live_preview import (
+        normalized_to_pixels, reconcile_tracks, suppress_duplicates,
+    )
+
+    with Image.open(image_path) as original:
+        image = original.convert("RGB")
+    width, height = image.size
+    detections = detector.detect(image)
+    boxes = suppress_duplicates([
+        box for item in detections
+        if (box := normalized_to_pixels(item, width, height)) is not None
+    ])
+    assert boxes, "trained model produced no public-photo frame detections"
+    inventory = FrameInventory()
+    tracks, next_id = reconcile_tracks({}, boxes, 1.0, 1)
+    with TemporaryDirectory(prefix="home-one-camera-replay-") as root:
+        directory = Path(root)
+        evidence = PrivateFrameEvidenceStore(directory / "events-evidence")
+        with PrivateFrameEventLog(directory / "events.jsonl", camera_id="public-photo-replay",
+                                  room_name="synthetic-single-room") as journal:
+            # One trained real-photo scan, one *simulated* missing scan, then
+            # another trained observation of the identical public photo.
+            for scan_at, visible_tracks in (
+                (1.0, tracks), (2.0, {}),
+                (3.0, reconcile_tracks(tracks, boxes, 3.0, next_id)[0]),
+            ):
+                events = inventory.update(visible_tracks, scan_at=scan_at,
+                                          width=width, height=height)
+                references = evidence.record_scan(image=image, visible=inventory.visible,
+                                                  events=events)
+                journal.append_scan(scan_at=scan_at, visible=inventory.visible,
+                                    events=events, evidence_files=references)
+        rows = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+        assert len(rows) == 3 and rows[0]["visible"] and rows[1]["visible"] == []
+        assert rows[2]["visible"], "public-photo reappearance should be visible"
+        statuses = [[event["status"] for event in row["events"]] for row in rows]
+        assert "VISIBLE" in statuses[0]
+        assert "NOT_VISIBLE" in statuses[1] or "POSSIBLE_EXIT" in statuses[1]
+        assert "REAPPEARED_TENTATIVE" in statuses[2]
+        for row in rows:
+            for event in row["events"]:
+                assert event["identity_verified"] is False
+                ref = event["evidence_image"]
+                assert ref and (directory / ref).is_file(), "event image link missing"
+        return {"result": "passed", "source": "pinned_public_photo",
+                "missing_scan": "simulated", "reentry_identity": "tentative",
+                "real_camera": False, "statuses": statuses,
+                "event_images": sum(len(row["events"]) for row in rows)}
+
+
 def main():
     if not os.getenv("MEMORY_AGENT_TEST_POSTGRES_DSN"):
         raise RuntimeError("a disposable MEMORY_AGENT_TEST_POSTGRES_DSN is required")
@@ -32,6 +94,8 @@ def main():
     image_path = hf_hub_download("huggingface/documentation-images", "coco_sample.png", repo_type="dataset",
                                  revision="541575dc4c26c063abbd2a259c740835e88a3e6d")
     detector = LocalOwlViTDetector(model_path, labels=["cat", "remote control"], threshold=.2)
+    print(json.dumps({"one_camera_event_replay": run_one_camera_photo_replay(
+        image_path=Path(image_path), detector=detector)}))
     factory = get_postgres_connection_factory(Settings(postgres_dsn_env="MEMORY_AGENT_TEST_POSTGRES_DSN"))
     store = PostgresHomeImageStore(factory)
     tenant = "trained-vision-smoke-" + uuid4().hex
@@ -56,28 +120,33 @@ def main():
         assert restarted.get_image(user_id=tenant, frame_id=provenance["frame_id"])
         assert restarted.get_image(user_id=tenant+"-other", frame_id=provenance["frame_id"]) is None
 
-        movements = query.movement_history(user_id=tenant, object_name="cat", min_confidence=.2, limit=20)
-        assert len(movements) == 1, "expected exactly one physical movement transition"
-        movement = movements[0]
-        assert movement.from_location == "demo office"
-        assert movement.to_location == "demo living room"
-        assert movement.from_evidence_id != movement.to_evidence_id
-        movement_provenance = restarted.describe_observation(
-            user_id=tenant, observation_id=movement.to_evidence_id)
-        assert movement_provenance is not None
-        # Multiple valid detections can exist in the destination frame. Movement
-        # evidence need not be the exact detection selected by where_is(); what
-        # matters is that the transition's own evidence is retained and scoped.
-        assert restarted.get_image(user_id=tenant, frame_id=movement_provenance["frame_id"])
-        assert restarted.get_image(user_id=tenant+"-other", frame_id=movement_provenance["frame_id"]) is None
-        assert query.movement_history(user_id=tenant+"-other", object_name="cat", min_confidence=.2, limit=20) == []
+        # Two class-level detections at different locations do not establish
+        # that the same physical cat moved. The legacy movement query must
+        # fail closed until independent instance-identity evidence is present.
+        assert query.movement_history(
+            user_id=tenant, object_name="cat", min_confidence=.2, limit=20
+        ) == [], "class-only observations must not assert a physical movement"
+        assert query.before_location(
+            user_id=tenant, object_name="cat",
+            location="demo living room", min_confidence=.2
+        ) is None, "class-only observations must not assert a prior location"
+        assert query.observed_location_changes(
+            user_id=tenant, object_name="cat", min_confidence=.9
+        ) == [], "unverified instance associations must not produce changes"
+        assert query.observed_location_changes(
+            user_id=tenant+"-other", object_name="cat", min_confidence=.9
+        ) == [], "cross-tenant verified instance observations must remain isolated"
+        assert query.movement_history(
+            user_id=tenant+"-other", object_name="cat",
+            min_confidence=.2, limit=20
+        ) == []
 
         print(json.dumps({"result": "passed", "model_revision": MODEL_REVISION,
             "detector_id": detector.detector_id, "location": answer.location,
             "confidence": answer.confidence, "detection_ms": result["detection_ms"],
             "ingestion_ms": result["ingestion_ms"], "evidence_linked": True,
-            "movement_history": {"from": movement.from_location, "to": movement.to_location,
-                "tenant_isolated": True}}))
+            "class_only_movement_rejected": True,
+            "verified_instance_changes": 0, "tenant_isolated": True}))
     finally:
         for frame_id in frames:
             store.delete_image(user_id=tenant, frame_id=frame_id)

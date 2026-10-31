@@ -15,6 +15,7 @@ from app.services.context_router import ContextRouter, LocalMemoryContextProvide
 from app.services.feedback_service import FeedbackService
 from app.services.health_service import HealthService
 from app.services.home_agent.capture_registry import CaptureSessionRegistry
+from app.services.home_agent.postgres_capture_registry import PostgresCaptureSessionRegistry
 from app.services.home_agent.capture_session import BoundedVisionCaptureService
 from app.services.home_agent.observation_ingest import HomeObservationIngestService
 from app.services.home_agent.query_service import HomeAgentQueryService
@@ -23,8 +24,6 @@ from app.services.ingest_service import IngestService
 from app.services.recommendation_service import RecommendationService
 from app.services.search_service import SearchService
 
-
-_HOME_AGENT_CAPTURE_REGISTRY = CaptureSessionRegistry()
 
 
 def get_app_settings() -> Settings:
@@ -108,11 +107,18 @@ def get_home_agent_query_service() -> HomeAgentQueryService:
 
 def get_home_agent_capture_service() -> BoundedVisionCaptureService:
     """Provide bounded, consent-gated Home Agent vision capture control."""
-    ingest_service = HomeObservationIngestService(_get_home_agent_physical_memory_store())
+    # The capture route must never retain structured observations without the
+    # same-transaction session guard used by raw-image capture.
+    connection_factory = get_postgres_connection_factory(get_settings())
+    registry = PostgresCaptureSessionRegistry(connection_factory)
+    store = PostgresHomeImageStore(connection_factory, capture_registry=registry)
+    ingest_service = HomeObservationIngestService(store)
     adapter = ConsentGatedVisionAdapter(ingest_service)
     return BoundedVisionCaptureService(adapter)
 
 
 def get_home_agent_capture_registry() -> CaptureSessionRegistry:
-    """Provide the process-local server-owned capture-session registry."""
-    return _HOME_AGENT_CAPTURE_REGISTRY
+    """Resolve server-owned capture sessions across API workers in PostgreSQL."""
+    return PostgresCaptureSessionRegistry(
+        get_postgres_connection_factory(get_settings())
+    )

@@ -40,7 +40,37 @@ def export_user_home_physical_data(
                ORDER BY observation_id""",
             (user_id,),
         ).fetchall()
+        # Optional tables are absent in older deployments. Export only
+        # tenant-scoped metadata, never raw retained image bytes.
+        associations = (
+            conn.execute("""
+                SELECT observation_id, instance_id, identity_evidence_id,
+                       identity_confidence
+                FROM home_verified_instance_associations
+                WHERE user_id = %s ORDER BY observation_id
+            """, (user_id,)).fetchall()
+            if table_exists(conn, "home_verified_instance_associations") else []
+        )
+        consents = (
+            conn.execute("""
+                SELECT source_id, granted_at, expires_at, revoked_at
+                FROM home_instance_identity_consents
+                WHERE user_id = %s ORDER BY source_id
+            """, (user_id,)).fetchall()
+            if table_exists(conn, "home_instance_identity_consents") else []
+        )
+        sessions = (
+            conn.execute("""
+                SELECT session_id, source_id, started_at, expires_at, revoked_at
+                FROM home_capture_sessions
+                WHERE user_id = %s ORDER BY started_at, session_id
+            """, (user_id,)).fetchall()
+            if table_exists(conn, "home_capture_sessions") else []
+        )
     return {
+        "capture_sessions": [dict(row) for row in sessions],
+        "verified_instance_associations": [dict(row) for row in associations],
+        "instance_identity_consents": [dict(row) for row in consents],
         "sightings": [dict(row) for row in sightings],
         "image_evidence": [dict(row) for row in evidence],
         "physical_objects": [dict(row) for row in objects],
@@ -56,6 +86,26 @@ def delete_user_home_physical_data(
     """Atomically erase exactly one tenant's Home physical-memory rows and image bytes."""
     user_id = _required_user_id(user_id)
     with connection_factory() as conn:
+        # Remove shared session metadata even when no images were retained.
+        # Account erasure fences new writes before this transaction; deleting
+        # session rows also waits for any in-flight image-write row locks.
+        session_count = _delete_count(
+            conn,
+            "DELETE FROM home_capture_sessions WHERE user_id = %s",
+            user_id,
+        )
+        # Explicitly remove tenant identity links and source grants, including
+        # grants that have no sightings. The grant table has no sighting FK.
+        association_count = _delete_count(
+            conn,
+            "DELETE FROM home_verified_instance_associations WHERE user_id = %s",
+            user_id,
+        )
+        consent_count = _delete_count(
+            conn,
+            "DELETE FROM home_instance_identity_consents WHERE user_id = %s",
+            user_id,
+        )
         observation_count = _delete_count(
             conn,
             "DELETE FROM home_image_observations WHERE user_id = %s",
@@ -77,6 +127,9 @@ def delete_user_home_physical_data(
             user_id,
         )
     return {
+        "capture_sessions": session_count,
+        "verified_instance_associations": association_count,
+        "instance_identity_consents": consent_count,
         "image_observations": observation_count,
         "image_evidence": evidence_count,
         "physical_objects": object_count,

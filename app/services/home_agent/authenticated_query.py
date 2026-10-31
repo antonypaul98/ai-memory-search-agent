@@ -23,6 +23,12 @@ class AuthenticatedHomeAgentQuery:
         local_now=resolved_now.astimezone(ZoneInfo(self.user.timezone_name)); local_start=datetime.combine(local_now.date(),time.min,tzinfo=local_now.tzinfo); local_end=local_start+timedelta(days=1)
         return self.service.where_is_between(user_id=self.user.user_id,object_name=object_name,since=local_start,until=local_end,min_confidence=min_confidence,limit=limit)
     def history(self, *, object_name:str, min_confidence:float=0.0, limit:int=20)->list[ObjectSighting]: return self.service.history(user_id=self.user.user_id,object_name=object_name,min_confidence=min_confidence,limit=limit)
+    def observed_location_changes(self, *, object_name: str, min_confidence: float = 0.9, limit: int = 20):
+        """Only authenticated-tenant verified instance location changes."""
+        return self.service.observed_location_changes(
+            user_id=self.user.user_id, object_name=object_name,
+            min_confidence=min_confidence, limit=limit,
+        )
     def movement_history(self, *, object_name:str, min_confidence:float=.5, limit:int=20, since:datetime|None=None, until:datetime|None=None)->list[MovementEvent]:
         return self.service.movement_history(user_id=self.user.user_id,object_name=object_name,min_confidence=min_confidence,limit=limit,since=since,until=until)
     def before_location(self, *, object_name:str, location:str, min_confidence:float=.5, limit:int=20)->BeforeLocationAnswer|None:
