@@ -155,9 +155,11 @@ def test_replay_to_ground_truth_audit_on_synthetic_boundary_crossing(tmp_path):
     from scripts.home_recorded_ground_truth import audit_ground_truth
 
     video = tmp_path / "synthetic-crossing.avi"
-    positions = [180, 250, None, 250, 180]
-    boxes = [[180, 65, 246, 121], [250, 65, 300, 121], None,
-             [250, 65, 300, 121], [180, 65, 246, 121]]
+    # Overlap is required for the existing tentative IoU-based track to
+    # survive the boundary movement; otherwise a new ID cannot prove return.
+    positions = [210, 250, None, 250, 210]
+    boxes = [[210, 65, 276, 121], [250, 65, 300, 121], None,
+             [250, 65, 300, 121], [210, 65, 276, 121]]
     states = ["VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN", "VISIBLE"]
     make_video(video, positions)
     output = tmp_path / "private"
@@ -180,6 +182,7 @@ def test_replay_to_ground_truth_audit_on_synthetic_boundary_crossing(tmp_path):
     }), encoding="utf-8")
     report = audit_ground_truth(video_path=video, annotations_path=annotations,
                                 journal_path=output / "events.jsonl")
+    assert result["complete_transition_sequence_observed"] is True
     assert report["scans_compared"] == 5
     assert report["source_hash_matched"] is True
     assert report["reviewer_claims_frame_exit_return"] is True
