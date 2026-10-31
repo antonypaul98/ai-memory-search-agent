@@ -94,8 +94,10 @@ Run after replay (with its private journal still present):
 
 The audit compares annotated visibility with journal detections, checks
 box overlap, detects false absences and unexpected detections, and checks
-referenced private JPEG crops by decoding bounded image pixels, without proving
-the pixels correspond to the source frame or the correct physical object. It rejects
+referenced private JPEG crops by decoding bounded image pixels. The separate
+pixel diagnostic below compares those crops against the decoded source frames;
+this ground-truth command alone does not establish pixel correspondence or
+physical identity. It rejects
 mismatched annotation/video or journal/video hashes, inconsistent source frame
 sampling, incomplete scan annotations, unreviewed or non-fixed camera claims,
 and unsafe evidence paths. Older unbound journals must be replayed from the
@@ -103,3 +105,31 @@ original source video; do not retrofit a hash into historical evidence. A review
 not independently authenticated, and the audit never automatically marks
 the demo, physical identity or physical camera as accepted. Inspect actual
 crops and ambiguous identities separately before any approval.
+
+
+## Optional source-frame-to-JPEG pixel diagnostic
+
+After the ground-truth audit, run the separate read-only crop correspondence
+check on the same video and private replay journal:
+
+    python -m scripts.home_recorded_pixel_audit \
+      --video /path/to/consented-room-video.mp4 \
+      --journal "$HOME/PrivateHomeAgent/replay-001/events.jsonl"
+
+The diagnostic decodes the recorded source frames and reconstructs the
+detector-box crop, including the immediately preceding confirmed crop for a
+NOT_VISIBLE/POSSIBLE_EXIT event. It compares decoded private JPEG pixels using
+a bounded mean absolute RGB error (default 22/255 per channel) to tolerate
+JPEG compression. It reports matched, mismatched and unverifiable scan
+numbers. A missing or duplicate reference, source hash mismatch, invalid
+sampling, unsafe image path, malformed source box or non-private crop fails
+closed. No pixels are exported, and no model or camera is opened.
+
+This is a *diagnostic*, not a cryptographic signature or proof that a
+reviewer's annotation is correct. Similar-looking but different crops may
+pass a tolerant pixel comparison. A positive pixel_correspondence_complete
+requires at least one evidence reference and zero mismatches/unverifiable
+references, but automatic_demo_acceptance, physical_identity_verified and
+physical_camera_tested remain false. Human inspection of the real source
+frames and crops, the privacy/retention gates, independent review and
+separate physical camera acceptance remain required.
