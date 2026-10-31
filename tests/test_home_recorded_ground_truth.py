@@ -4,15 +4,42 @@ import json
 from pathlib import Path
 
 import pytest
+cv2 = pytest.importorskip("cv2")
+np = pytest.importorskip("numpy")
 from PIL import Image
 from scripts.home_recorded_ground_truth import audit_ground_truth
 
 STATES = ["VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN", "VISIBLE"]
 
 
+def _write_fixture_video(path, states):
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 5, (200, 200))
+    if not writer.isOpened():
+        pytest.skip("MJPG video writer unavailable")
+    try:
+        for state in states:
+            frame = np.zeros((200, 200, 3), dtype=np.uint8)
+            if state != "OUT_OF_FRAME":
+                cv2.rectangle(frame, (10, 10), (50, 50), (0, 0, 255), -1)
+            writer.write(frame)
+    finally:
+        writer.release()
+
+
+def _rebind_source_digest(paths):
+    digest = hashlib.sha256(paths[0].read_bytes()).hexdigest()
+    annotation = json.loads(paths[1].read_text())
+    annotation["video_sha256"] = digest
+    paths[1].write_text(json.dumps(annotation))
+    rows = [json.loads(line) for line in paths[2].read_text().splitlines()]
+    for row in rows:
+        row["recorded_video"]["sha256"] = digest
+    paths[2].write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+
+
 def make_inputs(tmp_path, *, states=STATES, detected=None, box=None):
-    video = tmp_path / "sample.mp4"
-    video.write_bytes(b"fixture-only-not-real-video")
+    video = tmp_path / "sample.avi"
+    _write_fixture_video(video, states)
     annotation = tmp_path / "annotations.json"
     journal = tmp_path / "events.jsonl"
     if detected is None:
@@ -48,6 +75,7 @@ def test_claimed_crossing_still_not_automatically_accepted(tmp_path):
     report = audit(make_inputs(tmp_path))
     assert report["reviewer_claims_frame_exit_return"] is True
     assert not report["missed_visible_scans"] and not report["unexpected_out_of_frame_detections"]
+    assert report["sampled_source_frames_decoded"] is True
     assert report["automatic_demo_acceptance"] is False
     assert report["physical_identity_verified"] is False
 
@@ -79,6 +107,31 @@ def test_long_absence_with_distinct_return_not_rejected_by_track_id(tmp_path):
 def test_missing_crossing_not_claimed(tmp_path):
     report = audit(make_inputs(tmp_path, states=["VISIBLE", "OUT_OF_FRAME", "VISIBLE"]))
     assert not report["reviewer_claims_frame_exit_return"]
+
+
+def test_source_must_decode_even_with_matching_digest(tmp_path):
+    paths = make_inputs(tmp_path)
+    paths[0].write_bytes(b"fixture-only-not-real-video")
+    _rebind_source_digest(paths)
+    with pytest.raises(ValueError, match="source video cannot be decoded"):
+        audit(paths)
+
+
+def test_source_must_contain_every_annotated_frame(tmp_path):
+    paths = make_inputs(tmp_path)
+    _write_fixture_video(paths[0], ["VISIBLE"])
+    _rebind_source_digest(paths)
+    with pytest.raises(ValueError, match="source video missing decodable annotated frame"):
+        audit(paths)
+
+
+def test_annotation_box_must_fit_decoded_frame(tmp_path):
+    paths = make_inputs(tmp_path)
+    annotation = json.loads(paths[1].read_text())
+    annotation["samples"][0]["box_xyxy"] = [10, 10, 500, 500]
+    paths[1].write_text(json.dumps(annotation))
+    with pytest.raises(ValueError, match="annotation box exceeds decoded source frame"):
+        audit(paths)
 
 
 def test_mismatched_video_rejected(tmp_path):

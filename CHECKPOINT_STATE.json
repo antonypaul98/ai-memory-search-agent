@@ -3,27 +3,27 @@
   "current_checkpoint": "Home local annotated live preview (software-only checkpoint)",
   "active_branch": "home-vision/live-preview-synthetic",
   "main_sha_at_start": "ac912722d94208a398d2f3c3cbbf91ca56256376",
-  "current_branch_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+  "current_branch_sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
   "sha_semantics": "observed_* and current_branch_sha are immutable pre-edit observations, not the SHA of the containing commit. Resolve current_repository_sha at runtime with the command; preflight prints it. CI receipts apply only to their recorded SHA.",
-  "branch_remote_status": "Main ac912722; HOME draft PR #399 head 9bd79c74 before provenance source/test/docs publication; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
-  "local_test_status": "Prior 14 synthetic ground-truth cases passed isolated Python 3.13.5; new provenance tests not run locally; exact-head CI required. No physical Mac test.",
+  "branch_remote_status": "Main ac912722; HOME draft PR #399 at pre-edit head 3f733897; HOME writer/JARVIS follower; no merge/handoff; Mac worktrees unavailable/uninspected.",
+  "local_test_status": "Isolated Linux OpenCV 4.13 prototype decoded 5/5 real MJPG frames, rejected missing frame and invalid source; modified repository tests not run locally. New exact-head CI required; physical camera not run.",
   "pr_number": 399,
-  "ci_status": "At prior head 9bd79c74 Core #41077716424 SUCCESS 1831 passed/8 skipped; Home #41077716231 SUCCESS 43 focused plus trained-vision/Postgres. New provenance commit exact-head CI pending.",
+  "ci_status": "Prior exact head 3f733897 Core #41187310317 SUCCESS (1839 passed/8 skipped), Home #41187310330 SUCCESS (67 focused); new frame-decoding change exact-head CI pending.",
   "merge_status": "HOME PR #399 OPEN DRAFT UNMERGED; no submitted reviews/approvals",
   "external_acceptance_required": [
     "physical Mac camera: pending; separate from software/simulated acceptance"
   ],
-  "known_blocker": "No independently annotated real fixed-camera exit/reentry footage. Automatic retention expiry, backups/copies, noncooperating writer/directory races, review approvals and physical Mac acceptance remain outstanding.",
-  "next_action": "Verify new provenance exact-head Core/Home CI, then obtain and annotate consented/licensed fixed-camera exit/reentry video, replay and audit with bound journal and crop inspection; finish privacy/approval gates; physical Mac separate.",
+  "known_blocker": "No independently annotated real fixed-camera exit/reentry footage. Crop-to-source pixel matching, automatic evidence expiry, backup/copy erasure, noncooperating writer races, review approvals and physical Mac acceptance remain outstanding.",
+  "next_action": "Verify exact-head Core and Home smoke CI for source-frame decode audit; then license-screen and annotate genuine fixed-camera exit/reentry footage, compare detector output and crops; retain privacy/approval/hardware gates.",
   "feature_checkpoint_advanced": false,
   "diagnostic_import": "app",
   "diagnostic_postgres_variables": [
     "MEMORY_AGENT_TEST_POSTGRES_DSN"
   ],
   "schema_version": 2,
-  "observed_at_utc": "2026-10-30T17:57:15Z",
-  "observed_branch_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
-  "observed_feature_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+  "observed_at_utc": "2026-10-31T09:59:08Z",
+  "observed_branch_sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
+  "observed_feature_sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
   "current_repository_sha": null,
   "current_repository_sha_command": "git rev-parse HEAD",
   "prior_local_test_receipt": {
@@ -34,14 +34,14 @@
   "pr_state": {
     "number": 399,
     "state": "open_draft",
-    "head_sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+    "head_sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
     "url": "https://github.com/antonypaul98/ai-memory-search-agent/pull/399",
     "merge_commit_sha": null
   },
   "ci_state": {
     "pr_run": {
-      "id": 41077716424,
-      "sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+      "id": 41187310317,
+      "sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -54,8 +54,8 @@
       "conclusion": "success"
     },
     "home_vision_smoke": {
-      "id": 41077716231,
-      "sha": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
+      "id": 41187310330,
+      "sha": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
       "event": "pull_request",
       "status": "completed",
       "conclusion": "success"
@@ -63,11 +63,11 @@
   },
   "stabilization_scope": "J05 bounded software slice; single shared-repository writer; no camera access",
   "last_session_exit": {
-    "BLOCKED_LAYER": "Real footage and privacy/review/hardware acceptance gates",
-    "BLOCKER": "Real fixed-camera annotated footage unavailable; privacy and approvals pending.",
-    "SAFE_WORK_COMPLETED": "Prepared bounded recorded-video/journal provenance binding, new negative tests, and docs; exact-head CI required. No merge, camera or handoff.",
-    "REMOTE_SHA": "9bd79c74abd1e1d7754f3736529f9c6bf107dfb3",
-    "NEXT_ACTION": "Verify new provenance exact-head Core/Home CI, then obtain and annotate consented/licensed fixed-camera exit/reentry video, replay and audit with bound journal and crop inspection; finish privacy/approval gates; physical Mac separate."
+    "BLOCKED_LAYER": "Real fixed-camera footage and privacy/review/hardware acceptance gates",
+    "BLOCKER": "No license/consent-screened annotated real fixed-camera exit/reentry clip; local Mac worktrees inaccessible.",
+    "SAFE_WORK_COMPLETED": "Added bounded decoded source-frame verification and box dimension checks with synthetic MJPG negative regressions. Isolated decoder prototype passed; exact-head repository CI pending. No merge or hardware acceptance.",
+    "REMOTE_SHA": "3f733897fba830d00cd2ef346cf6df0149aa13e7",
+    "NEXT_ACTION": "Verify exact-head Core and Home smoke CI for source-frame decode audit; then license-screen and annotate genuine fixed-camera exit/reentry footage, compare detector output and crops; retain privacy/approval/hardware gates."
   },
   "checkpoint_status": "IN_PROGRESS",
   "writer": "HOME",

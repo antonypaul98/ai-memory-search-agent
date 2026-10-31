@@ -1,7 +1,8 @@
 """Offline comparison of reviewed fixed-camera frames with Home's replay journal.
 
 Annotations are external claims, not independent proof of physical identity.
-No camera, model or API is used; private JPEG crops are decoded but not matched to video frames.
+No camera, model or API is used. Sampled source frames and private JPEGs are decoded,
+but annotation truth, crop-to-source pixels and physical identity are not verified.
 """
 from __future__ import annotations
 
@@ -68,6 +69,39 @@ def _private_jpeg_decodes(path: Path) -> bool:
             os.close(fd)
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _decoded_sample_dimensions(video_path: Path, frame_indices: list[int]) -> dict[int, tuple[int, int]]:
+    """Decode actual sampled frames, not just container metadata or a matching hash."""
+    import cv2
+
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        capture.release()
+        raise ValueError("source video cannot be decoded")
+    targets = set(frame_indices)
+    dimensions = {}
+    try:
+        for frame_index in range(max(targets) + 1):
+            ok, frame = capture.read()
+            if not ok or frame is None or len(frame.shape) < 2:
+                raise ValueError("source video missing decodable annotated frame")
+            if frame_index in targets:
+                height, width = frame.shape[:2]
+                if width <= 0 or height <= 0:
+                    raise ValueError("invalid source frame dimensions")
+                dimensions[frame_index] = (width, height)
+    finally:
+        capture.release()
+    return dimensions
+
+
 def audit_ground_truth(*, video_path: Path, annotations_path: Path,
                        journal_path: Path) -> dict:
     """Fail closed on mismatched sources; never infer an exit from detector misses."""
@@ -82,11 +116,7 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
     digest = annotation.get("video_sha256")
     if not isinstance(digest, str) or not _SHA.fullmatch(digest):
         raise ValueError("invalid source video digest")
-    hasher = hashlib.sha256()
-    with video_path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            hasher.update(block)
-    if hasher.hexdigest() != digest:
+    if _sha256_file(video_path) != digest:
         raise ValueError("annotation source video hash does not match")
     if annotation.get("camera_fixed") is not True or annotation.get("manual_frame_review_completed") is not True:
         raise ValueError("fixed-camera and completed manual review are required")
@@ -162,6 +192,18 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
             missing.append(index)
         elif max((_iou(box, s.get("box_xyxy")) for s in matches), default=0) < .3:
             poor.append(index)
+    dimensions = _decoded_sample_dimensions(
+        video_path, [sample["frame_index"] for sample in samples]
+    )
+    for sample in samples:
+        if sample["state"] != "OUT_OF_FRAME":
+            _, _, x2, y2 = sample["box_xyxy"]
+            width, height = dimensions[sample["frame_index"]]
+            if x2 > width or y2 > height:
+                raise ValueError("annotation box exceeds decoded source frame")
+    # Reject a source that changed after the initial digest check.
+    if _sha256_file(video_path) != digest:
+        raise ValueError("source video changed during audit")
     pattern = ["VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN", "VISIBLE"]
     stage = 0
     for state in states:
@@ -171,6 +213,7 @@ def audit_ground_truth(*, video_path: Path, annotations_path: Path,
                 break
     return {
         "source_hash_matched": True,
+        "sampled_source_frames_decoded": True,
         "reviewer_claims_fixed_camera": True,
         "reviewer_claims_frame_exit_return": stage == len(pattern),
         "scans_compared": len(samples),
