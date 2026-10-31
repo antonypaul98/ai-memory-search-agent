@@ -145,3 +145,50 @@ def test_invalid_limits_rejected_without_files(tmp_path, max_scans, sample_every
                               detector=RedObjectDetector(), max_scans=max_scans,
                               sample_every=sample_every)
     assert not (tmp_path / "private").exists()
+
+
+def test_replay_to_ground_truth_audit_on_synthetic_boundary_crossing(tmp_path):
+    """Exercise replay/journal/crop/audit interfaces with synthetic pixels.
+
+    The annotation review flag is fixture data, not real video or human acceptance.
+    """
+    from scripts.home_recorded_ground_truth import audit_ground_truth
+
+    video = tmp_path / "synthetic-crossing.avi"
+    positions = [180, 250, None, 250, 180]
+    boxes = [[180, 65, 246, 121], [250, 65, 300, 121], None,
+             [250, 65, 300, 121], [180, 65, 246, 121]]
+    states = ["VISIBLE", "CROSSING_OUT", "OUT_OF_FRAME", "CROSSING_IN", "VISIBLE"]
+    make_video(video, positions)
+    output = tmp_path / "private"
+    result = replay_recorded_video(video_path=video, output_dir=output,
+                                   detector=RedObjectDetector(), max_scans=5,
+                                   sample_every=1)
+    annotations = tmp_path / "synthetic-annotations.json"
+    annotations.write_text(json.dumps({
+        "schema_version": 1,
+        "video_sha256": result["source_video_sha256"],
+        "camera_fixed": True,
+        "manual_frame_review_completed": True,
+        "object_label": "cup",
+        "sample_every": 1,
+        "samples": [
+            {"scan": i + 1, "frame_index": i, "state": state,
+             "box_xyxy": boxes[i]}
+            for i, state in enumerate(states)
+        ],
+    }), encoding="utf-8")
+    report = audit_ground_truth(video_path=video, annotations_path=annotations,
+                                journal_path=output / "events.jsonl")
+    assert report["scans_compared"] == 5
+    assert report["source_hash_matched"] is True
+    assert report["reviewer_claims_frame_exit_return"] is True
+    assert report["missed_visible_scans"] == []
+    assert report["unexpected_out_of_frame_detections"] == []
+    assert report["poor_localization_scans"] == []
+    assert report["evidence_images_referenced"] > 0
+    assert report["missing_evidence_image_scans"] == []
+    assert report["invalid_evidence_image_scans"] == []
+    assert report["automatic_demo_acceptance"] is False
+    assert report["physical_camera_tested"] is False
+    assert report["physical_identity_verified"] is False
